@@ -1,0 +1,31 @@
+version: '3.8'
+services:
+  news-digest:
+    build: .
+    container_name: news-digest-pipeline
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+      - ./output:/app/output
+      - ./prompts:/app/prompts:ro
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.news-digest.rule=Host(`YOUR_DOMAIN`)"
+      - "traefik.http.routers.news-digest.entrypoints=web,websecure"
+      - "traefik.http.routers.news-digest.tls=true"
+      - "traefik.http.routers.news-digest.tls.certresolver=mytlschallenge"
+      - "traefik.http.services.news-digest.loadbalancer.server.port=3000"
+    networks:
+      - traefik
+
+networks:
+  traefik:
+    external: true
+    name: root_default

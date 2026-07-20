@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Статті · Дайджест новин</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f3ef;
+      color: #2d2a26;
+      padding: 24px;
+      min-height: 100vh;
+      font-size: 15px;
+    }
+
+    .container { max-width: 1060px; margin: 0 auto; }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #2d2a26;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      border: 1px solid #ddd8d0;
+      background: transparent;
+      color: #8a8580;
+    }
+    .btn:hover {
+      border-color: #7c3aed;
+      color: #7c3aed;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #7c3aed, #3b82f6);
+      color: #fff;
+      border: none;
+    }
+    .btn-primary:hover {
+      box-shadow: 0 0 16px rgba(124,58,237,0.3);
+    }
+
+    .subtitle {
+      color: #8a8580;
+      font-size: 15px;
+      margin-bottom: 20px;
+    }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 6px;
+    }
+    thead th {
+      text-align: left;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #8a8580;
+      letter-spacing: 0.8px;
+    }
+    tbody tr {
+      background: #ffffff;
+      border-radius: 10px;
+    }
+    td {
+      padding: 12px 16px;
+      font-size: 14px;
+      border-top: 1px solid #e8e4df;
+      border-bottom: 1px solid #e8e4df;
+    }
+    td:first-child { border-left: 1px solid #e8e4df; border-radius: 10px 0 0 10px; }
+    td:last-child { border-right: 1px solid #e8e4df; border-radius: 0 10px 10px 0; }
+
+    .article-title { font-weight: 600; color: #2d2a26; text-decoration: none; }
+    .article-title:hover { color: #7c3aed; }
+    .article-url { color: #8a8580; font-size: 12px; display: block; margin-top: 2px; }
+    .status-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 12px;
+      text-transform: uppercase;
+    }
+    .status-new { background: #e0f2fe; color: #0369a1; }
+    .status-used { background: #f0fdf4; color: #15803d; }
+    .status-processing { background: #fef3c7; color: #b45309; }
+    .status-error { background: #fee2e2; color: #b91c1c; }
+
+    .empty { text-align: center; padding: 48px; color: #b0aaa4; }
+
+    /* Delete button from index.html */
+    .btn-delete {
+      background: transparent;
+      color: #b0aaa4;
+      border: 1px solid transparent;
+      font-size: 11px;
+      padding: 3px 7px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: 'Inter', sans-serif;
+    }
+    .btn-delete:hover {
+      color: #ef4444;
+      border-color: rgba(239,68,68,0.3);
+      background: rgba(239,68,68,0.08);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Статті в черзі</h1>
+      <div class="header-right">
+        <button class="btn btn-primary" onclick="generateDigest()">Створити дайджест</button>
+        <a class="btn" href="index.html">До панелі дайджестів</a>
+      </div>
+    </div>
+    <p class="subtitle" id="stats">Завантаження...</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Заголовок</th>
+          <th>Джерело</th>
+          <th>Статус</th>
+          <th>Створено</th>
+          <th>Дії</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    async function loadArticles() {
+      try {
+        const [articlesRes, statsRes] = await Promise.all([
+          fetch('/api/articles'),
+          fetch('/api/articles/stats')
+        ]);
+        const articles = await articlesRes.json();
+        const stats = await statsRes.json();
+        
+        document.getElementById('stats').textContent = 
+          `Всього: ${stats.total} | Нових: ${stats.new} | В роботі: ${stats.processing} | Використано: ${stats.used}`;
+        
+        render(articles);
+      } catch (err) {
+        console.error('Failed to load:', err);
+      }
+    }
+
+    function render(articles) {
+      const tbody = document.getElementById('tbody');
+      if (articles.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty">Статей поки немає</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = articles.map(a => {
+        const date = new Date(a.created_at).toLocaleString('uk-UA');
+        const errorHtml = a.fetch_error ? `<div style="color:#ef4444;font-size:11px;margin-top:4px">Помилка: ${a.fetch_error}</div>` : '';
+        return `
+          <tr>
+            <td>
+              <a href="${a.url}" target="_blank" class="article-title">${a.title || 'Без заголовка'}</a>
+              <span class="article-url">${a.url}</span>
+              ${errorHtml}
+            </td>
+            <td>${a.source}</td>
+            <td><span class="status-badge status-${a.status}">${a.status}</span></td>
+            <td>${date}</td>
+            <td>
+              <button class="btn btn-delete" onclick="deleteArticle('${a.id}')" title="Видалити">✕</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function deleteArticle(id) {
+      if (!confirm('Видалити цю статтю?')) return;
+      try {
+        const res = await fetch(`/api/articles/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          loadArticles();
+        } else {
+          const data = await res.json();
+          alert('Помилка: ' + data.error);
+        }
+      } catch (err) {
+        alert('Помилка мережі: ' + err.message);
+      }
+    }
+
+    async function generateDigest() {
+      if (!confirm('Запустити генерацію дайджесту з нових статей?')) return;
+      try {
+        const res = await fetch('/api/digests/generate', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          alert('Дайджест створюється! ID: ' + data.digestId);
+          window.location.href = 'index.html';
+        } else {
+          alert('Помилка: ' + data.error);
+        }
+      } catch (err) {
+        alert('Помилка мережі: ' + err.message);
+      }
+    }
+
+    loadArticles();
+    setInterval(loadArticles, 10000);
+  </script>
+</body>
+</html>

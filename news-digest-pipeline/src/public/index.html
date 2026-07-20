@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Панель дайджесту новин</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f3ef;
+      color: #2d2a26;
+      padding: 24px;
+      min-height: 100vh;
+      font-size: 15px;
+    }
+
+    .container { max-width: 1060px; margin: 0 auto; }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #2d2a26;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .version-badge {
+      font-size: 12px;
+      font-weight: 500;
+      color: #8a8580;
+      background: #f0ede8;
+      border: 1px solid #ddd8d0;
+      border-radius: 6px;
+      padding: 3px 10px;
+      letter-spacing: 0.3px;
+      flex-shrink: 0;
+    }
+    .btn-settings {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      color: #8a8580;
+      background: transparent;
+      border: 1px solid #ddd8d0;
+      border-radius: 8px;
+      padding: 6px 14px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .btn-settings:hover {
+      border-color: #7c3aed;
+      color: #7c3aed;
+      box-shadow: 0 0 10px rgba(124,58,237,0.1);
+    }
+    .subtitle {
+      color: #8a8580;
+      font-size: 15px;
+      margin-bottom: 20px;
+    }
+
+    /* Table as card list */
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 6px;
+    }
+    thead th {
+      text-align: left;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #8a8580;
+      letter-spacing: 0.8px;
+      border: none;
+      background: transparent;
+    }
+    tbody tr {
+      background: #ffffff;
+      transition: all 0.2s ease;
+      border-radius: 10px;
+    }
+    tbody tr:hover {
+      background: #faf9f7;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    td {
+      padding: 12px 16px;
+      border: none;
+      font-size: 15px;
+      border-top: 1px solid #e8e4df;
+      border-bottom: 1px solid #e8e4df;
+      vertical-align: middle;
+    }
+    td:first-child {
+      border-left: 1px solid #e8e4df;
+      border-radius: 10px 0 0 10px;
+    }
+    td:last-child {
+      border-right: 1px solid #e8e4df;
+      border-radius: 0 10px 10px 0;
+    }
+
+    .date-main { font-weight: 500; color: #2d2a26; }
+    .date-sub { color: #b0aaa4; font-size: 13px; }
+    .pub-date { color: #22c55e; font-size: 14px; font-weight: 500; }
+    .no-pub { color: #ccc; font-size: 13px; }
+
+    /* Status select */
+    .status-select {
+      padding: 5px 10px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      border: 1px solid #ddd8d0;
+      cursor: pointer;
+      outline: none;
+      background: #ffffff;
+      color: #2d2a26;
+      font-family: 'Inter', sans-serif;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      -webkit-appearance: none;
+      appearance: none;
+      padding-right: 24px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238a8580' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+    }
+    .status-select:hover { border-color: #b0aaa4; }
+    .status-select:focus { border-color: #7c3aed; box-shadow: 0 0 0 2px rgba(124,58,237,0.15); }
+    .status-select option { background: #ffffff; color: #2d2a26; }
+
+    .status-select.is-draft {
+      background-color: rgba(245,158,11,0.08);
+      color: #d97706;
+      border-color: rgba(245,158,11,0.25);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23f59e0b' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    }
+    .status-select.is-published {
+      background-color: rgba(34,197,94,0.08);
+      color: #16a34a;
+      border-color: rgba(34,197,94,0.25);
+      box-shadow: 0 0 8px rgba(34,197,94,0.06);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2322c55e' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    }
+
+    /* Buttons base */
+    .btn {
+      border: none;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Preview button */
+    .btn-preview {
+      background: transparent;
+      color: #8a8580;
+      border: 1px solid #ddd8d0;
+      margin-right: 6px;
+    }
+    .btn-preview:hover {
+      border-color: #7c3aed;
+      color: #7c3aed;
+      box-shadow: 0 0 10px rgba(124,58,237,0.1);
+    }
+
+    /* Copy button — glass effect */
+    .btn-copy {
+      background: rgba(0,0,0,0.02);
+      color: #8a8580;
+      border: 1px solid #ddd8d0;
+      backdrop-filter: blur(8px);
+    }
+    .btn-copy:hover {
+      background: rgba(0,0,0,0.05);
+      color: #2d2a26;
+      border-color: #b0aaa4;
+    }
+    .btn-copied {
+      background: rgba(34,197,94,0.15);
+      color: #22c55e;
+      border: 1px solid rgba(34,197,94,0.3);
+    }
+
+    /* Publish button */
+    .btn-publish {
+      background: linear-gradient(135deg, #7c3aed, #3b82f6);
+      color: #fff;
+      margin-right: 4px;
+      font-size: 13px;
+      padding: 4px 10px;
+      border: none;
+    }
+    .btn-publish:hover {
+      box-shadow: 0 0 16px rgba(124,58,237,0.3);
+      transform: translateY(-1px);
+    }
+    .btn-published {
+      background: rgba(34,197,94,0.1);
+      color: #16a34a;
+      margin-right: 4px;
+      font-size: 13px;
+      padding: 4px 10px;
+      border: 1px solid rgba(34,197,94,0.2);
+    }
+
+    /* Platform buttons */
+    .platform-row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+    .plat-btn {
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #ddd8d0;
+      background: #ffffff;
+      color: #8a8580;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.2s ease;
+      font-weight: 500;
+    }
+    .plat-btn:hover {
+      border-color: #b0aaa4;
+      color: #2d2a26;
+      background: #f5f3ef;
+    }
+    /* TG button */
+    .plat-btn[onclick*="telegram"] {
+      border-color: rgba(0,136,204,0.3);
+      color: #0088cc;
+    }
+    .plat-btn[onclick*="telegram"]:hover {
+      background: rgba(0,136,204,0.1);
+      border-color: rgba(0,136,204,0.5);
+      box-shadow: 0 0 10px rgba(0,136,204,0.15);
+    }
+    /* FB button */
+    .plat-btn[onclick*="facebook"] {
+      border-color: rgba(24,119,242,0.3);
+      color: #1877f2;
+    }
+    .plat-btn[onclick*="facebook"]:hover {
+      background: rgba(24,119,242,0.1);
+      border-color: rgba(24,119,242,0.5);
+      box-shadow: 0 0 10px rgba(24,119,242,0.15);
+    }
+    .plat-btn.sent {
+      background: rgba(34,197,94,0.08);
+      color: #16a34a;
+      border-color: rgba(34,197,94,0.25);
+      cursor: default;
+      box-shadow: none;
+    }
+
+    /* Delete button */
+    .btn-delete {
+      background: transparent;
+      color: #b0aaa4;
+      border: 1px solid transparent;
+      font-size: 11px;
+      padding: 3px 7px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: 'Inter', sans-serif;
+    }
+    .btn-delete:hover {
+      color: #ef4444;
+      border-color: rgba(239,68,68,0.3);
+      background: rgba(239,68,68,0.08);
+    }
+
+    .empty { text-align: center; padding: 48px; color: #b0aaa4; font-size: 14px; }
+    .refresh-note {
+      text-align: right;
+      font-size: 12px;
+      color: #b0aaa4;
+      margin-top: 14px;
+      letter-spacing: 0.2px;
+    }
+
+    /* Row number */
+    .row-num {
+      color: #b0aaa4;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Articles count */
+    .articles-count {
+      color: #8a8580;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Cost */
+    .cost-val {
+      color: #2d2a26;
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+      cursor: help;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 100;
+      justify-content: center; align-items: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #ffffff;
+      border: 1px solid #e8e4df;
+      border-radius: 16px;
+      box-shadow: 0 16px 64px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.04);
+      max-width: 720px; width: 92%;
+      max-height: 75vh;
+      display: flex; flex-direction: column;
+    }
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 18px 22px;
+      border-bottom: 1px solid #e8e4df;
+    }
+    .modal-header h2 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #2d2a26;
+      letter-spacing: -0.2px;
+    }
+    .modal-close {
+      background: none; border: none; font-size: 20px;
+      cursor: pointer; color: #b0aaa4; padding: 2px 6px;
+      border-radius: 6px;
+      transition: all 0.2s;
+      line-height: 1;
+    }
+    .modal-close:hover { color: #2d2a26; background: #f0ede8; }
+    .modal-body {
+      padding: 22px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      font-size: 15px;
+      line-height: 1.7;
+      color: #2d2a26;
+    }
+    .modal-body::-webkit-scrollbar { width: 6px; }
+    .modal-body::-webkit-scrollbar-track { background: transparent; }
+    .modal-body::-webkit-scrollbar-thumb { background: #ddd8d0; border-radius: 3px; }
+    .modal-body::-webkit-scrollbar-thumb:hover { background: #b0aaa4; }
+
+    .digest-textarea {
+      width: 100%;
+      min-height: 500px;
+      border: 1px solid #e8e4df;
+      border-radius: 8px;
+      padding: 12px;
+      font-family: inherit;
+      font-size: 15px;
+      line-height: 1.6;
+      resize: vertical;
+      outline: none;
+      color: #2d2a26;
+      background: #fafafa;
+    }
+    .digest-textarea:focus {
+      border-color: #7c3aed;
+      background: #fff;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      body { padding: 14px; }
+      h1 { font-size: 22px; }
+      .container { max-width: 100%; }
+      table { border-spacing: 0 4px; }
+      td { padding: 10px 10px; font-size: 12px; }
+      thead th { padding: 6px 10px; font-size: 9px; }
+      .platform-row { gap: 3px; }
+      .plat-btn { padding: 3px 6px; font-size: 10px; }
+      .btn { padding: 5px 10px; font-size: 12px; }
+      .btn-preview { margin-right: 3px; }
+      .modal { width: 96%; max-height: 80vh; border-radius: 12px; }
+    }
+
+    @media (max-width: 480px) {
+      .header { flex-direction: column; gap: 6px; }
+      thead { display: none; }
+      tbody tr { display: block; margin-bottom: 8px; border-radius: 10px; }
+      td { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; }
+      td:first-child { border-radius: 10px 10px 0 0; }
+      td:last-child { border-radius: 0 0 10px 10px; }
+      td::before {
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: #8a8580;
+        letter-spacing: 0.5px;
+      }
+    }
+
+    /* Scrollbar for body */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #f5f3ef; }
+    ::-webkit-scrollbar-thumb { background: #ddd8d0; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #b0aaa4; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Панель керування дайджестом новин</h1>
+      <div class="header-right">
+        <a class="btn-settings" href="articles.html">&#128240; Статті</a>
+        <a class="btn-settings" href="settings.html">&#9881; Налаштування</a>
+        <span class="version-badge">v2.0.4 &middot; 13.04.2026</span>
+      </div>
+    </div>
+    <p class="subtitle" id="subtitle">Завантаження...</p>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Створено</th>
+          <th>Опубліковано</th>
+          <th>Статей</th>
+          <th>Вартість</th>
+          <th>Статус</th>
+          <th>Дії</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <p class="refresh-note">Автооновлення кожні 30 сек</p>
+  </div>
+
+  <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:15px;">
+          <h2 id="modal-title">Прев'ю</h2>
+          <button id="save-digest-btn" class="btn btn-publish" style="display:none" onclick="saveDigest()">Зберегти зміни</button>
+        </div>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <textarea id="digest-edit-content" class="digest-textarea" style="display:none"></textarea>
+        <div id="modal-body-view">Завантаження...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function fmtDatetime(isoStr) {
+      if (!isoStr) return null;
+      // Handle both SQLite format "2026-04-12 23:20:03" and ISO "2026-04-12T23:20:03.649Z"
+      const normalized = isoStr.includes('T') ? isoStr : isoStr + 'Z';
+      const d = new Date(normalized);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mi = String(d.getMinutes()).padStart(2, '0');
+      return { date: `${dd}.${mm}.${d.getFullYear()}`, time: `${hh}:${mi}` };
+    }
+
+    async function loadDigests() {
+      try {
+        const res = await fetch('/api/digests');
+        const digests = await res.json();
+        render(digests);
+      } catch (err) {
+        console.error('Failed to load digests:', err);
+      }
+    }
+
+    function render(digests) {
+      const tbody = document.getElementById('tbody');
+      const subtitle = document.getElementById('subtitle');
+
+      if (digests.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">Дайджестів поки немає</td></tr>';
+        subtitle.textContent = 'Немає дайджестів';
+        return;
+      }
+
+      subtitle.textContent = `Всього дайджестів: ${digests.length}`;
+
+      tbody.innerHTML = digests.map((d, i) => {
+        const status = d.status || 'draft';
+        const selectClass = status === 'published' ? 'is-published' : 'is-draft';
+        const hasContent = !!d.content;
+
+        // Created datetime
+        const created = fmtDatetime(d.created_at);
+        const createdHtml = created
+          ? `<span class="date-main">${created.date}</span><br><span class="date-sub">${created.time}</span>`
+          : '---';
+
+        // Published datetime
+        const pub = fmtDatetime(d.published_at);
+        const pubHtml = pub
+          ? `<span class="pub-date">${pub.date} ${pub.time}</span>`
+          : '<span class="no-pub">—</span>';
+
+        // Action buttons — per-platform (Facebook only)
+        let actionBtn = '';
+        if (!hasContent) {
+          actionBtn = '<span style="color:#444;font-size:12px">немає контенту</span>';
+        } else {
+          const fbSent = !!d.facebook_post_id;
+
+          const fbBtn = fbSent
+            ? `<button class="plat-btn sent" disabled>✓ FB</button>`
+            : `<button class="plat-btn" onclick="publishFacebook('${d.id}',this)">📘 FB</button>`;
+
+          const delBtn = `<button class="btn-delete" onclick="deleteDigest('${d.id}')">✕</button>`;
+          actionBtn = `<div class="platform-row"><button class="btn btn-preview" onclick="previewDigest('${d.id}')">&#128065;</button>${fbBtn}<button class="btn btn-copy" onclick="copyDigest('${d.id}', this)">&#128203;</button>${delBtn}</div>`;
+        }
+
+        // Status dropdown
+        const statusSelect = `<select class="status-select ${selectClass}" onchange="changeStatus('${d.id}', this)">
+          <option value="draft" ${status !== 'published' ? 'selected' : ''}>Чернетка</option>
+          <option value="published" ${status === 'published' ? 'selected' : ''}>Опубліковано</option>
+        </select>`;
+
+        // Cost cell
+        let costHtml;
+        if (d.cost_usd !== null && d.cost_usd !== undefined) {
+          const inTok = d.input_tokens || 0;
+          const outTok = d.output_tokens || 0;
+          const title = `${d.model || 'модель не вказана'} · ${inTok}/${outTok} токенів`;
+          costHtml = `<span class="cost-val" title="${title}">$${Number(d.cost_usd).toFixed(4)}</span>`;
+        } else {
+          costHtml = '<span class="no-pub">—</span>';
+        }
+
+        return `<tr>
+          <td><span class="row-num">${d.seq_number || (i + 1)}</span></td>
+          <td>${createdHtml}</td>
+          <td>${pubHtml}</td>
+          <td><span class="articles-count">${d.articles_count || 0}</span></td>
+          <td>${costHtml}</td>
+          <td>${statusSelect}</td>
+          <td>${actionBtn}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function copyDigest(id, btn) {
+      try {
+        const res = await fetch(`/api/digests/${id}/text`);
+        const text = await res.text();
+        await navigator.clipboard.writeText(text);
+        btn.className = 'btn btn-copied';
+        btn.innerHTML = '&#10003; Скопійовано';
+        btn.disabled = true;
+        btn.onclick = null;
+      } catch (err) {
+        console.error('Copy failed:', err);
+        alert('Не вдалося скопіювати: ' + err.message);
+      }
+    }
+
+    async function changeStatus(id, select) {
+      try {
+        const status = select.value;
+        const res = await fetch(`/api/digests/${id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+        });
+        if (!res.ok) throw new Error('Server error');
+        select.className = 'status-select ' + (status === 'published' ? 'is-published' : 'is-draft');
+        // Reload to update published date
+        setTimeout(loadDigests, 300);
+      } catch (err) {
+        console.error('Status update failed:', err);
+        alert('Не вдалося оновити статус');
+        loadDigests(); // reload to reset
+      }
+    }
+
+    async function publishFacebook(id, btn) {
+      if (!confirm('Опублікувати у Facebook?')) return;
+      btn.disabled = true;
+      btn.textContent = '⏳...';
+      try {
+        const res = await fetch(`/api/digests/${id}/publish`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platforms: ['facebook'] }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Server error');
+
+        const result = data.published?.facebook;
+        if (result) {
+          btn.className = 'plat-btn sent';
+          btn.textContent = '✓ FB';
+          btn.onclick = null;
+        } else {
+          alert('Facebook: публікація не вдалася. Перевірте токен.');
+          btn.disabled = false;
+          btn.textContent = '📘 FB';
+        }
+        setTimeout(loadDigests, 500);
+      } catch (err) {
+        console.error('Publish failed:', err);
+        alert('Помилка публікації: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = '📘 FB';
+      }
+    }
+
+    async function deleteDigest(id) {
+      if (!confirm('Видалити цей дайджест? Статті повернуться в чергу.')) return;
+      try {
+        const res = await fetch(`/api/digests/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Server error');
+        loadDigests();
+      } catch (err) {
+        alert('Помилка видалення: ' + err.message);
+      }
+    }
+
+    let currentEditingDigestId = null;
+
+    async function previewDigest(id) {
+      currentEditingDigestId = id;
+      const modal = document.getElementById('modal');
+      const bodyView = document.getElementById('modal-body-view');
+      const textArea = document.getElementById('digest-edit-content');
+      const saveBtn = document.getElementById('save-digest-btn');
+      const title = document.getElementById('modal-title');
+
+      bodyView.style.display = 'block';
+      bodyView.textContent = 'Завантаження...';
+      textArea.style.display = 'none';
+      saveBtn.style.display = 'none';
+      title.textContent = 'Прев\'ю дайджесту';
+      modal.classList.add('open');
+
+      try {
+        const res = await fetch(`/api/digests/${id}/text`);
+        if (!res.ok) throw new Error('Не вдалося завантажити текст');
+        const text = await res.text();
+        
+        bodyView.style.display = 'none';
+        textArea.style.display = 'block';
+        textArea.value = text;
+        saveBtn.style.display = 'inline-flex';
+      } catch (err) {
+        bodyView.textContent = 'Помилка завантаження: ' + err.message;
+      }
+    }
+
+    async function saveDigest() {
+      if (!currentEditingDigestId) return;
+      const textArea = document.getElementById('digest-edit-content');
+      const saveBtn = document.getElementById('save-digest-btn');
+      const originalText = saveBtn.textContent;
+
+      try {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Зберігання...';
+
+        const res = await fetch(`/api/digests/${currentEditingDigestId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: textArea.value }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || 'Server error');
+        }
+
+        saveBtn.textContent = 'Збережено!';
+        saveBtn.style.background = '#22c55e';
+        
+        setTimeout(() => {
+          saveBtn.disabled = false;
+          saveBtn.textContent = originalText;
+          saveBtn.style.background = '';
+        }, 2000);
+
+      } catch (err) {
+        console.error('Save failed:', err);
+        alert('Не вдалося зберегти: ' + err.message);
+        saveBtn.disabled = false;
+        saveBtn.textContent = originalText;
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.remove('open');
+      currentEditingDigestId = null;
+    }
+
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+    loadDigests();
+    setInterval(loadDigests, 30000);
+  </script>
+</body>
+</html>

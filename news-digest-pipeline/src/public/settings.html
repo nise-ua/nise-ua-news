@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Налаштування · Дайджест новин</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f3ef;
+      color: #2d2a26;
+      padding: 24px;
+      min-height: 100vh;
+      font-size: 15px;
+    }
+
+    .container { max-width: 1060px; margin: 0 auto; }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      gap: 12px;
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #2d2a26;
+    }
+    .subtitle {
+      color: #8a8580;
+      font-size: 15px;
+      margin-bottom: 22px;
+    }
+
+    /* Buttons */
+    .btn {
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+    }
+    .btn-ghost {
+      background: transparent;
+      color: #8a8580;
+      border: 1px solid #ddd8d0;
+    }
+    .btn-ghost:hover {
+      border-color: #7c3aed;
+      color: #7c3aed;
+      box-shadow: 0 0 10px rgba(124,58,237,0.1);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #7c3aed, #3b82f6);
+      color: #fff;
+      border: none;
+    }
+    .btn-primary:hover {
+      box-shadow: 0 0 16px rgba(124,58,237,0.3);
+      transform: translateY(-1px);
+    }
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: default;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Layout */
+    .layout {
+      display: grid;
+      grid-template-columns: 230px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* Left nav */
+    .nav {
+      background: #ffffff;
+      border: 1px solid #e8e4df;
+      border-radius: 14px;
+      padding: 8px;
+      position: sticky;
+      top: 24px;
+    }
+    .nav-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 10px 14px;
+      border-radius: 9px;
+      border: none;
+      background: transparent;
+      color: #6b6660;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .nav-item:hover { background: #faf9f7; color: #2d2a26; }
+    .nav-item.active {
+      background: rgba(124,58,237,0.08);
+      color: #7c3aed;
+      font-weight: 600;
+    }
+
+    /* Content panel */
+    .panel { min-width: 0; }
+    .card {
+      background: #ffffff;
+      border: 1px solid #e8e4df;
+      border-radius: 14px;
+      padding: 24px;
+      display: none;
+    }
+    .card.active { display: block; }
+    .card h2 {
+      font-size: 19px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+      margin-bottom: 4px;
+    }
+    .card .card-desc {
+      color: #8a8580;
+      font-size: 13.5px;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #6b6660;
+      margin-bottom: 6px;
+    }
+    .field .hint {
+      font-size: 12px;
+      color: #b0aaa4;
+      margin-top: 5px;
+      line-height: 1.5;
+    }
+
+    input[type="text"], input[type="number"], textarea, select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd8d0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+      color: #2d2a26;
+      background: #ffffff;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    select { cursor: pointer; appearance: auto; }
+    input:focus, textarea:focus, select:focus {
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 2px rgba(124,58,237,0.12);
+    }
+    input[readonly], textarea[readonly] {
+      background: #f7f5f2;
+      color: #8a8580;
+      cursor: default;
+    }
+    textarea {
+      min-height: 320px;
+      resize: vertical;
+      line-height: 1.6;
+      font-size: 13.5px;
+    }
+    textarea.mono {
+      font-family: 'Inter', ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    /* Secret rows */
+    .secret-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 14px;
+      border: 1px solid #e8e4df;
+      border-radius: 9px;
+      margin-bottom: 8px;
+      background: #faf9f7;
+    }
+    .secret-label { font-size: 13.5px; font-weight: 500; color: #2d2a26; }
+    .secret-meta { display: flex; align-items: center; gap: 10px; }
+    .secret-hint {
+      font-size: 13px;
+      color: #8a8580;
+      font-variant-numeric: tabular-nums;
+    }
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 20px;
+      letter-spacing: 0.2px;
+    }
+    .badge.on {
+      background: rgba(34,197,94,0.1);
+      color: #16a34a;
+      border: 1px solid rgba(34,197,94,0.25);
+    }
+    .badge.off {
+      background: rgba(245,158,11,0.08);
+      color: #d97706;
+      border: 1px solid rgba(245,158,11,0.25);
+    }
+    .badge.planned {
+      background: rgba(120,113,108,0.1);
+      color: #78716c;
+      border: 1px solid rgba(120,113,108,0.28);
+    }
+    .status-note {
+      font-size: 12px;
+      color: #8a8580;
+      margin: -2px 0 12px;
+      line-height: 1.5;
+    }
+    .group-subtitle {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #8a8580;
+      margin: 18px 0 10px;
+    }
+    .group-subtitle:first-of-type { margin-top: 0; }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-top: 14px;
+      padding: 14px;
+      background: #faf9f7;
+      border: 1px solid #e8e4df;
+      border-radius: 10px;
+    }
+    .preview-grid .pv {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #6b6660;
+    }
+    .preview-grid .pv b { color: #2d2a26; font-weight: 600; }
+
+    /* Save bar */
+    .save-bar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 22px;
+      padding-top: 18px;
+      border-top: 1px solid #e8e4df;
+    }
+    .status {
+      font-size: 13.5px;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .status.show { opacity: 1; }
+    .status.ok { color: #16a34a; }
+    .status.err { color: #ef4444; }
+
+    .purpose {
+      font-size: 12.5px;
+      color: #8a8580;
+      line-height: 1.6;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: #faf9f7;
+      border: 1px solid #e8e4df;
+      border-radius: 9px;
+    }
+    .purpose b { color: #6b6660; font-weight: 600; }
+
+    /* Scenario cards */
+    .scenario-card {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: 1px solid #ddd8d0;
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 12px;
+      background: #ffffff;
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    }
+    .scenario-card:hover { border-color: #b8a4e8; }
+    .scenario-card.selected {
+      border-color: #7c3aed;
+      background: rgba(124,58,237,0.04);
+      box-shadow: 0 0 0 2px rgba(124,58,237,0.12);
+    }
+    .scenario-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .scenario-radio {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid #ddd8d0;
+      flex: 0 0 auto;
+      position: relative;
+      transition: border-color 0.15s;
+    }
+    .scenario-card.selected .scenario-radio { border-color: #7c3aed; }
+    .scenario-card.selected .scenario-radio::after {
+      content: '';
+      position: absolute;
+      inset: 3px;
+      border-radius: 50%;
+      background: #7c3aed;
+    }
+    .scenario-name { font-size: 15px; font-weight: 600; color: #2d2a26; }
+    .scenario-subtitle { font-size: 12px; color: #8a8580; }
+    .badge.serious {
+      background: rgba(124,58,237,0.1);
+      color: #7c3aed;
+      border: 1px solid rgba(124,58,237,0.25);
+    }
+    .badge.current {
+      background: rgba(59,130,246,0.08);
+      color: #2563eb;
+      border: 1px solid rgba(59,130,246,0.22);
+    }
+    .scenario-desc {
+      font-size: 13px;
+      color: #6b6660;
+      line-height: 1.6;
+      margin-left: 26px;
+    }
+
+    /* Prompt editor blocks inside Scenarios */
+    .prompt-block {
+      border: 1px solid #e8e4df;
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 14px;
+      background: #fcfbf9;
+    }
+    .prompt-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .prompt-title { font-size: 14px; font-weight: 600; color: #2d2a26; }
+    .prompt-block textarea { min-height: 240px; }
+    .prompt-block .save-bar { margin-top: 14px; padding-top: 14px; }
+
+    .help-block { margin-bottom: 18px; }
+    .help-block h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #2d2a26;
+      margin-bottom: 4px;
+    }
+    .help-block p {
+      font-size: 13.5px;
+      color: #6b6660;
+      line-height: 1.6;
+    }
+    .help-note {
+      margin-top: 8px;
+      padding: 12px 14px;
+      background: rgba(124,58,237,0.05);
+      border: 1px solid rgba(124,58,237,0.12);
+      border-radius: 10px;
+      font-size: 13px;
+      color: #6b6660;
+      line-height: 1.6;
+    }
+    .loading { padding: 40px; text-align: center; color: #b0aaa4; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #f5f3ef; }
+    ::-webkit-scrollbar-thumb { background: #ddd8d0; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #b0aaa4; }
+
+    @media (max-width: 768px) {
+      body { padding: 14px; }
+      h1 { font-size: 24px; }
+      .layout { grid-template-columns: 1fr; }
+      .nav {
+        position: static;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .nav-item { width: auto; flex: 1 1 auto; text-align: center; }
+      .row2 { grid-template-columns: 1fr; }
+      .card { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Налаштування</h1>
+      <a class="btn btn-ghost" href="index.html">← До панелі керування</a>
+    </div>
+    <p class="subtitle" id="subtitle">Конфігурація пайплайна та промптів</p>
+
+    <div id="loading" class="loading">Завантаження налаштувань…</div>
+
+    <div class="layout" id="layout" style="display:none">
+      <nav class="nav" id="nav"></nav>
+      <div class="panel" id="panel"></div>
+    </div>
+  </div>
+
+  <script>
+    const GROUPS = [
+      { id: 'general',    title: 'Загальні' },
+      { id: 'queue',      title: 'Черга та генерація' },
+      { id: 'scenarios',  title: 'Сценарії' },
+      { id: 'content',    title: 'Контент' },
+      { id: 'publishing', title: 'Публікація' },
+      { id: 'help',       title: 'Довідка' },
+    ];
+
+    let DATA = null;
+    let active = 'general';
+    let selectedScenario = null;
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    async function load() {
+      const res = await fetch('/api/settings');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      DATA = await res.json();
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('layout').style.display = 'grid';
+      renderNav();
+      renderPanel();
+    }
+
+    function renderNav() {
+      document.getElementById('nav').innerHTML = GROUPS.map((g) =>
+        `<button class="nav-item ${g.id === active ? 'active' : ''}" data-id="${g.id}">${g.title}</button>`
+      ).join('');
+      document.querySelectorAll('.nav-item').forEach((el) => {
+        el.onclick = () => { active = el.dataset.id; renderNav(); renderPanel(); };
+      });
+    }
+
+    function textareaCard(id, title, desc, value, purpose) {
+      const purposeHtml = purpose
+        ? `<div class="purpose"><b>Призначення:</b> ${esc(purpose)}</div>`
+        : '';
+      return `
+        <div class="card active">
+          <h2>${title}</h2>
+          <p class="card-desc">${desc}</p>
+          ${purposeHtml}
+          <div class="field">
+            <textarea class="mono" id="ta-${id}">${esc(value)}</textarea>
+          </div>
+          ${saveBar(id)}
+        </div>`;
+    }
+
+    function saveBar(id) {
+      return `
+        <div class="save-bar">
+          <button class="btn btn-primary" id="save-${id}">Зберегти</button>
+          <span class="status" id="status-${id}"></span>
+        </div>`;
+    }
+
+    function promptBlock(id, title, value, purpose, usedNow) {
+      const used = usedNow ? '<span class="badge on">використовується зараз</span>' : '';
+      const purposeHtml = purpose
+        ? `<div class="purpose"><b>Призначення:</b> ${esc(purpose)}</div>`
+        : '';
+      return `
+        <div class="prompt-block">
+          <div class="prompt-head"><span class="prompt-title">${esc(title)}</span>${used}</div>
+          ${purposeHtml}
+          <textarea class="mono" id="ta-${id}">${esc(value)}</textarea>
+          ${saveBar(id)}
+        </div>`;
+    }
+
+    function secretRow(label, masked) {
+      const on = masked && masked.configured;
+      return `
+        <div class="secret-row">
+          <span class="secret-label">${label}</span>
+          <span class="secret-meta">
+            <span class="secret-hint">${on ? esc(masked.hint) : '—'}</span>
+            <span class="badge ${on ? 'on' : 'off'}">${on ? 'налаштовано' : 'не налаштовано'}</span>
+          </span>
+        </div>`;
+    }
+
+    function plannedRow(label, masked, statusText) {
+      const on = masked && masked.configured;
+      return `
+        <div class="secret-row">
+          <span class="secret-label">${esc(label)}</span>
+          <span class="secret-meta">
+            <span class="secret-hint">${on ? esc(masked.hint) : '—'}</span>
+            <span class="badge planned">заготовка</span>
+          </span>
+        </div>
+        <div class="status-note">${esc(statusText || '')}</div>`;
+    }
+
+    function plannedSection(planned) {
+      if (!planned) return '';
+      let out = '<div class="group-subtitle">Заплановані інтеграції</div>';
+      out += '<div class="status-note">Пайплайни буде додано пізніше. Зараз показуються лише статус і наявність секрету в .env.</div>';
+      if (planned.instagram) {
+        out += plannedRow('Instagram · Access Token', planned.instagram.accessToken, planned.instagram.status);
+        out += plannedRow('Instagram · Account ID', planned.instagram.accountId, '');
+      }
+      if (planned.tiktok) {
+        out += plannedRow('TikTok · Access Token', planned.tiktok.accessToken, planned.tiktok.status);
+      }
+      if (planned.youtube) {
+        out += plannedRow('YouTube · Токен доступу', planned.youtube.accessToken, planned.youtube.status);
+        out += plannedRow('YouTube · ID каналу', planned.youtube.channelId, '');
+      }
+      if (planned.gemini) {
+        out += plannedRow('Google Gemini · API-ключ', planned.gemini.apiKey, planned.gemini.status);
+      }
+      return out;
+    }
+
+    function renderPanel() {
+      const panel = document.getElementById('panel');
+      const d = DATA;
+      let html = '';
+
+      if (active === 'general') {
+        const g = d.general;
+        const catalog = g.modelCatalog || { anthropic: [], openai: [] };
+        const vendor = (g.llmVendor && g.llmVendor.value) || 'anthropic';
+        const currentModel = (g.model && g.model.value) || (g.claudeModel && g.claudeModel.value) || '';
+        const vendorOpts = ['anthropic', 'openai'].map((v) =>
+          `<option value="${v}" ${v === vendor ? 'selected' : ''}>${v === 'anthropic' ? 'Anthropic' : 'OpenAI'}</option>`
+        ).join('');
+        const modelList = catalog[vendor] || [];
+        const inList = modelList.some((m) => m.id === currentModel);
+        const priceHint = (m) => m.pricing
+          ? ` — $${m.pricing.input}/$${m.pricing.output} за 1M`
+          : '';
+        const modelOpts = modelList.map((m) =>
+          `<option value="${esc(m.id)}" ${m.id === currentModel ? 'selected' : ''}>${esc(m.label)}${esc(priceHint(m))}</option>`
+        ).join('') +
+          `<option value="__custom__" ${!inList ? 'selected' : ''}>Інша (ввести вручну)…</option>`;
+        const customDisplay = inList ? 'none' : 'block';
+        html = `
+          <div class="card active">
+            <h2>Загальні</h2>
+            <p class="card-desc">Базові параметри застосунку. Вендор і модель використовуються для генерації коментарів і складання дайджесту.</p>
+            <div class="field">
+              <label>Вендор (LLM_VENDOR)</label>
+              <select id="f-llmVendor">${vendorOpts}</select>
+            </div>
+            <div class="field">
+              <label>Модель (CLAUDE_MODEL)</label>
+              <select id="f-model">${modelOpts}</select>
+              <input type="text" id="f-modelCustom" style="margin-top:8px;display:${customDisplay}" placeholder="Введіть id моделі вручну" value="${inList ? '' : esc(currentModel)}">
+              <div class="hint">Список — підказка, не вичерпний. Можна ввести довільний id через «Інша».</div>
+            </div>
+            <div class="field">
+              <label>Ендпоінт Anthropic (ANTHROPIC_BASE_URL)</label>
+              <input type="text" id="f-anthropicBaseUrl" placeholder="${esc((g.anthropicBaseUrl && g.anthropicBaseUrl.placeholder) || 'https://api.anthropic.com')}" value="${esc((g.anthropicBaseUrl && g.anthropicBaseUrl.value) || '')}">
+              <div class="hint">Залиште порожнім для значення за замовчуванням.</div>
+            </div>
+            <div class="field">
+              <label>Ендпоінт OpenAI (OPENAI_BASE_URL)</label>
+              <input type="text" id="f-openaiBaseUrl" placeholder="${esc((g.openaiBaseUrl && g.openaiBaseUrl.placeholder) || 'https://api.openai.com/v1')}" value="${esc((g.openaiBaseUrl && g.openaiBaseUrl.value) || '')}">
+              <div class="hint">Залиште порожнім для значення за замовчуванням.</div>
+            </div>
+            <div class="field">
+              <label>Середовище (NODE_ENV)</label>
+              <input type="text" value="${esc(g.nodeEnv.value)}" readonly>
+            </div>
+            <div class="field">
+              <label>Base URL</label>
+              <input type="text" value="${esc(g.baseUrl.value)}" readonly>
+            </div>
+            <div class="field">
+              <label>Шлях до БД (DB_PATH)</label>
+              <input type="text" value="${esc(g.dbPath.value)}" readonly>
+            </div>
+            <div class="hint">API-ключі задаються в розділі «Публікація» / у файлі .env.</div>
+            ${saveBar('general')}
+          </div>`;
+      } else if (active === 'queue') {
+        const q = d.queue;
+        html = `
+          <div class="card active">
+            <h2>Черга та генерація</h2>
+            <p class="card-desc">Коли в черзі накопичиться достатньо статей, пайплайн автоматично збирає дайджест.</p>
+            <div class="row2">
+              <div class="field">
+                <label>Поріг статей (ARTICLE_THRESHOLD)</label>
+                <input type="number" id="f-articleThreshold" min="1" max="100" value="${esc(q.articleThreshold.value)}">
+                <div class="hint">Скільки нових статей запускають генерацію (1–100)</div>
+              </div>
+              <div class="field">
+                <label>Макс. статей у дайджесті (MAX_ARTICLES_PER_DIGEST)</label>
+                <input type="number" id="f-maxArticlesPerDigest" min="1" max="100" value="${esc(q.maxArticlesPerDigest.value)}">
+                <div class="hint">Верхня межа статей на один дайджест (1–100)</div>
+              </div>
+            </div>
+            <div class="field">
+              <label>Інтервал перевірки черги, мс (CHECK_INTERVAL_MS)</label>
+              <input type="number" id="f-checkIntervalMs" min="5000" max="3600000" step="1000" value="${esc(q.checkIntervalMs.value)}">
+              <div class="hint">${esc(q.checkIntervalMs.note || '')} (5000–3600000)</div>
+            </div>
+            ${saveBar('queue')}
+          </div>`;
+      } else if (active === 'content') {
+        const c = d.content;
+        const p = c.parsed || {};
+        html = `
+          <div class="card active">
+            <h2>Контент</h2>
+            <p class="card-desc">Налаштування оформлення дайджесту: хештеги, кордон/дисклеймер (config.md).</p>
+            <div class="field">
+              <textarea class="mono" id="ta-content">${esc(c.text)}</textarea>
+            </div>
+            <div class="group-subtitle">Розібрані значення (лише для довідки)</div>
+            <div class="preview-grid">
+              <div class="pv"><b>Хештег:</b> ${esc(p.hashtag)}</div>
+              <div class="pv"><b>Кордон / дисклеймер:</b> ${esc(p.boundaryIntent)}</div>
+              <div class="pv"><b>Хештеги наприкінці:</b> ${esc(p.hashtagsSuffix)}</div>
+            </div>
+            ${saveBar('content')}
+          </div>`;
+      } else if (active === 'publishing') {
+        const pub = d.publishing;
+        html = `
+          <div class="card active">
+            <h2>Публікація</h2>
+            <p class="card-desc">Секрети й токени інтеграцій. З міркувань безпеки редагуються лише у файлі <code>.env</code>, не через цей інтерфейс.</p>
+            <div class="group-subtitle">Telegram</div>
+            ${secretRow('Bot Token', pub.telegram.botToken)}
+            ${secretRow('Chat ID', pub.telegram.chatId)}
+            ${secretRow('Publish Chat ID', pub.telegram.publishChatId)}
+            ${secretRow('Webhook Secret', pub.telegram.webhookSecret)}
+            <div class="group-subtitle">Facebook</div>
+            <div class="status-note"><span class="badge on">Лише Публічна сторінка (Page)</span> Безпечний шлях. Публікація в особистий профіль не підтримується.</div>
+            ${secretRow('Page ID', pub.facebook.pageId)}
+            ${secretRow('Page Access Token', pub.facebook.pageAccessToken)}
+            <div class="group-subtitle">API-ключі</div>
+            ${secretRow('Anthropic API Key', pub.anthropicApiKey)}
+            ${secretRow('OpenAI API Key', pub.openaiApiKey)}
+            ${secretRow('Fal Key', pub.falKey)}
+            ${plannedSection(pub.planned)}
+          </div>`;
+      } else if (active === 'scenarios') {
+        const sc = d.scenarios;
+        if (selectedScenario === null) selectedScenario = sc.active;
+        const cards = sc.options.map((o) => {
+          const isSel = o.id === selectedScenario;
+          const isActive = o.id === sc.active;
+          const badge = o.id === 'architect'
+            ? `<span class="badge serious">потужний режим</span>`
+            : `<span class="badge current">поточний</span>`;
+          const activeMark = isActive ? `<span class="badge on">активний</span>` : '';
+          return `
+            <button class="scenario-card ${isSel ? 'selected' : ''}" data-scenario="${esc(o.id)}">
+              <div class="scenario-head">
+                <span class="scenario-radio"></span>
+                <span class="scenario-name">${esc(o.name)}</span>
+                ${badge}
+                ${activeMark}
+                <span class="scenario-subtitle">${esc(o.subtitle)}</span>
+              </div>
+              <div class="scenario-desc">${esc(o.description)}</div>
+            </button>`;
+        }).join('');
+        const isActiveSel = selectedScenario === sc.active;
+        const selOpt = sc.options.find((o) => o.id === selectedScenario) || {};
+        let scenarioPrompt = '';
+        if (selectedScenario === 'sarcastic') {
+          scenarioPrompt = promptBlock('commentary', 'Стиль коментарів → prompt.md', d.commentary.text,
+            'системний промпт Фази A для сценарію «Сарказм»: саркастичний, неформальний авторський тон і правила переписування.',
+            isActiveSel);
+        } else if (selectedScenario === 'architect') {
+          scenarioPrompt = promptBlock('deep', 'Глибокий промпт → prompt_deep.md', d.deep.text,
+            'системний промпт Фази A для сценарію «Архітектор»: холодна техно-філософська аналітика, метод «від’їжджаючої камери».',
+            isActiveSel);
+        }
+        const inactiveNote = isActiveSel
+          ? ''
+          : `<div class="help-note">Сценарій «${esc(selOpt.name || selectedScenario)}» вибрано, але він ще не активний. Натисніть <b>«Зробити активним»</b>, щоб пайплайн почав використовувати його промпт.</div>`;
+        html = `
+          <div class="card active">
+            <h2>Сценарії</h2>
+            <p class="card-desc">Оберіть сценарій — нижче показуються лише його етапи та промпт Фази A. Складання дайджесту (Фаза B) спільне для всіх сценаріїв.</p>
+
+            <div class="group-subtitle">Вибір сценарію</div>
+            ${cards}
+            <div class="save-bar">
+              <button class="btn btn-primary" id="save-scenarios">Зробити активним</button>
+              <span class="status" id="status-scenarios"></span>
+            </div>
+
+            <div class="group-subtitle">Промпт сценарію «${esc(selOpt.name || selectedScenario)}»</div>
+            ${inactiveNote}
+            ${scenarioPrompt}
+
+            <div class="group-subtitle">Спільний етап · для всіх сценаріїв</div>
+            ${promptBlock('assembly', 'Складання дайджесту → assembly_prompt.md', d.assembly.text,
+              'системний промпт Фази B: механічне складання готових коментарів у фінальний дайджест (нумерація, кордон, хештеги). Застосовується в будь-якому сценарії.',
+              false)}
+          </div>`;
+      } else if (active === 'help') {
+        html = `
+          <div class="card active">
+            <h2>Довідка</h2>
+            <p class="card-desc">Що на що впливає.</p>
+            <div class="help-block"><h3>Загальні</h3><p>Модель Claude задає, яка версія моделі використовується і для генерації коментарів, і для складання дайджесту.</p></div>
+            <div class="help-block"><h3>Черга та генерація</h3><p>Поріг статей — скільки нових статей має накопичитися, щоб автоматично запустити генерацію. Макс. статей — верхня межа на один дайджест. Інтервал — як часто пайплайн перевіряє чергу.</p></div>
+            <div class="help-block"><h3>Сценарії</h3><p>Сценарій задає системний промпт Фази A (авторський коментар до статті). Взаємовиключні: «Сарказм» (prompt.md) і «Архітектор» (prompt_deep.md) — активний лише один. Спільний для обох — «Складання дайджесту» (assembly_prompt.md, Фаза B): нумерація, кордон і хештеги. Усі три промпти редагуються прямо в цьому розділі; кнопка «Зберегти вибір» перемикає активний сценарій.</p></div>
+            <div class="help-block"><h3>Контент</h3><p>Оформлення дайджесту: основний хештег, кордон/дисклеймер і хештеги в кінці поста (config.md). Застосовується в будь-якому сценарії.</p></div>
+            <div class="help-block"><h3>Публікація</h3><p>Токени Telegram, Facebook та API-ключі. Керують тим, куди і від чийого імені публікуються дайджести.</p></div>
+            <div class="help-note">
+              <b>Важливо.</b> Секрети (токени, ключі) редагуються лише у файлі <code>.env</code> на сервері — цей інтерфейс їх не змінює.
+              Параметр <b>Інтервал перевірки черги</b> застосовується лише після перезапуску сервера; інші значення підхоплюються одразу після збереження.
+            </div>
+          </div>`;
+      }
+
+      panel.innerHTML = html;
+      bindSaves();
+      if (active === 'scenarios') bindScenarioCards();
+      if (active === 'general') bindGeneralControls();
+    }
+
+    function bindGeneralControls() {
+      const vendorSel = document.getElementById('f-llmVendor');
+      const modelSel = document.getElementById('f-model');
+      const customInp = document.getElementById('f-modelCustom');
+      if (!vendorSel || !modelSel || !customInp) return;
+
+      const catalog = (DATA.general && DATA.general.modelCatalog) || { anthropic: [], openai: [] };
+
+      const refreshCustomVisibility = () => {
+        customInp.style.display = modelSel.value === '__custom__' ? 'block' : 'none';
+      };
+
+      vendorSel.onchange = () => {
+        const list = catalog[vendorSel.value] || [];
+        const priceHint = (m) => m.pricing ? ` — $${m.pricing.input}/$${m.pricing.output} за 1M` : '';
+        const opts = list.map((m) => `<option value="${esc(m.id)}">${esc(m.label)}${esc(priceHint(m))}</option>`).join('') +
+          '<option value="__custom__">Інша (ввести вручну)…</option>';
+        modelSel.innerHTML = opts;
+        // Reset selection to first model of the new vendor.
+        modelSel.value = list.length ? list[0].id : '__custom__';
+        customInp.value = '';
+        refreshCustomVisibility();
+      };
+
+      modelSel.onchange = refreshCustomVisibility;
+    }
+
+    function bindScenarioCards() {
+      document.querySelectorAll('.scenario-card').forEach((el) => {
+        el.onclick = () => {
+          if (selectedScenario === el.dataset.scenario) return;
+          selectedScenario = el.dataset.scenario;
+          renderPanel(); // re-render so only the selected scenario's stage/prompt shows
+        };
+      });
+    }
+
+    function bindSaves() {
+      document.querySelectorAll('#panel [id^="save-"]').forEach((btn) => {
+        const id = btn.id.slice(5); // strip "save-"
+        btn.onclick = () => save(id, btn);
+      });
+    }
+
+    function collectPatch(id) {
+      if (id === 'general') {
+        const modelSel = document.getElementById('f-model');
+        const customInp = document.getElementById('f-modelCustom');
+        const modelId = modelSel.value === '__custom__'
+          ? (customInp.value || '').trim()
+          : modelSel.value;
+        return {
+          llmVendor: document.getElementById('f-llmVendor').value,
+          claudeModel: modelId,
+          anthropicBaseUrl: document.getElementById('f-anthropicBaseUrl').value.trim(),
+          openaiBaseUrl: document.getElementById('f-openaiBaseUrl').value.trim(),
+        };
+      }
+      if (id === 'queue') {
+        return {
+          articleThreshold: parseInt(document.getElementById('f-articleThreshold').value, 10),
+          maxArticlesPerDigest: parseInt(document.getElementById('f-maxArticlesPerDigest').value, 10),
+          checkIntervalMs: parseInt(document.getElementById('f-checkIntervalMs').value, 10),
+        };
+      }
+      if (id === 'commentary') return { commentary: { text: document.getElementById('ta-commentary').value } };
+      if (id === 'assembly')   return { assembly:   { text: document.getElementById('ta-assembly').value } };
+      if (id === 'deep')       return { deep:       { text: document.getElementById('ta-deep').value } };
+      if (id === 'content')    return { content:    { text: document.getElementById('ta-content').value } };
+      if (id === 'scenarios')  return { activeScenario: selectedScenario };
+      return {};
+    }
+
+    function showStatus(id, ok, msg) {
+      const el = document.getElementById('status-' + id);
+      if (!el) return;
+      el.textContent = msg;
+      el.className = 'status show ' + (ok ? 'ok' : 'err');
+      if (ok) setTimeout(() => { el.className = 'status'; }, 3000);
+    }
+
+    async function save(id, btn) {
+      btn.disabled = true;
+      const original = btn.textContent;
+      btn.textContent = 'Збереження…';
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(collectPatch(id)),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          const detail = Array.isArray(data.details) ? data.details.join('; ') : (data.error || 'Помилка');
+          throw new Error(detail);
+        }
+        DATA = data;
+        showStatus(id, true, 'Збережено ✓');
+        renderPanel();
+      } catch (err) {
+        showStatus(id, false, 'Помилка: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    }
+
+    load().catch((err) => {
+      document.getElementById('loading').textContent = 'Не вдалося завантажити налаштування: ' + err.message;
+    });
+  </script>
+</body>
+</html>

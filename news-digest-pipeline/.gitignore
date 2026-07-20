@@ -1,0 +1,15 @@
+node_modules/
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+.env
+.fb-profile/
+.fb-profile-posted.json
+.chrome-debug-profile/
+output/
+logs/
+
+# Local development overrides
+docker-compose.local.yml
+scripts/restart-local.sh

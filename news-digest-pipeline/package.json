@@ -1,0 +1,33 @@
+{
+  "name": "news-digest-pipeline",
+  "version": "1.0.0",
+  "description": "Automated news digest pipeline: collect articles, generate commentary via Claude API, assemble digests",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "restart": "docker restart news-digest-pipeline",
+    "restart:local": "./scripts/restart-local.sh"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@fal-ai/client": "^1.9.5",
+    "better-sqlite3": "^11.10.0",
+    "cheerio": "^1.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^16.4.0",
+    "express": "^4.21.0",
+    "express-rate-limit": "^8.3.2",
+    "morgan": "^1.10.0",
+    "openai": "^4.104.0",
+    "patchright": "^1.59.4",
+    "sharp": "^0.34.5",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.1.0"
+  }
+}
