@@ -76,7 +76,7 @@ async function publishToFacebook(text, loginOnly = false) {
     await sleep(3000);
 
     // Check if logged in
-    const isLoggedIn = await page.locator('[aria-label="Create a post"], [aria-label="Создать публикацию"], span:has-text("What\'s on your mind")').first().isVisible({ timeout: 5000 }).catch(() => false);
+    const isLoggedIn = await page.locator('[aria-label="Create a post"], [aria-label="Створити публікацію"], span:has-text("What\'s on your mind")').first().isVisible({ timeout: 5000 }).catch(() => false);
 
     if (!isLoggedIn) {
       log('Not logged in. Please log in manually in the browser window.');
@@ -84,7 +84,7 @@ async function publishToFacebook(text, loginOnly = false) {
       // Wait for user to log in (up to 5 minutes)
       if (loginOnly) {
         log('Waiting for login... Close the browser when done.');
-        await page.waitForSelector('[aria-label="Create a post"], [aria-label="Создать публикацию"]', { timeout: 300000 }).catch(() => {});
+        await page.waitForSelector('[aria-label="Create a post"], [aria-label="Створити публікацію"]', { timeout: 300000 }).catch(() => {});
         log('Login session saved. You can now run the script to publish.');
         await context.close();
         return;
@@ -113,7 +113,7 @@ async function publishToFacebook(text, loginOnly = false) {
 
     // Click "What's on your mind"
     log('Opening post creation...');
-    const createBtn = page.locator('span:has-text("What\'s on your mind"), span:has-text("О чём вы думаете"), [aria-label="Create a post"], [aria-label="Создать публикацию"]').first();
+    const createBtn = page.locator('span:has-text("What\'s on your mind"), span:has-text("Про що ви думаєте"), [aria-label="Create a post"], [aria-label="Створити публікацію"]').first();
     await createBtn.click();
     await sleep(rand(3000, 4000));
 
@@ -139,7 +139,7 @@ async function publishToFacebook(text, loginOnly = false) {
     for (let attempt = 0; attempt < 15; attempt++) {
       await sleep(2000);
 
-      const removeBtn = page.locator('[aria-label="Remove link preview from your post"], [[PERSON_NAME] превью ссылки из публикации"]').first();
+      const removeBtn = page.locator('[aria-label="Remove link preview from your post"], [aria-label="Видалити превью посилання з публікації"]').first();
       const hasPreview = await removeBtn.isVisible({ timeout: 1000 }).catch(() => false);
 
       if (!hasPreview) {
@@ -183,14 +183,14 @@ async function publishToFacebook(text, loginOnly = false) {
 
       // Click Post
       log('Clicking Post...');
-      const postBtn = page.locator('[aria-label="Post"], [aria-label="Опубликовать"]').first();
+      const postBtn = page.locator('[aria-label="Post"], [aria-label="Опублікувати"]').first();
       await postBtn.waitFor({ state: 'visible', timeout: 5000 });
       const postDisabled = await postBtn.getAttribute('aria-disabled');
       if (postDisabled === 'true') throw new Error('Post button is disabled');
       await postBtn.click();
     } else {
       // Single-step flow — just Post
-      const postBtn = page.locator('[aria-label="Post"], [aria-label="Опубликовать"]').first();
+      const postBtn = page.locator('[aria-label="Post"], [aria-label="Опублікувати"]').first();
       await postBtn.waitFor({ state: 'visible', timeout: 5000 });
       await postBtn.click();
     }

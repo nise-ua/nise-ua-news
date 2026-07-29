@@ -61,30 +61,30 @@ async function generateHeadlinesAndPrompts(digestText) {
     max_tokens: 2048,
     messages: [{
       role: 'user',
-      content: `Ты создаёшь кликбейтные изображения для Instagram-дайджеста новостей.
+      content: `Ти створюєш клікбейтні зображення для Instagram-дайджесту новин.
 
-На основе этого дайджеста создай 3 варианта:
+На основі цього дайджесту створи 3 варіанти:
 
-Для каждого варианта:
-1. **headline** — кликбейтный заголовок на русском (5-8 слов, максимум 2 строки). Должен вызывать любопытство, быть провокационным но не ложным. С конкретикой (цифры, имена, факты).
-2. **prompt** — промпт для генерации фонового изображения (на английском, 1-2 предложения).
+Для кожного варіанту:
+1. **headline** — клікбейтний заголовок українською (5-8 слів, максимум 2 рядки). Має викликати цікавість, бути провокаційним, але не брехливим. З конкретикою (цифри, імена, факти).
+2. **prompt** — промпт для генерації фонового зображення (англійською, 1-2 речення).
 
-ВАЖНЕЙШИЕ ПРАВИЛА для промпта:
-- Промпт ДОЛЖЕН начинаться со слов: "Abstract blurred background with soft bokeh circles and smooth color gradients."
-- Далее опиши ТОЛЬКО цвета и настроение: "Deep blue and purple tones" или "Warm golden and orange hues" и т.д.
-- ЗАПРЕЩЕНО упоминать: любые объекты, предметы, здания, природу, людей, технику, текст, буквы, цифры
-- Промпт должен описывать ТОЛЬКО: цвета, градиенты, боке, размытие, свет, тени, настроение
-- Заканчивай промпт: "Very dark, mostly black with subtle color bleed. No objects, no text."
+НАЙВАЖЛИВІШІ ПРАВИЛА для промпта:
+- Промпт МАЄ починатися зі слів: "Abstract blurred background with soft bokeh circles and smooth color gradients."
+- Далі опиши ТІЛЬКИ кольори та настрій: "Deep blue and purple tones" або "Warm golden and orange hues" тощо.
+- ЗАБОРОНЕНО згадувати: будь-які об'єкти, предмети, будівлі, природу, людей, техніку, текст, літери, цифри
+- Промпт має описувати ТІЛЬКИ: кольори, градієнти, боке, розмиття, світло, тіні, настрій
+- Закінчуй промпт: "Very dark, mostly black with subtle color bleed. No objects, no text."
 
-Пример хорошего промпта: "Abstract blurred background with soft bokeh circles and smooth color gradients. Deep blue and teal tones fading into black. Subtle glowing orbs scattered across dark space. Very dark, mostly black with subtle color bleed. No objects, no text."
+Приклад хорошого промпта: "Abstract blurred background with soft bokeh circles and smooth color gradients. Deep blue and teal tones fading into black. Subtle glowing orbs scattered across dark space. Very dark, mostly black with subtle color bleed. No objects, no text."
 
-Примеры хороших заголовков:
-- "ИИ уволил 80% отдела. Босс не жалеет."
-- "Stack Overflow мёртв. Что дальше?"
-- "Anthropic: код напишет себя сам"
-- "HR больше не нужен. IBM доказала."
+Приклади хороших заголовків:
+- "ШІ звільнив 80% відділу. Бос не шкодує."
+- "Stack Overflow мертвий. Що далі?"
+- "Anthropic: код напише себе сам"
+- "HR більше не потрібен. IBM довела."
 
-Ответь СТРОГО в JSON формате:
+Відповідай СТРОГО в JSON форматі:
 {
   "variants": [
     {"headline": "...", "prompt": "..."},
@@ -168,19 +168,19 @@ async function pickBestVariant(variants) {
     content: [
       {
         type: 'text',
-        text: `Ты выбираешь лучшее изображение для Instagram-поста.
+        text: `Ти обираєш найкраще зображення для Instagram-поста.
 
-Вот ${imageContents.length} вариантов фоновых изображений с заголовками:
+Ось ${imageContents.length} варіанти фонових зображень із заголовками:
 
-${imageContents.map((v, i) => `Вариант ${i + 1}: Заголовок: "${v.headline}"`).join('\n')}
+${imageContents.map((v, i) => `Варіант ${i + 1}: Заголовок: "${v.headline}"`).join('\n')}
 
-Критерии:
-1. Фон должен быть достаточно тёмным/контрастным чтобы белый текст был читаемым
-2. Фон не должен отвлекать от текста
-3. Заголовок должен цеплять и вызывать желание прочитать
-4. Общее впечатление — профессиональный новостной канал
+Критерії:
+1. Фон має бути достатньо темним/контрастним, щоб білий текст був читабельним
+2. Фон не має відволікати від тексту
+3. Заголовок має чіпляти і викликати бажання прочитати
+4. Загальне враження — професійний новинний канал
 
-Ответь ТОЛЬКО номером лучшего варианта (1, 2 или 3):`,
+Відповідай ТІЛЬКИ номером найкращого варіанту (1, 2 або 3):`,
       },
       ...imageContents.map((v, i) => ({
         type: 'image',
@@ -274,7 +274,7 @@ async function overlayText(imageUrl, headline) {
 
 function splitHeadline(text, maxChars) {
   // Keep units with their numbers: "$160 млн", "80%", "725 млрд"
-  const units = ['млн', 'млрд', 'тыс', '%', 'лет', 'дней', 'часов'];
+  const units = ['млн', 'млрд', 'тис', '%', 'років', 'днів', 'годин'];
   let processed = text;
   for (const u of units) {
     // Replace "число unit" with "число\u00A0unit" (non-breaking space)

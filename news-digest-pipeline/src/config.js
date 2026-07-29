@@ -51,7 +51,7 @@ function parseConfigMd(text) {
   if (!text) return result;
 
   // 1. Extract hashtags suffix using regex first (global search)
-  const hashtagMarkerRegex = /(?:добавлять в конце|додавати в кінці) поста хе[шс]теги:/i;
+  const hashtagMarkerRegex = /додавати в кінці поста хе[шс]теги:/i;
   const hashtagMatch = text.match(new RegExp(`${hashtagMarkerRegex.source}\\s*\\n+([\\s\\S]*?)(?:\\n##|\\n\\n\\n|$)`, 'i'));
   
   if (hashtagMatch) {
@@ -66,11 +66,9 @@ function parseConfigMd(text) {
     const heading = lines[0]?.trim().toLowerCase() || '';
     let body = lines.slice(1).join('\n').trim();
 
-    if (heading.startsWith('хэштег') || heading.startsWith('хештег')) {
+    if (heading.startsWith('хештег')) {
       result.hashtag = body.split('\n')[0].trim();
     } else if (
-      heading.includes('граница') || 
-      heading.includes('отписка') || 
       heading.includes('кордон') || 
       heading.includes('відписка') ||
       heading.includes('дисклеймер')

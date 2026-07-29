@@ -42,7 +42,7 @@ async function getDigestContent(digestId) {
  */
 function parseNewsItems(digestText) {
   // Cut off everything after the footer/disclaimer
-  // Footer starts with emoji 🤖 or "причины подписаться" or hashtags block
+  // Footer starts with emoji 🤖 or "причини підписатися" or hashtags block
   let cleanText = digestText;
   const footerPatterns = [
     /\n🤖[\s\S]*$/,
@@ -68,10 +68,10 @@ function parseNewsItems(digestText) {
 
     // Skip short items, footers, and non-news content
     if (text.length > 50 &&
-        !text.includes('подписаться') &&
-        !text.includes('комментировать') &&
-        !text.includes('Поместите мой бложик') &&
-        !text.includes('Отпишитесь')) {
+        !text.includes('підписатися') &&
+        !text.includes('коментувати') &&
+        !text.includes('Розмістіть мій блог') &&
+        !text.includes('Відпишіться')) {
       items.push({
         num,
         text,
@@ -97,17 +97,17 @@ async function rateNews(client, items) {
     max_tokens: 1024,
     messages: [{
       role: 'user',
-      content: `Ты — редактор кликбейтного новостного канала. Оцени каждую новость по шкале кликбейтности от 0 до 10.
+      content: `Ти — редактор клікбейтного новинного каналу. Оціни кожну новину за шкалою клікбейтності від 0 до 10.
 
-Критерии:
-- 10: шокирующий факт, цифры, которые вызывают WOW, драма, конфликт, неожиданный поворот
-- 7-9: сильная новость с цепляющей деталью
-- 4-6: интересно, но не цепляет за живое
-- 0-3: скучно, абстрактно, без конкретики
+Критерії:
+- 10: шокуючий факт, цифри, які викликають WOW, драма, конфлікт, неочікуваний поворот
+- 7-9: сильна новина з тою деталлю, що чіпляє
+- 4-6: цікаво, але не чіпляє за живе
+- 0-3: нудно, абстрактно, без конкретики
 
-Верни ТОЛЬКО JSON массив в формате: [{"index": 0, "score": 8, "reason": "почему"}, ...]
+Поверни ТІЛЬКИ JSON масив у форматі: [{"index": 0, "score": 8, "reason": "чому"}, ...]
 
-Новости:
+Новини:
 ${itemsList}`
     }],
   });
@@ -150,33 +150,33 @@ async function createHeadline(client, newsItem) {
     max_tokens: 256,
     messages: [{
       role: 'user',
-      content: `Превращу эту новость в кликбейтный заголовок для Instagram.
+      content: `Перетворю цю новину в клікбейтний заголовок для Instagram.
 
 ПРАВИЛА:
-- Максимум 8-10 слов
-- На русском языке
-- Должен быть ПОНЯТЕН без контекста — любой человек должен понять, о чём речь
-- Обязательно указать КТО (субъект) и ЧТО произошло (предикат)
-- Конкретика: цифры, имена, факты — не абстракции
-- Провокация, но НЕ ложь
-- Формат: утверждение, не вопрос
-- НЕ использовать многоточие
+- Максимум 8-10 слів
+- Українською мовою
+- Має бути ЗРОЗУМІЛИЙ без контексту — будь-яка людина має зрозуміти, про що йдеться
+- Обов'язково вказати ХТО (суб'єкт) і ЩО сталося (предикат)
+- Конкретика: цифри, імена, факти — не абстракції
+- Провокація, але НЕ брехня
+- Формат: твердження, не питання
+- НЕ використовувати три крапки
 
-ПРИМЕРЫ ХОРОШИХ:
-"Stack Overflow мёртв. ИИ забрал всё"
-"Глава IgniteTech уволил 80%. Не жалеет"
-"23 года, без диплома, $175К в год"
-"Anthropic: программисты не нужны через год"
+ПРИКЛАДИ ХОРОШИХ:
+"Stack Overflow мертвий. ШІ забрав усе"
+"Голова IgniteTech звільнив 80%. Не шкодує"
+"23 роки, без диплома, $175К на рік"
+"Anthropic: програмісти не потрібні через рік"
 
-ПРИМЕРЫ ПЛОХИХ (не делай так):
-"Рынок рухнул. Что дальше?" — нет конкретики, кто рухнул?
-"Уволенная заработала миллионы" — кто? откуда?
-"ИИ меняет всё" — пустая фраза
+ПРИКЛАДИ ПОГАНИХ (не роби так):
+"Ринок обвалився. Що далі?" — немає конкретики, хто обвалився?
+"Звільнена заробила мільйони" — хто? звідки?
+"ШІ змінює все" — порожня фраза
 
-Новость:
+Новина:
 ${newsItem.text}
 
-Верни ТОЛЬКО заголовок, без кавычек, без пояснений.`
+Поверни ТІЛЬКИ заголовок, без лапок, без пояснень.`
     }],
   });
 
@@ -185,7 +185,7 @@ ${newsItem.text}
   return headline;
 }
 
-// --- Step 4: Each other news → one phrase "Произошло это" ---
+// --- Step 4: Each other news → one phrase "Сталося це" ---
 
 async function summarizeOthers(client, otherItems) {
   log(`Step 4: Summarizing ${otherItems.length} other news...`);
@@ -199,17 +199,17 @@ async function summarizeOthers(client, otherItems) {
     max_tokens: 1024,
     messages: [{
       role: 'user',
-      content: `Сожми каждую новость в ОДНУ короткую фразу (5-8 слов).
-Формат: "Кто/что сделал что" — без вводных, без контекста, просто факт.
+      content: `Стисни кожну новину в ОДНУ коротку фразу (5-8 слів).
+Формат: "Хто/що зробив що" — без вступів, без контексту, просто факт.
 
-ПРИМЕРЫ:
-"OpenAI выпустила подписку за $100"
-"Электрики зарабатывают $175К без диплома"
-"Роботов поставили 53 тысячи за год"
+ПРИКЛАДИ:
+"OpenAI випустила підписку за $100"
+"Електрики заробляють $175К без диплома"
+"Роботів поставили 53 тисячі за рік"
 
-Верни JSON массив строк: ["фраза1", "фраза2", ...]
+Поверни JSON масив рядків: ["фраза1", "фраза2", ...]
 
-Новости:
+Новини:
 ${itemsList}`
     }],
   });
@@ -229,19 +229,19 @@ function compileHeadlineText(headline, summaries) {
   log('Step 5: Compiling final text...');
 
   // Main headline is the key phrase
-  // "а также" + first 3-4 other summaries
+  // "а також" + first 3-4 other summaries
   const otherPhrases = summaries.slice(0, 4).join(', ');
-  const compiled = `${headline}\n\nА также: ${otherPhrases}`;
+  const compiled = `${headline}\n\nА також: ${otherPhrases}`;
 
   log(`\n=== FINAL RESULT ===`);
   log(`HEADLINE: ${headline}`);
-  log(`SUBTEXT: А также: ${otherPhrases}`);
+  log(`SUBTEXT: А також: ${otherPhrases}`);
   log(`FULL: ${compiled}`);
   log(`====================\n`);
 
   return {
     headline,        // Main clickbait headline (for large text on image)
-    subtext: `А также: ${otherPhrases}`,  // Secondary text (smaller, below)
+    subtext: `А також: ${otherPhrases}`,  // Secondary text (smaller, below)
     full: compiled,  // Full combined text
     summaries,       // All summaries array
   };

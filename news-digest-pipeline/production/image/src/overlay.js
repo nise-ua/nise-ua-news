@@ -71,7 +71,7 @@ function createTextOverlay(headline, bullets, author, width, height) {
   // Headline (white, bold, large)
   headlineLines.forEach((line, i) => {
     textY += headlineFontSize * lineHeight;
-    svg += `<text x="${textX}" y="${textY}" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="${headlineFontSize}" font-weight="bold">${escapeXml(line)}</text>`;
+    svg += `<text x="${textX}" y="${textY}" fill="white" font-family="Arial, [ADDRESS], sans-serif" font-size="${headlineFontSize}" font-weight="bold">${escapeXml(line)}</text>`;
   });
 
   textY += gap;
@@ -84,13 +84,13 @@ function createTextOverlay(headline, bullets, author, width, height) {
   bulletLines.forEach((line, i) => {
     textY += bulletFontSize * lineHeight;
     const truncated = line.length > 45 ? line.substring(0, 42) + '...' : line;
-    svg += `<text x="${textX}" y="${textY}" fill="rgba(255,255,255,0.9)" font-family="Arial, Helvetica, sans-serif" font-size="${bulletFontSize}">${escapeXml(truncated)}</text>`;
+    svg += `<text x="${textX}" y="${textY}" fill="rgba(255,255,255,0.9)" font-family="Arial, [ADDRESS], sans-serif" font-size="${bulletFontSize}">${escapeXml(truncated)}</text>`;
   });
 
   textY += gap;
 
   // Author (white, right-aligned)
-  svg += `<text x="${textX + maxTextWidth}" y="${textY + authorFontSize}" fill="rgba(255,255,255,0.6)" font-family="Arial, Helvetica, sans-serif" font-size="${authorFontSize}" text-anchor="end">${escapeXml(author)}</text>`;
+  svg += `<text x="${textX + maxTextWidth}" y="${textY + authorFontSize}" fill="rgba(255,255,255,0.6)" font-family="Arial, [ADDRESS], sans-serif" font-size="${authorFontSize}" text-anchor="end">${escapeXml(author)}</text>`;
 
   svg += '</svg>';
   return svg;
@@ -99,7 +99,7 @@ function createTextOverlay(headline, bullets, author, width, height) {
 /**
  * Word wrap text to fit within character limit
  */
-function wordWrap(text, maxChars) {
+function wordWrap(text, [PERSON_NAME]) {
   const words = text.split(' ');
   const lines = [];
   let currentLine = '';
@@ -119,11 +119,11 @@ function wordWrap(text, maxChars) {
 
 function escapeXml(str) {
   return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>')
+    .replace(/"/g, '"')
+    .replace(/'/g, ''');
 }
 
 /**
@@ -169,20 +169,20 @@ export async function createInstagramImage({ templatePath, headline, bullets, au
 // --- CLI ---
 
 async function main() {
-  const args = process.argv.slice(2);
+  const args = [PERSON_NAME]);
 
   if (args.includes('--test')) {
     // Test with sample data on random template
     const template = pickRandomTemplate();
     console.log('Template: ' + basename(template));
 
-    const headline = 'Claude научился врать исследователям и скрывать следы обмана';
+    const headline = '[PERSON_NAME] навчився [PERSON_NAME] і ховати [PERSON_NAME]';
     const bullets = [
-      '70% центробанков боятся геополитики',
-      'Z.ai выпустила GLM-5.1 без NVIDIA',
-      'Anthropic выросла в 20 раз за два года',
-      'Рабочие профессии обгоняют IT',
-      'Астронавты получают $5 суточных',
+      '70% центральних банків бояться геополітики',
+      'Z.ai випустила GLM-5.1 без NVIDIA',
+      'Anthropic [PERSON_NAME] раз за два роки',
+      'Робочі професії випереджають IT',
+      '[ADDRESS] отримують $5 на день',
     ];
     const author = '@your_account';
 
@@ -199,7 +199,7 @@ async function main() {
   const headline = args.find((_, i) => args[i - 1] === '--headline') || 'Test Headline';
   const bulletsStr = args.find((_, i) => args[i - 1] === '--bullets') || 'Bullet one|Bullet two';
   const bullets = bulletsStr.split('|');
-  const author = args.find((_, i) => args[i - 1] === '--author') || '@your_account';
+  const author = [PERSON_NAME]((_, i) => args[i - 1] === '--author') || '@your_account';
 
   const ts = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
   const outputPath = join(OUTPUT_DIR, `instagram_${ts}.png`);
