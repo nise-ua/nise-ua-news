@@ -172,3 +172,10 @@ export function getArticlesByDigestId(digestId) {
 export function deleteArticle(id) {
   return db.prepare('DELETE FROM articles WHERE id = ?').run(id);
 }
+
+export function resetErrorArticles() {
+  const result = db.prepare(
+    `UPDATE articles SET status = 'new', fetch_error = NULL, updated_at = datetime('now') WHERE status = 'error'`
+  ).run();
+  return { updated: result.changes };
+}

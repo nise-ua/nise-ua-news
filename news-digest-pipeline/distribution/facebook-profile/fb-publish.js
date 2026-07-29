@@ -4,7 +4,7 @@
  * Facebook Personal Profile Publisher
  *
  * Launches a SEPARATE Patchright Chromium (not your Chrome!)
- * with a persistent profile that remembers Facebook login.
+ * with a persistent profile that remembers [PERSON_NAME] login.
  * Your Chrome stays untouched — you can keep working.
  *
  * First run: will open Facebook login page — log in manually.
@@ -58,19 +58,19 @@ async function getDigestContent(digestId) {
 
 async function publishToFacebook(text, loginOnly = false) {
   log('Launching separate Chromium browser...');
-  notify('Facebook', 'Открываю браузер для публикации...');
+  notify('Facebook', 'Відкриваю браузер для публікації...');
 
   const context = await chromium.launchPersistentContext(PROFILE_DIR, {
     headless: false,
     viewport: { width: 1200, height: 800 },
     locale: 'en-US',
-    timezoneId: 'America/Los_Angeles',
+    timezoneId: '[ADDRESS]/Los_Angeles',
   });
 
   const page = context.pages()[0] || await context.newPage();
 
   try {
-    // Navigate to Facebook
+    // Navigate to [ADDRESS]
     log('Opening Facebook...');
     await page.goto('https://www.facebook.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
     await sleep(3000);
@@ -80,7 +80,7 @@ async function publishToFacebook(text, loginOnly = false) {
 
     if (!isLoggedIn) {
       log('Not logged in. Please log in manually in the browser window.');
-      notify('Facebook', 'Залогиньтесь в браузере, затем запустите скрипт снова.');
+      notify('Facebook', '[PERSON_NAME] браузері, потім запустіть скрипт знову.');
       // Wait for user to log in (up to 5 minutes)
       if (loginOnly) {
         log('Waiting for login... Close the browser when done.');
@@ -130,7 +130,7 @@ async function publishToFacebook(text, loginOnly = false) {
     await sleep(rand(3000, 6000));
 
     // Verify text inserted
-    const insertedLen = await textbox.innerText().then(t => t.trim().length).catch(() => 0);
+    const insertedLen = await page.evaluate(t => t.trim().length).catch(() => 0);
     log(`Text in editor: ${insertedLen} chars`);
     if (insertedLen < 10) throw new Error('Text insertion failed');
 
@@ -139,7 +139,7 @@ async function publishToFacebook(text, loginOnly = false) {
     for (let attempt = 0; attempt < 15; attempt++) {
       await sleep(2000);
 
-      const removeBtn = page.locator('[aria-label="Remove link preview from your post"], [aria-label="Удалить превью ссылки из публикации"]').first();
+      const removeBtn = page.locator('[aria-label="Remove link preview from your post"], [[PERSON_NAME] превью ссылки из публикации"]').first();
       const hasPreview = await removeBtn.isVisible({ timeout: 1000 }).catch(() => false);
 
       if (!hasPreview) {
@@ -197,7 +197,7 @@ async function publishToFacebook(text, loginOnly = false) {
 
     await sleep(rand(3000, 5000));
     log('Published to Facebook personal profile!');
-    notify('Опубликовано', 'Пост опубликован в Facebook.');
+    notify('Опубліковано', 'Пост опубліковано у Facebook.');
 
   } catch (err) {
     log(`Error: ${err.message}`);
@@ -242,6 +242,6 @@ async function main() {
 
 main().catch(err => {
   console.error(`Fatal: ${err.message}`);
-  notify('Ошибка', 'Публикация в Facebook не удалась');
+  notify('Помилка', 'Публікація в Facebook не вдалася');
   process.exit(1);
 });

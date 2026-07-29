@@ -92,6 +92,35 @@ fb_exchange_token=SHORT_LIVED_TOKEN"
 
 **IMPORTANT:** A long-lived token lasts ~60 days. It must be updated before expiration, or publication will stop working.
 
+### Automatic Token Refresh (Built-in)
+
+The project includes an automatic token refresh utility. To use it:
+
+1. Add your Facebook App credentials to `.env`:
+   ```env
+   FACEBOOK_APP_ID=your-app-id
+   FACEBOOK_APP_SECRET=your-app-secret
+   ```
+
+2. Run the refresh script:
+   ```bash
+   cd news-digest-pipeline
+   node src/services/publishers/facebook-token-refresh.js
+   ```
+
+3. Copy the new token from the output into your `.env`:
+   ```env
+   FACEBOOK_PAGE_ACCESS_TOKEN=the-new-token-from-script
+   ```
+
+4. Restart the application.
+
+You can also refresh programmatically:
+```javascript
+import { refreshSpecificPageToken } from './src/services/publishers/facebook-token-refresh.js';
+const newToken = await refreshSpecificPageToken(appId, appSecret, currentToken, pageId);
+```
+
 ---
 
 ## 5. Environment Variables

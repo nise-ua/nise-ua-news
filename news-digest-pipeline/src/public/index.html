@@ -623,12 +623,13 @@
         if (!res.ok) throw new Error(data.error || 'Server error');
 
         const result = data.published?.facebook;
-        if (result) {
+        if (result?.postId) {
           btn.className = 'plat-btn sent';
           btn.textContent = '✓ FB';
           btn.onclick = null;
         } else {
-          alert('Facebook: публікація не вдалася. Перевірте токен.');
+          const errorMsg = result?.error || 'Невідома помилка';
+          alert('Facebook: публікація не вдалася. ' + errorMsg);
           btn.disabled = false;
           btn.textContent = '📘 FB';
         }

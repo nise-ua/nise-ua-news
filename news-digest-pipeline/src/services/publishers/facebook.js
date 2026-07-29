@@ -5,12 +5,13 @@
 
 export async function publishToFacebook(pageAccessToken, pageId, content) {
   if (!pageAccessToken || !pageId) {
-    console.error('[facebook] Missing pageAccessToken or pageId');
-    return null;
+    const errMsg = '[facebook] Missing pageAccessToken or pageId';
+    console.error(errMsg);
+    return { error: errMsg };
   }
 
   try {
-    const response = await fetch(`https://graph.facebook.com/${pageId}/feed`, {
+    const response = await fetch(`https://graph.facebook.com/v19.0/${pageId}/feed`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -22,13 +23,15 @@ export async function publishToFacebook(pageAccessToken, pageId, content) {
     const data = await response.json();
 
     if (!response.ok || data.error) {
-      console.error('[facebook] API error:', data.error?.message || JSON.stringify(data));
-      return null;
+      const errorMessage = data.error?.message || JSON.stringify(data);
+      console.error('[facebook] API error:', errorMessage);
+      return { error: `[facebook] API error: ${errorMessage}` };
     }
 
     return { postId: data.id };
   } catch (err) {
-    console.error('[facebook] Error publishing:', err.message);
-    return null;
+    const errorMessage = `[facebook] Network/Error publishing: ${err.message}`;
+    console.error(errorMessage);
+    return { error: errorMessage };
   }
 }

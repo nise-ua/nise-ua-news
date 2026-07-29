@@ -60,10 +60,10 @@ async function handleStatus(botToken, chatId) {
   const text = [
     '<b>📊 Статус</b>',
     '',
-    `Новых: ${newCount}`,
-    `В обработке: ${processingCount}`,
-    `Использовано: ${usedCount}`,
-    `Всего: ${totalCount}`,
+    `Нових: ${newCount}`,
+    `В обробці: ${processingCount}`,
+    `Використано: ${usedCount}`,
+    `Всього: ${totalCount}`,
   ].join('\n');
 
   await sendMessage(botToken, chatId, text);
@@ -76,11 +76,11 @@ async function handleGenerate(botToken, chatId, config) {
   const newCount = getArticleCount('new');
 
   if (newCount === 0) {
-    await sendMessage(botToken, chatId, '⚠️ Нет новых статей для дайджеста.');
+    await sendMessage(botToken, chatId, '⚠️ Немає нових статей для дайджесту.');
     return;
   }
 
-  await sendMessage(botToken, chatId, `⏳ Генерация дайджеста из ${newCount} статей...`);
+  await sendMessage(botToken, chatId, `⏳ Генерація дайджесту з ${newCount} статей...`);
 
   try {
     const { getNewArticles, getDb } = await import('../db/index.js');
@@ -91,10 +91,10 @@ async function handleGenerate(botToken, chatId, config) {
     const db = getDb();
 
     const digestId = await generateDigest(db, articles, config);
-    await sendMessage(botToken, chatId, `✅ Дайджест сгенерирован (${articles.length} статей). ID: ${digestId}`);
+    await sendMessage(botToken, chatId, `✅ Дайджест згенеровано (${articles.length} статей). ID: ${digestId}`);
   } catch (err) {
     console.error('[telegram-bot] Generate error:', err);
-    await sendMessage(botToken, chatId, `❌ Ошибка генерации: ${err.message}`);
+    await sendMessage(botToken, chatId, `❌ Помилка генерації: ${err.message}`);
   }
 }
 
@@ -121,7 +121,7 @@ async function handleUrls(botToken, chatId, messageId, text, config) {
   const urls = text.match(URL_REGEX);
 
   if (!urls || urls.length === 0) {
-    await sendMessage(botToken, chatId, '⚠️ Не нашел ссылок в сообщении.');
+    await sendMessage(botToken, chatId, '⚠️ Не знайдено посилань [PERSON_NAME]');
     return;
   }
 
@@ -141,8 +141,8 @@ async function handleUrls(botToken, chatId, messageId, text, config) {
 
   const rejected = uniqueUrls.length - validUrls.length;
   if (validUrls.length === 0) {
-    let reply = '⚠️ Не нашел допустимых ссылок (принимаются только perplexity.ai).';
-    if (rejected > 0) reply += `\nОтклонено: ${rejected}`;
+    let reply = '⚠️ Не знайдено допустимих посилань (приймаються лише perplexity.ai).';
+    if (rejected > 0) reply += `\nВідхилено: ${rejected}`;
     await sendMessage(botToken, chatId, reply);
     return;
   }
@@ -169,17 +169,17 @@ async function handleUrls(botToken, chatId, messageId, text, config) {
 
   const newCount = getArticleCount('new');
 
-  let reply = `✓ Сохранено: ${saved}`;
+  let reply = `✓ Збережено: ${saved}`;
   if (duplicates > 0) {
-    reply += ` (дубликатов: ${duplicates})`;
+    reply += ` (дублікатів: ${duplicates})`;
   }
   if (rejected > 0) {
-    reply += ` (отклонено: ${rejected})`;
+    reply += ` (відхилено: ${rejected})`;
   }
-  reply += `\nВсего новых: ${newCount}`;
+  reply += `\nВсього нових: ${newCount}`;
 
   if (newCount >= config.articleThreshold) {
-    reply += `\n\n📰 Накопилось ${newCount} статей. Дайджест будет сгенерирован.`;
+    reply += `\n\n📰 Накопичилося ${newCount} статей. Автозапуск.`;
   }
 
   await sendMessage(botToken, chatId, reply);
@@ -219,10 +219,10 @@ export async function handleTelegramUpdate(update, config) {
     const helpText = [
       '<b>News Digest Bot</b>',
       '',
-      'Отправьте ссылку — она будет сохранена для дайджеста.',
+      'Надішліть посилання — воно буде збережено для дайджесту.',
       '',
-      '/status — количество статей',
-      '/generate — сгенерировать дайджест сейчас',
+      '/status — кількість статей',
+      '/generate — згенерувати дайджест зараз',
     ].join('\n');
     await sendMessage(botToken, chatId, helpText);
     return;

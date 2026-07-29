@@ -4,6 +4,7 @@ import {
   getArticleCount,
   deleteArticle,
   getDb,
+  resetErrorArticles,
 } from '../db/index.js';
 import { fetchArticleContent } from '../services/article-fetcher.js';
 
@@ -210,6 +211,17 @@ router.patch('/:id', (req, res) => {
     res.json(updated);
   } catch (err) {
     console.error('[articles] PATCH /:id error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/articles/reset-errors — reset all error articles to new
+router.post('/reset-errors', (req, res) => {
+  try {
+    const result = resetErrorArticles();
+    res.json({ success: true, updated: result.updated });
+  } catch (err) {
+    console.error('[articles] POST /reset-errors error:', err);
     res.status(500).json({ error: err.message });
   }
 });

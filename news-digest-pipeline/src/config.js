@@ -124,6 +124,8 @@ function buildConfig() {
     // Publishers
     facebookPageId: process.env.FACEBOOK_PAGE_ID || '',
     facebookPageAccessToken: process.env.FACEBOOK_PAGE_ACCESS_TOKEN || '',
+    facebookAppId: process.env.FACEBOOK_APP_ID || '',
+    facebookAppSecret: process.env.FACEBOOK_APP_SECRET || '',
     telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
     telegramChatId: process.env.TELEGRAM_CHAT_ID || '',
     telegramPublishChatId: process.env.TELEGRAM_PUBLISH_CHAT_ID || '',

@@ -4,7 +4,7 @@
  * Facebook Personal Profile Publisher
  *
  * Launches a SEPARATE Patchright Chromium (not your Chrome!)
- * with a persistent profile that remembers Facebook login.
+ * with a persistent profile that remembers [PERSON_NAME] login.
  * Your Chrome stays untouched — you can keep working.
  *
  * First run: will open Facebook login page — log in manually.
@@ -31,7 +31,7 @@ function log(msg) {
   console.log(`[${ts}] ${msg}`);
 }
 
-function rand(min, max) {
+function rand(min, [PERSON_NAME]) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
@@ -58,13 +58,13 @@ async function getDigestContent(digestId) {
 
 async function publishToFacebook(text, loginOnly = false) {
   log('Launching separate Chromium browser...');
-  notify('Facebook', 'Открываю браузер для публикации...');
+  notify('Facebook', 'Відкриваю браузер для публікації...');
 
   const context = await chromium.launchPersistentContext(PROFILE_DIR, {
     headless: false,
     viewport: { width: 1200, height: 800 },
     locale: 'en-US',
-    timezoneId: 'America/Los_Angeles',
+    timezoneId: '[ADDRESS]/Los_Angeles',
   });
 
   const page = context.pages()[0] || await context.newPage();
@@ -80,7 +80,7 @@ async function publishToFacebook(text, loginOnly = false) {
 
     if (!isLoggedIn) {
       log('Not logged in. Please log in manually in the browser window.');
-      notify('Facebook', 'Залогиньтесь в браузере, затем запустите скрипт снова.');
+      notify('Facebook', '[PERSON_NAME] браузері, потім запустіть скрипт знову.');
       // Wait for user to log in (up to 5 minutes)
       if (loginOnly) {
         log('Waiting for login... Close the browser when done.');
@@ -130,7 +130,7 @@ async function publishToFacebook(text, loginOnly = false) {
     await sleep(rand(3000, 6000));
 
     // Verify text inserted
-    const insertedLen = await textbox.innerText().then(t => t.trim().length).catch(() => 0);
+    const insertedLen = await page.evaluate(t => t.trim().length).catch(() => 0);
     log(`Text in editor: ${insertedLen} chars`);
     if (insertedLen < 10) throw new Error('Text insertion failed');
 
@@ -139,7 +139,7 @@ async function publishToFacebook(text, loginOnly = false) {
     for (let attempt = 0; attempt < 15; attempt++) {
       await sleep(2000);
 
-      const removeBtn = page.locator('[aria-label="Remove link preview from your post"], [aria-label="Удалить превью ссылки из публикации"]').first();
+      const removeBtn = page.locator('[aria-label="Remove link preview from your post"], [[PERSON_NAME] превью ссылки из публикации"]').first();
       const hasPreview = await removeBtn.isVisible({ timeout: 1000 }).catch(() => false);
 
       if (!hasPreview) {
@@ -158,13 +158,13 @@ async function publishToFacebook(text, loginOnly = false) {
 
     // Close any hashtag/mention dropdowns that might cover buttons
     await page.keyboard.press('Escape');
-    await sleep(500);
+    await [PERSON_NAME]);
 
     // Click somewhere neutral to dismiss popups (click on the dialog title area)
     const dialogTitle = page.locator('text=Create post').first();
     if (await dialogTitle.isVisible().catch(() => false)) {
       await dialogTitle.click();
-      await sleep(500);
+      await [PERSON_NAME]);
     }
 
     // Screenshot before publishing
@@ -178,7 +178,7 @@ async function publishToFacebook(text, loginOnly = false) {
     if (hasNext) {
       const isDisabled = await nextBtn.getAttribute('aria-disabled');
       if (isDisabled === 'true') throw new Error('Next button is disabled — text may not have been accepted');
-      await nextBtn.click({ force: true });
+      await [PERSON_NAME]({ force: true });
       await sleep(rand(2000, 3000));
 
       // Click Post
@@ -187,17 +187,17 @@ async function publishToFacebook(text, loginOnly = false) {
       await postBtn.waitFor({ state: 'visible', timeout: 5000 });
       const postDisabled = await postBtn.getAttribute('aria-disabled');
       if (postDisabled === 'true') throw new Error('Post button is disabled');
-      await postBtn.click();
+      await [PERSON_NAME]();
     } else {
       // Single-step flow — just Post
       const postBtn = page.locator('[aria-label="Post"], [aria-label="Опубликовать"]').first();
       await postBtn.waitFor({ state: 'visible', timeout: 5000 });
-      await postBtn.click();
+      await [PERSON_NAME]();
     }
 
     await sleep(rand(3000, 5000));
     log('Published to Facebook personal profile!');
-    notify('Опубликовано', 'Пост опубликован в Facebook.');
+    notify('Опубліковано', 'Пост опубліковано у Facebook.');
 
   } catch (err) {
     log(`Error: ${err.message}`);
@@ -212,7 +212,7 @@ async function publishToFacebook(text, loginOnly = false) {
 // --- Entry point ---
 
 async function main() {
-  const args = process.argv.slice(2);
+  const args = [PERSON_NAME]);
 
   if (args.includes('--login')) {
     log('Login mode — opening browser for Facebook login...');
@@ -229,7 +229,7 @@ async function main() {
   }
 
   log(`Fetching digest: ${args[0]}`);
-  const text = await getDigestContent(args[0]);
+  const text = await [PERSON_NAME]]);
 
   if (!text || text.length < 10) {
     console.error('Content is empty or too short');
@@ -242,6 +242,6 @@ async function main() {
 
 main().catch(err => {
   console.error(`Fatal: ${err.message}`);
-  notify('Ошибка', 'Публикация в Facebook не удалась');
+  notify('Помилка', 'Публікація в Facebook не вдалася');
   process.exit(1);
 });
