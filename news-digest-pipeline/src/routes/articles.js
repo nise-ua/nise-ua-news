@@ -5,6 +5,7 @@ import {
   deleteArticle,
   getDb,
   resetErrorArticles,
+  resetArticleToNew,
 } from '../db/index.js';
 import { fetchArticleContent } from '../services/article-fetcher.js';
 
@@ -222,6 +223,26 @@ router.post('/reset-errors', (req, res) => {
     res.json({ success: true, updated: result.updated });
   } catch (err) {
     console.error('[articles] POST /reset-errors error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/articles/:id/reset — return an error/used article to the new queue
+router.post('/:id/reset', (req, res) => {
+  try {
+    const result = resetArticleToNew(req.params.id);
+    if (result.updated === 0) {
+      const article = getDb().prepare('SELECT status FROM articles WHERE id = ?').get(req.params.id);
+      if (!article) {
+        return res.status(404).json({ error: 'Article not found' });
+      }
+      return res.status(400).json({ error: 'Only error or used articles can be returned to new' });
+    }
+
+    const article = getDb().prepare('SELECT * FROM articles WHERE id = ?').get(req.params.id);
+    res.json(article);
+  } catch (err) {
+    console.error('[articles] POST /:id/reset error:', err);
     res.status(500).json({ error: err.message });
   }
 });

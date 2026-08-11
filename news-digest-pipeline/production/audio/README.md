@@ -58,12 +58,22 @@ flowchart TD
 
 ## Рекомендації
 
-| Пріоритет | Сервіс | Чому | Ціна |
+| Пріоритет | [PERSON_NAME] | Чому | Ціна |
 |-----------|--------|------|------|
-| **Основний** | **ElevenLabs Flash v2.5** | Multi-speaker, емоції, Professional Clone, 70+ мов | $22/міс |
+| **Основний (робочий, 2026)** | **edge-tts `uk-UA-PolinaNeural`** | Природний нейроголос, безкоштовно, без API-ключів; запуск `uvx edge-tts` | $0 |
+| **Premium (опційно)** | **ElevenLabs Flash v2.5** | Multi-speaker, емоції, Professional Clone, 70+ мов | $22/міс |
 | **Бюджетний** | **Google Cloud TTS Neural** | Стабільна українська, SSML | $0.72/міс |
 | **Якість + ціна** | **Fish Audio S2 Pro** | #1 TTS-Arena2, 50+ emotion tags, cross-lingual clone | ~$12/міс |
 | **Self-host** | **Resemble Chatterbox** | MIT, zero-shot clone, українська | $1-3/міс GPU |
+
+> **Примітка (робочий стан):** продакшн-пайплайн відео (UI кнопка) за замовчуванням використовує
+> `uvx edge-tts --voice uk-UA-PolinaNeural` — природний, людський український голос безкоштовно.
+> Якщо в `.env` є `ELEVENLABS_API_KEY`, автоматично вмикається ElevenLabs. Голос «Google Translate»
+> (роботизований) більше не використовується.
+>
+> ```
+> uvx edge-tts --text "Текст новини" --voice uk-UA-PolinaNeural --write-media out.mp3
+> ```
 
 ## FFmpeg інтеграція
 

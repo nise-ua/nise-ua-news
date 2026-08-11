@@ -103,12 +103,17 @@ function buildConfig() {
 
     // LLM vendor selection. claudeModel above is the active model id, shared by
     // both vendors (it just holds whatever model id the user picked).
-    llmVendor: process.env.LLM_VENDOR || 'openai', // 'anthropic' | 'openai'
+    llmVendor: process.env.LLM_VENDOR || 'openai', // 'anthropic' | 'openai' | 'openrouter' | 'moonshot'
     anthropicBaseUrl: process.env.ANTHROPIC_BASE_URL || '',
     openaiBaseUrl: process.env.OPENAI_BASE_URL || '',
     openaiApiKey: process.env.OPENAI_API_KEY || '', // secret
+    openrouterBaseUrl: process.env.OPENROUTER_BASE_URL || '',
+    openrouterApiKey: process.env.OPENROUTER_API_KEY || '', // secret
+    moonshotBaseUrl: process.env.MOONSHOT_BASE_URL || '',
+    moonshotApiKey: process.env.MOONSHOT_API_KEY || '', // secret
     geminiApiKey: process.env.GEMINI_API_KEY || '', // secret (planned integrations)
-    dbPath: process.env.DB_PATH || './data/news-digest.db',
+  // Use an absolute path for the SQLite DB to avoid cwd issues when the server is started from a subdirectory.
+  dbPath: process.env.DB_PATH || join(__dirname, '..', 'data', 'news-digest.db'),
     ntfyTopic: process.env.NTFY_TOPIC || '',
     articleThreshold: parseInt(process.env.ARTICLE_THRESHOLD || '13', 10),
     maxArticlesPerDigest: parseInt(process.env.MAX_ARTICLES_PER_DIGEST || '17', 10),

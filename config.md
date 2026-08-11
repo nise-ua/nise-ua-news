@@ -7,6 +7,5 @@ This digest is 100% prepared by AI.
 perplexity.ai/discover/*
 
 ## Hashtags
-Add these hashtags at the end of the post:
-
-#AI #News
+Hashtags are generated automatically from the topics of the articles in each digest.
+Do not add a static hashtag list here: it would be copied to every post as a placeholder.

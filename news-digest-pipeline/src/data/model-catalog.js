@@ -6,6 +6,7 @@
 // Sources:
 //   - Anthropic: https://claude.com/pricing
 //   - OpenAI:    https://developers.openai.com/api/docs/pricing
+//   - OpenRouter: https://openrouter.ai/models
 // Verified: 2026-05-31
 //
 // This is a hand-maintained reference. Update ids/labels/pricing here as the
@@ -30,6 +31,16 @@ export const MODEL_CATALOG = {
     { id: 'gpt-5.4-pro', label: 'GPT-5.4 Pro', pricing: { input: 30, output: 180 } },
     { id: 'o3', label: 'o3', pricing: { input: 2, output: 8 } },
     { id: 'gpt-4.1-nano', label: 'GPT-4.1 Nano', pricing: { input: 0.1, output: 0.4 } },
+  ],
+  openrouter: [
+    { id: 'deepseek/deepseek-chat', label: 'DeepSeek V3 (OpenRouter)', pricing: { input: 0.27, output: 1.1 } },
+    { id: 'deepseek/deepseek-reasoner', label: 'DeepSeek R1 (OpenRouter)', pricing: { input: 0.55, output: 2.19 } },
+  ],
+  moonshot: [
+    { id: 'kimi-k2.7-code', label: 'Kimi K2.7 Code', pricing: { input: 2.0, output: 8.0 } },
+    { id: 'kimi-k2.6', label: 'Kimi K2.6', pricing: { input: 2.0, output: 10.0 } },
+    { id: 'kimi-k3', label: 'Kimi K3', pricing: { input: 2.0, output: 8.0 } },
+    { id: 'kimi-k2.7-code-highspeed', label: 'Kimi K2.7 Code Highspeed', pricing: { input: 1.0, output: 4.0 } },
   ],
 };
 

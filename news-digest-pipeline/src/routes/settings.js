@@ -8,20 +8,22 @@ const router = Router();
 
 const MAX_TEXT_BYTES = 100 * 1024; // ~100KB per text field
 
-// .env keys that this API is allowed to write. Everything else is preserved
-// untouched. Secrets are deliberately NOT in this list.
-const ENV_WRITABLE = {
-  claudeModel: 'CLAUDE_MODEL',
-  llmVendor: 'LLM_VENDOR',
-  anthropicBaseUrl: 'ANTHROPIC_BASE_URL',
-  openaiBaseUrl: 'OPENAI_BASE_URL',
-  articleThreshold: 'ARTICLE_THRESHOLD',
-  maxArticlesPerDigest: 'MAX_ARTICLES_PER_DIGEST',
-  checkIntervalMs: 'CHECK_INTERVAL_MS',
-  activeScenario: 'ACTIVE_SCENARIO',
-};
-
-const LLM_VENDORS = ['anthropic', 'openai'];
+ // .env keys that this API is allowed to write. Everything else is preserved
+ // untouched. Secrets are deliberately NOT in this list.
+  const ENV_WRITABLE = {
+    claudeModel: 'CLAUDE_MODEL',
+    llmVendor: 'LLM_VENDOR',
+    anthropicBaseUrl: 'ANTHROPIC_BASE_URL',
+    openaiBaseUrl: 'OPENAI_BASE_URL',
+    openrouterBaseUrl: 'OPENROUTER_BASE_URL',
+    moonshotBaseUrl: 'MOONSHOT_BASE_URL',
+    articleThreshold: 'ARTICLE_THRESHOLD',
+    maxArticlesPerDigest: 'MAX_ARTICLES_PER_DIGEST',
+    checkIntervalMs: 'CHECK_INTERVAL_MS',
+    activeScenario: 'ACTIVE_SCENARIO',
+  };
+  
+  const LLM_VENDORS = ['anthropic', 'openai', 'openrouter', 'moonshot'];
 
 // Suggested model ids per vendor come from the shared catalog
 // (src/data/model-catalog.js), which also carries pricing. The UI always
@@ -70,12 +72,22 @@ function buildSettingsPayload() {
         editable: true,
         placeholder: 'https://api.anthropic.com',
       },
-      openaiBaseUrl: {
-        value: config.openaiBaseUrl,
-        editable: true,
-        placeholder: 'https://api.openai.com/v1',
-      },
-      modelCatalog: MODEL_CATALOG,
+       openaiBaseUrl: {
+         value: config.openaiBaseUrl,
+         editable: true,
+         placeholder: 'https://api.openai.com/v1',
+       },
+        openrouterBaseUrl: {
+          value: config.openrouterBaseUrl,
+          editable: true,
+          placeholder: 'https://openrouter.ai/api/v1',
+        },
+        moonshotBaseUrl: {
+          value: config.moonshotBaseUrl,
+          editable: true,
+          placeholder: 'https://api.moonshot.cn/v1',
+        },
+        modelCatalog: MODEL_CATALOG,
       nodeEnv: { value: config.nodeEnv, editable: false },
       baseUrl: { value: config.baseUrl, editable: false },
       dbPath: { value: config.dbPath, editable: false },
@@ -117,9 +129,11 @@ function buildSettingsPayload() {
         pageId: maskSecret(config.facebookPageId),
         pageAccessToken: maskSecret(config.facebookPageAccessToken),
       },
-      anthropicApiKey: maskSecret(config.anthropicApiKey),
-      openaiApiKey: maskSecret(config.openaiApiKey),
-      falKey: maskSecret(config.falKey),
+       anthropicApiKey: maskSecret(config.anthropicApiKey),
+       openaiApiKey: maskSecret(config.openaiApiKey),
+        openrouterApiKey: maskSecret(config.openrouterApiKey),
+        moonshotApiKey: maskSecret(config.moonshotApiKey),
+        falKey: maskSecret(config.falKey),
       // Planned integrations — pipelines not implemented yet, status only.
       // Secrets are not editable via API (only via .env), like all other secrets.
       planned: {
@@ -268,8 +282,10 @@ function validatePatch(body) {
     env[envKey] = v;
   };
 
-  baseUrlField('anthropicBaseUrl', ENV_WRITABLE.anthropicBaseUrl);
-  baseUrlField('openaiBaseUrl', ENV_WRITABLE.openaiBaseUrl);
+    baseUrlField('anthropicBaseUrl', ENV_WRITABLE.anthropicBaseUrl);
+    baseUrlField('openaiBaseUrl', ENV_WRITABLE.openaiBaseUrl);
+    baseUrlField('openrouterBaseUrl', ENV_WRITABLE.openrouterBaseUrl);
+    baseUrlField('moonshotBaseUrl', ENV_WRITABLE.moonshotBaseUrl);
 
   const intField = (name, min, max) => {
     if (body[name] === undefined) return;

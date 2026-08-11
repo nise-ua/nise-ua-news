@@ -570,11 +570,11 @@
 
       if (active === 'general') {
         const g = d.general;
-        const catalog = g.modelCatalog || { anthropic: [], openai: [] };
+        const catalog = g.modelCatalog || { anthropic: [], openai: [], openrouter: [] };
         const vendor = (g.llmVendor && g.llmVendor.value) || 'anthropic';
         const currentModel = (g.model && g.model.value) || (g.claudeModel && g.claudeModel.value) || '';
-        const vendorOpts = ['anthropic', 'openai'].map((v) =>
-          `<option value="${v}" ${v === vendor ? 'selected' : ''}>${v === 'anthropic' ? 'Anthropic' : 'OpenAI'}</option>`
+        const vendorOpts = ['anthropic', 'openai', 'openrouter', 'moonshot'].map((v) =>
+          `<option value="${v}" ${v === vendor ? 'selected' : ''}>${v === 'anthropic' ? 'Anthropic' : v === 'openai' ? 'OpenAI' : v === 'openrouter' ? 'OpenRouter' : 'Moonshot (Kimi)'}</option>`
         ).join('');
         const modelList = catalog[vendor] || [];
         const inList = modelList.some((m) => m.id === currentModel);
@@ -609,6 +609,16 @@
               <label>Ендпоінт OpenAI (OPENAI_BASE_URL)</label>
               <input type="text" id="f-openaiBaseUrl" placeholder="${esc((g.openaiBaseUrl && g.openaiBaseUrl.placeholder) || 'https://api.openai.com/v1')}" value="${esc((g.openaiBaseUrl && g.openaiBaseUrl.value) || '')}">
               <div class="hint">Залиште порожнім для значення за замовчуванням.</div>
+            </div>
+            <div class="field">
+              <label>Ендпоінт OpenRouter (OPENROUTER_BASE_URL)</label>
+              <input type="text" id="f-openrouterBaseUrl" placeholder="${esc((g.openrouterBaseUrl && g.openrouterBaseUrl.placeholder) || 'https://openrouter.ai/api/v1')}" value="${esc((g.openrouterBaseUrl && g.openrouterBaseUrl.value) || '')}">
+              <div class="hint">Залиште порожнім для значення за замовчуванням. Використовується для моделей DeepSeek на OpenRouter.</div>
+            </div>
+            <div class="field">
+              <label>Ендпоінт Moonshot (MOONSHOT_BASE_URL)</label>
+              <input type="text" id="f-moonshotBaseUrl" placeholder="${esc((g.moonshotBaseUrl && g.moonshotBaseUrl.placeholder) || 'https://api.moonshot.ai/v1')}" value="${esc((g.moonshotBaseUrl && g.moonshotBaseUrl.value) || '')}">
+              <div class="hint">Залиште порожнім для значення за замовчуванням. Використовується для моделей Kimi (Moonshot AI).</div>
             </div>
             <div class="field">
               <label>Середовище (NODE_ENV)</label>
@@ -686,6 +696,8 @@
             <div class="group-subtitle">API-ключі</div>
             ${secretRow('Anthropic API Key', pub.anthropicApiKey)}
             ${secretRow('OpenAI API Key', pub.openaiApiKey)}
+            ${secretRow('OpenRouter API Key', pub.openrouterApiKey)}
+            ${secretRow('Moonshot API Key', pub.moonshotApiKey)}
             ${secretRow('Fal Key', pub.falKey)}
             ${plannedSection(pub.planned)}
           </div>`;
@@ -776,7 +788,7 @@
       const customInp = document.getElementById('f-modelCustom');
       if (!vendorSel || !modelSel || !customInp) return;
 
-      const catalog = (DATA.general && DATA.general.modelCatalog) || { anthropic: [], openai: [] };
+      const catalog = (DATA.general && DATA.general.modelCatalog) || { anthropic: [], openai: [], openrouter: [], moonshot: [] };
 
       const refreshCustomVisibility = () => {
         customInp.style.display = modelSel.value === '__custom__' ? 'block' : 'none';
@@ -826,6 +838,8 @@
           claudeModel: modelId,
           anthropicBaseUrl: document.getElementById('f-anthropicBaseUrl').value.trim(),
           openaiBaseUrl: document.getElementById('f-openaiBaseUrl').value.trim(),
+          openrouterBaseUrl: document.getElementById('f-openrouterBaseUrl').value.trim(),
+          moonshotBaseUrl: document.getElementById('f-moonshotBaseUrl').value.trim(),
         };
       }
       if (id === 'queue') {

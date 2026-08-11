@@ -10,6 +10,7 @@ import { publishDigest } from '../services/publishers/index.js';
 import { getDb } from '../db/index.js';
 import config from '../config.js';
 
+import { getVideoJob, startVideoGeneration } from '../services/video-generator.js';
 const router = Router();
 
 // POST /api/digests/generate — manual trigger
@@ -75,6 +76,14 @@ router.get('/latest/text', (req, res) => {
   }
 });
 
+// GET /api/digests/video-jobs/:jobId — progress for an asynchronous render.
+// This must be registered before /:id so Express does not treat video-jobs as a digest id.
+router.get('/video-jobs/:jobId', (req, res) => {
+  const job = getVideoJob(req.params.jobId);
+  if (!job) return res.status(404).json({ error: 'Video job not found or expired' });
+  res.json({ job });
+});
+
 // GET /api/digests/:id — single digest with articles
 router.get('/:id', (req, res) => {
   try {
@@ -131,6 +140,24 @@ router.post('/:id/publish', async (req, res) => {
   }
 });
 
+// POST /api/digests/:id/generate-video — enqueue video generation and return a job
+router.post('/:id/generate-video', async (req, res) => {
+  try {
+    const digest = getDigest(req.params.id);
+    if (!digest) {
+      return res.status(404).json({ error: 'Digest not found' });
+    }
+    if (!digest.content) {
+      return res.status(400).json({ error: 'Digest has no content to generate video' });
+    }
+
+    res.status(202).json({ job: startVideoGeneration(digest.id) });
+  } catch (err) {
+    console.error('[digests] POST /:id/generate-video error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // PATCH /api/digests/:id/mark-copied — mark digest as copied
 router.patch('/:id/mark-copied', (req, res) => {
   try {
@@ -155,7 +182,7 @@ router.patch('/:id/mark-copied', (req, res) => {
 router.patch('/:id/status', (req, res) => {
   try {
     const { status } = req.body;
-    if (!status || !['draft', 'published'].includes(status)) {
+    if (status !== 'draft' && status !== 'published') {
       return res.status(400).json({ error: 'Status must be "draft" or "published"' });
     }
 

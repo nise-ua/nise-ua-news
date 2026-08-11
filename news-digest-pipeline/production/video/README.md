@@ -1,117 +1,144 @@
 # Video Pipeline — Instagram Reels / YouTube Shorts
 
-**Status:** Research completed, ready for implementation
+**Status:** ✅ Implemented & working end-to-end (production, UI-triggered)
 
 ## Concept
 
-Automatic generation of 15-90 second videos from the digest for Instagram Reels, YouTube Shorts, and TikTok. Each clip is 5-15 seconds long, stitched locally via FFmpeg.
+Automatic generation of short reels (30-90s) from the digest: 5-6 synchronized clips, natural Ukrainian neural voice-over, and an energetic background-music bed — assembled locally via FFmpeg into 1080×1920 (9:16) H.264 MP4.
 
-## Architecture
+## Current Working Implementation (Aug 2026)
 
-```mermaid
-flowchart TD
-    A[📰 Finished Digest] --> B[🤖 Claude / GPT-4o]
-    
-    B --> C[📋 Script / Storyboard<br/>JSON: 6-10 shots × 5-15 sec]
-    
-    T[🎨 Style Template<br/>reference image] --> D
-    C --> D{Video API}
-    
-    D --> D1[🎬 Kling 3.0<br/>guidances 6 shots]
-    D --> D2[🎬 Veo 3.1 Lite<br/>clip by clip]
-    D --> D3[🎬 Seedance 2.0<br/>omni_reference]
-    
-    D1 --> E[📁 shot_01.mp4<br/>shot_02.mp4<br/>shot_03.mp4<br/>...]
-    D2 --> E
-    D3 --> E
-    
-    E --> F[🎵 FFmpeg<br/>concat + audio + resize<br/>1080×1920 H.264]
-    
-    G[🎤 TTS Voice-over<br/>optional] --> F
-    
-    F --> H[📱 reel_final.mp4]
-    
-    H --> I{Publication}
-    I --> I1[📸 Instagram Reels]
-    I --> I2[🎬 YouTube Shorts]
-    I --> I3[🎵 TikTok]
+This is the **proven, in-production** path — the same quality you get from the UI "Generate video" button.
 
-    style A fill:#e3f2fd
-    style H fill:#c8e6c9
-    style D1 fill:#fff3e0
-    style D2 fill:#fff3e0
-    style D3 fill:#fff3e0
+### Locked V1 Reel Style
+
+These rules are the production contract for every V1 run:
+
+- Use a full-bleed fresh AI background in native 9:16. Do not use the old plashka/card layout, borders, or the red `НОВИНИ` label.
+- Render a meaningful Ukrainian editorial headline first: normally 6–11 words, large and readable, and complete enough to explain the main fact without relying on the paragraph below.
+- Render optional detail text below the headline in a smaller font. It must be one or two short, complete sentences and must not repeat the headline.
+- Keep each spoken hook short and complete (8–12 Ukrainian words). Five stories should take approximately 30 seconds in total; narration must never end mid-phrase.
+- Set `textPosition` to `upper` or `lower` according to the background focal object. Image prompts must leave negative space in the selected text area so text does not cover the subject.
+- Do not render `Більше новин тут...` or any other CTA inside the MP4. Video text is not clickable. When `BASE_URL` is configured, the Facebook Reel/Video caption contains `Більше новин тут: <BASE_URL>` followed by the digest content, making the URL clickable in the post.
+- Generate a complete new background set for every digest. Never reuse an older carousel image or substitute a synthetic fallback for a missing shot.
+
+The CLI and UI use this same contract and entry point. The UI request
+`POST /api/digests/:id/generate-video` calls `startVideoGeneration(digest.id)`,
+which spawns `production/video/src/generate-reel.js <digest-id>` with no alternate
+configuration. To reproduce a UI run from a shell, use the same script and digest ID.
+
+### Pipeline (UI button → final reel)
+
+```
+Digest (DB, newest by DATE) ──► Storyboard
+                                  │
+        ┌─────────────────────────┴─────────────────────────┐
+        │                                                   │
+   AI storyboard (Anthropic/OpenAI)             Fallback parser (digest
+   when API credits available                             items → shots)
+                                  │
+                                  ▼
+   Shot background images
+         └─ Required: complete AI 9:16 text-free set (OpenRouter/OpenAI/fal)
+            If any shot image fails, stop before TTS/video work.
+                                  │
+                                  ▼
+   Natural Ukrainian TTS per shot (edge-tts uk-UA-PolinaNeural,
+   neural, free via `uvx`; ElevenLabs auto if ELEVENLABS_API_KEY set)
+                                  │
+                                  ▼
+   Motion clip generated per shot (duration = TTS duration,
+   exact A/V sync)
+                                  │
+                                  ▼
+   Stitch all clips + background-music.mp3 (132 BPM news bed)
+                                  │
+                                  ▼
+   reel_<timestamp>.mp4   (1080×1920, H.264/AAC, faststart)
 ```
 
-## Model Comparison (April 2026)
+### Key production components
 
-| Model | Storyboard API | Style ref | 9:16 | Audio | Max Dur. | Price/sec | 60s Reel |
+| Step | What works today | Notes |
+|------|------------------|-------|
+| **Digest source** | `news-digest.db` — `ORDER BY date DESC LIMIT 1` | The image carousels are built from the same newest digest, so voiceover/pictures/text always match. Falls back to API → local `output/digest_*.txt`. |
+| **Storyboard** | Fallback: parse numbered digest items → shots (headline + spokenText + prompt) | AI storyboard is attempted first; when API credits are unavailable it auto-falls back. |
+| **Background images** | Complete fresh AI-generated text-free 9:16 set for this digest | OpenRouter uses `POST /api/v1/images`; no old carousel or synthetic fallback. |
+| **Voice-over** | `uvx edge-tts` → `uk-UA-PolinaNeural` (natural neural Ukrainian) | Free, no API key, no credits. `ELEVENLABS_API_KEY` switches to ElevenLabs. |
+| **Background music** | `assets/background-music.mp3` — synthesized 132 BPM anthemic news bed | Regenerate: `node src/generate-background-music.cjs` (loudnorm −14 LUFS + limiter). |
+| **Sync** | Each clip's duration = its TTS duration; voiceover paired per clip before stitching | `mergeShotVideoAndAudio` per shot; music ducked under voice in `stitch.js`. |
+| **Assembly** | `stitchClips({ clipPaths, outputPath, backgroundMusic: true })` | 1080×1920 9:16, H.264/AAC, faststart. |
+
+### Scripts
+
+```
+src/generate-reel.js                # MAIN entry (UI / production)
+   node src/generate-reel.js latest
+   node src/generate-reel.js <digest-id>
+
+src/stitch-real-test.mjs            # Real-data test harness (proven path)
+src/generate-background-music.cjs   # Synthesizes assets/background-music.mp3
+src/stitch.js                       # FFmpeg concat + music mix
+src/generate-clips.js              # Static 9:16 frame + locked V1 overlay
+src/storyboard.js                   # AI storyboard (optional; fallback in script)
+```
+
+### Configuration (`.env`)
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `EDGE_TTS_VOICE` | Neural Ukrainian voice | `uk-UA-PolinaNeural` |
+| `ELEVENLABS_API_KEY` | Prefer ElevenLabs natural voice (optional) | *(none → edge-tts)* |
+| `OPENROUTER_API_KEY` | OpenRouter image generation | *(none → image generation fails fast)* |
+| `OPENROUTER_BASE_URL` | OpenRouter-compatible base URL | `https://openrouter.ai/api/v1` |
+| `IMAGE_VENDOR` | `openrouter`, `openai`/`dalle`, or `fal` | auto-detect |
+| `DALLE_MODEL` | Image model; OpenRouter example `qwen/qwen-image-3-pro` | `dall-e-3` for OpenAI |
+| `OPENAI_API_KEY` | AI storyboard + OpenAI Images (optional) | *(none → storyboard fallback)* |
+| `FAL_KEY` | fal/flux 9:16 backgrounds (optional) | *(none → image generation fails fast)* |
+| `SERVER_URL` | Digest API for named digests | `http://localhost:3000` |
+| `API_ACCESS_KEY` | Auth header for digest API | *(none)* |
+
+---
+
+## Original Research (Kling/Veo/Seedance — not required anymore)
+
+The current pipeline produces reels **locally without paid video-generation APIs** (static AI stills + TTS + music). The research below remains relevant if you later want AI-generated **native video motion**.
+
+### Model Comparison (April 2026)
+
+| Model | Storyboard API | Style ref | 9:16 | Audio | Max clip | Price/sec | 60s Reel |
 |--------|---------------|-----------|------|-------|-------------|----------|----------|
 | **Kling 3.0** | ✅ 6 shots | ✅ Elements 3.0 | ✅ | ✅ | 15 sec | $0.075 | $4.50 |
 | **Veo 3.1 Lite** | ❌ | ✅ 3 ref img | ✅ | ✅ | 8 sec | $0.05-0.08 | $3.00-4.80 |
 | **Seedance 2.0** | ⚠️ auto | ✅ 12 ref files | ✅ | ✅ | 15 sec | $0.081 | $4.86 |
 | **Runway Gen-4.5** | ❌ | ✅ single ref | ✅ | ❌ | 10 sec | ~$0.12 | $7.20 |
 
-## Recommended Stack
+### Recommended (if adding native video motion later)
 
-### Primary: Kling 3.0 (EvoLink)
-- **Why:** The only one with a multi-shot `guidances[]` API — the entire storyboard in one call.
-- **Elements 3.0:** Upload template once → `element_id` for all generations.
-- **Native Audio** synchronized.
-- **$0.075/sec** via EvoLink.
-
-### Backup: Veo 3.1 Lite (Gemini API)
-- **Why:** Cheapest ($0.05/sec@720p), integration with Gemini SDK.
-
-## Pipeline Steps
-
-### Step 1: Script Generation
-Claude/GPT-4o creates a JSON storyboard from the digest text:
-```json
-{
-  "shots": [
-    {"shot": 1, "prompt": "Tech cityscape at night, glowing data streams, slow push-in", "duration": 8},
-    {"shot": 2, "prompt": "Abstract network nodes connecting, deep blue tones", "duration": 7}
-  ]
-}
-```
-
-### Step 2: Style Registration
-Upload a reference image (brand template) → get `element_id` (Kling) or pass `reference_images` (Veo).
-
-### Step 3: Parallel Clip Generation
-All shots are generated in parallel via asyncio. Time: 5-15 minutes.
-
-### Step 4: FFmpeg Assembly
-```bash
-ffmpeg -y -f concat -safe 0 -i concat_list.txt \
-  -c:v libx264 -crf 23 -preset fast \
-  -c:a aac -b:a 128k \
-  -vf "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:-1:-1" \
-  -movflags +faststart \
-  reel_final.mp4
-```
-
-### Step 5: Publication
-Instagram Graph API → POST /media (video upload) → POST /media_publish
+- **Primary: Kling 3.0 (EvoLink)** — only one with multi-shot `guidances[]` API.
+- **Backup: Veo 3.1 Lite (Gemini API)** — cheapest ($0.05/sec@720p).
 
 ## Structure
 
 ```
 production/video/
-├── README.md                # This file
+├── README.md                # This file (working implementation + research)
 ├── research-video-apis.md   # Full research
-├── templates/               # Style reference images
+├── assets/
+│   └── background-music.mp3 # Energetic 132 BPM news music bed (synthesized)
 ├── output/                  # Finished reels
 └── src/
-    ├── storyboard.js        # Claude → JSON script
-    ├── generate-clips.js    # Kling/Veo API → MP4 clips
-    ├── stitch.js            # FFmpeg concatenation
-    └── publish.js           # Instagram/YouTube upload
+    ├── generate-reel.js         # MAIN production entry (UI)
+    ├── generate-background-music.cjs  # Music synth → assets/*.mp3
+    ├── stitch-real-test.mjs     # Real-data test harness
+    ├── storyboard.js            # AI storyboard (optional)
+    ├── generate-clips.js        # Static 9:16 clips + locked V1 overlay
+    ├── stitch.js                # FFmpeg concat + music mix
+    └── test-functional.mjs      # Functional tests
 ```
 
-## Risks
+## Risks / Notes
 
-- **Generation Time:** 5-15 minutes per clip.
-- **Style Drift:** Differences between clips. Solution: Elements 3.0.
-- **Audio Alignment:** Native audio may not transition smoothly. Solution: separate audio track.
+- **TTS network:** edge-tts calls Microsoft servers — needs internet. Retry logic recommended in batch jobs.
+- **Images:** a complete fresh image set is mandatory; missing/partial images stop the run before TTS and clips.
+- **Generation time:** ~1-2 min for a 5-shot reel entirely locally (images already exist; only clips + audio + stitch).

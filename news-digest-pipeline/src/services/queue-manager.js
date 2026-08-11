@@ -1,9 +1,25 @@
-import { getArticleCount, getNewArticles } from '../db/index.js';
+import { getArticleCount, getNewArticles, resetStuckProcessingArticles } from '../db/index.js';
 import { generateDigest } from './digest-generator.js';
 import { notifyDigestReady } from './notifier.js';
 import { getDb } from '../db/index.js';
 
 let running = false;
+
+// Stale-processing sweep: if a digest generation run crashes or hangs without
+// cleaning up, articles can be left in 'processing' forever. Periodically reset
+// articles that have been stuck longer than the threshold.
+const STALE_PROCESSING_MINUTES = 30;
+
+async function sweepStaleProcessing() {
+  try {
+    const res = resetStuckProcessingArticles(STALE_PROCESSING_MINUTES);
+    if (res.updated > 0) {
+      console.log(`[queue-manager] Recovery sweep: reset ${res.updated} stale 'processing' article(s) to 'new'`);
+    }
+  } catch (err) {
+    console.error('[queue-manager] Recovery sweep failed:', err.message);
+  }
+}
 
 async function processQueue(config) {
   if (running) {
@@ -13,6 +29,10 @@ async function processQueue(config) {
   running = true;
 
   try {
+    // Run recovery sweep before each processing pass so articles stuck from a
+    // previous crashed/hung run are picked up again.
+    await sweepStaleProcessing();
+
     const newCount = getArticleCount('new');
 
     if (newCount < config.articleThreshold) {

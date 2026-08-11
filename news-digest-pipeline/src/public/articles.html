@@ -135,6 +135,14 @@
       border-color: rgba(239,68,68,0.3);
       background: rgba(239,68,68,0.08);
     }
+    .btn-reset {
+      color: #0369a1;
+    }
+    .btn-reset:hover {
+      color: #0284c7;
+      border-color: rgba(3,105,161,0.3);
+      background: rgba(3,105,161,0.08);
+    }
   </style>
 </head>
 <body>
@@ -201,6 +209,7 @@
             <td><span class="status-badge status-${a.status}">${a.status}</span></td>
             <td>${date}</td>
             <td>
+              ${['error', 'used'].includes(a.status) ? `<button class="btn btn-reset" onclick="resetArticle('${a.id}', '${a.status}')" title="Повернути в нові">↺</button>` : ''}
               <button class="btn btn-delete" onclick="deleteArticle('${a.id}')" title="Видалити">✕</button>
             </td>
           </tr>
@@ -216,6 +225,21 @@
           loadArticles();
         } else {
           const data = await res.json();
+          alert('Помилка: ' + data.error);
+        }
+      } catch (err) {
+        alert('Помилка мережі: ' + err.message);
+      }
+    }
+
+    async function resetArticle(id, status) {
+      if (!confirm(`Повернути статтю зі статусу «${status}» у нові?`)) return;
+      try {
+        const res = await fetch(`/api/articles/${id}/reset`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          loadArticles();
+        } else {
           alert('Помилка: ' + data.error);
         }
       } catch (err) {

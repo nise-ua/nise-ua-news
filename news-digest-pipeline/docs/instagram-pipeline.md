@@ -111,6 +111,63 @@ Example: "AI fired 80% of the department. Boss doesn't regret it."
 Example: "Stack Overflow is dead. What's next?"
 ```
 
+## Phase 5: Video Reels (Working, Aug 2026)
+
+**Task:** Generate a synchronized Reel from the same digest + carousel images — voice-over + music — published via the video pipeline.
+
+**Status:** ✅ Implemented in production. The UI button and CLI use the same
+production entry point. `POST /api/digests/:id/generate-video` calls
+`startVideoGeneration(digest.id)`, which spawns:
+`node production/video/src/generate-reel.js <digest-id>`.
+There are no UI-specific generation flags or alternate styles; `latest` is the
+CLI shorthand for selecting the newest digest.
+
+**Working Reel Recipe (matches current on-brand results):**
+
+1. **Source of truth = newest digest by DATE** (not alphabetical file sort):
+   `SELECT content FROM digests ORDER BY date DESC LIMIT 1` from `data/news-digest.db`.
+   The carousel images are built from the same newest digest, so pictures, voice, and text always match.
+
+2. **Images = complete fresh set generated for this digest.**
+    - Video uses OpenRouter (`POST /api/v1/images`), OpenAI, or fal for text-free 9:16 backgrounds.
+    - Prompts place the focal object away from the selected `textPosition` (`upper` or `lower`) and leave negative space for the overlay.
+    - A missing or partial set stops the reel before TTS/clips; older carousel files are never reused.
+
+3. **Locked V1 editorial and visual style:**
+    - Full-bleed background only: no plashka/card layout, borders, or red `НОВИНИ` label.
+    - Large meaningful Ukrainian headline (6–11 words) followed, when useful, by smaller detail text (one or two complete sentences).
+    - Short complete spoken hook per story (8–12 words), targeting approximately 30 seconds for five stories; never truncate narration mid-phrase.
+    - Use `textPosition: "upper"` or `"lower"` to avoid covering the image’s focal object.
+    - No `Більше новин тут...` CTA is embedded in the MP4 because it cannot be clicked there.
+
+4. **Voice = natural neural Ukrainian TTS**:
+   - Default: `uvx edge-tts --voice uk-UA-PolinaNeural` (free, no API credits, human-quality).
+   - Optional: `ELEVENLABS_API_KEY` switches to ElevenLabs multilingual.
+
+5. **Music = energetic 132 BPM news bed**:
+   - `assets/background-music.mp3` (synthesized by `generate-background-music.cjs`, −14 LUFS).
+
+6. **Clip sync**: each clip duration = its TTS duration; voiceover mixed per clip before stitching; music under voice.
+
+7. **Output**: `production/video/output/reel_<timestamp>.mp4` — 1080×1920 9:16 H.264/AAC.
+
+8. **Facebook caption URL**: when `BASE_URL` is configured, the publisher adds
+   `Більше новин тут: <BASE_URL>` above the digest content in the Reel/Video
+   caption. This is the clickable-link location; the MP4 contains no CTA text.
+
+**Scripts:**
+```
+production/video/src/generate-reel.js              # production entry (UI)
+production/video/src/stitch-real-test.mjs           # real-data test harness
+production/video/src/generate-background-music.cjs  # music synthesis
+```
+
+### Success Criteria (Phase 5)
+- Voiceover matches the latest digest text AND the on-screen carousel headlines (verified via OCR).
+- Voice is natural neural Ukrainian (edge-tts / ElevenLabs), not robotic.
+- Background music is energetic/advertising-friendly, not noise.
+- Reel generation is fully automated from the UI button.
+
 ## Notes
 
 - Instagram API requires a Business/Creator account.

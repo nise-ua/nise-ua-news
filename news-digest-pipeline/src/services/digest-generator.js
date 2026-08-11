@@ -13,10 +13,14 @@ import {
   getDb,
 } from '../db/index.js';
 import { priceFor } from '../data/model-catalog.js';
+import { buildDynamicHashtags, replaceHashtagFooter } from './hashtags.js';
 
 const MAX_CONTENT_LENGTH = 3000;
 const RETRY_ATTEMPTS = 3;
 const INTER_CALL_DELAY_MS = 200;
+// Per-call timeout so a hung LLM request cannot leave articles stuck in
+// 'processing' forever. Each SDK call gets its own AbortSignal timeout.
+const MODEL_CALL_TIMEOUT_MS = 120000; // 2 minutes
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -41,38 +45,73 @@ async function withRetry(fn, attempt = 1) {
 }
 
 /**
- * Vendor-agnostic single-shot model call. Routes to Anthropic (default) or
- * OpenAI based on config.llmVendor. Returns text plus token usage.
+ * Vendor-agnostic single-shot model call. Routes to Anthropic, OpenAI or
+ * OpenRouter based on config.llmVendor. Returns text plus token usage.
  *
  * @param {Object} config App config (llmVendor, claudeModel, *BaseUrl, *ApiKey)
  * @param {{system:string, user:string, maxTokens:number}} opts
  * @returns {Promise<{text:string, inputTokens:number, outputTokens:number}>}
  */
-async function callModel(config, { system, user, maxTokens }) {
+async function callModel(config, { system, user, maxTokens }, phaseName = 'model') {
   const vendor = config.llmVendor || 'anthropic';
+  const callStart = Date.now();
+  console.log(`[digest-generator] ${phaseName}: LLM call started at ${new Date().toISOString()} (vendor=${vendor}, model=${config.claudeModel})`);
 
-  if (vendor === 'openai') {
-    if (!config.openaiApiKey) {
-      throw new Error('OpenAI API key не налаштовано (.env: OPENAI_API_KEY)');
+  // OpenAI-compatible callers: OpenAI (native), OpenRouter (OpenAI-compatible
+  // API with DeepSeek & other routed models), and Moonshot (Kimi). The `openai`
+  // SDK is used for all three.
+  if (vendor === 'openai' || vendor === 'openrouter' || vendor === 'moonshot') {
+    const apiKey = vendor === 'openrouter'
+      ? config.openrouterApiKey
+      : vendor === 'moonshot'
+      ? config.moonshotApiKey
+      : config.openaiApiKey;
+    const baseUrl = vendor === 'openrouter'
+      ? (config.openrouterBaseUrl || 'https://openrouter.ai/api/v1')
+      : vendor === 'moonshot'
+      ? (config.moonshotBaseUrl || 'https://api.moonshot.ai/v1')
+      : config.openaiBaseUrl;
+
+    if (!apiKey) {
+      const keyName = vendor === 'openrouter' ? 'OPENROUTER_API_KEY' : vendor === 'moonshot' ? 'MOONSHOT_API_KEY' : 'OPENAI_API_KEY';
+      const vendorLabel = vendor === 'openrouter' ? 'OpenRouter' : vendor === 'moonshot' ? 'Moonshot' : 'OpenAI';
+      throw new Error(`${vendorLabel} API key не налаштовано (.env: ${keyName})`);
     }
     // Lazy import so the package is never loaded for the anthropic path and a
     // missing install does not break startup.
     const OpenAI = (await import('openai')).default;
     const client = new OpenAI({
-      apiKey: config.openaiApiKey,
-      baseURL: config.openaiBaseUrl || undefined,
+      apiKey,
+      baseURL: baseUrl || undefined,
     });
-    console.log(`[callModel] Calling OpenAI with model: ${config.claudeModel}`);
-    const resp = await withRetry(() => client.chat.completions.create({
-      model: config.claudeModel,
-      max_completion_tokens: maxTokens,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-    }));
+    const vendorLabel = vendor === 'openrouter' ? 'OpenRouter' : vendor === 'moonshot' ? 'Moonshot' : 'OpenAI';
+    console.log(`[callModel] Calling ${vendorLabel} with model: ${config.claudeModel}`);
+    let resp;
+    try {
+      const completionParams = {
+        model: config.claudeModel,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+      };
+      // Moonshot API uses max_tokens (legacy), not max_completion_tokens
+      if (vendor === 'moonshot') {
+        completionParams.max_tokens = maxTokens;
+      } else {
+        completionParams.max_completion_tokens = maxTokens;
+      }
+      resp = await withRetry(() => client.chat.completions.create(
+        completionParams,
+        { signal: AbortSignal.timeout(MODEL_CALL_TIMEOUT_MS) }
+      ));
+    } catch (err) {
+      console.error(`[digest-generator] ${phaseName}: LLM call FAILED after ${Date.now() - callStart}ms: ${err.message}`);
+      throw err;
+    }
+    console.log(`[digest-generator] ${phaseName}: LLM call OK in ${Date.now() - callStart}ms`);
     return {
-      text: resp.choices[0]?.message?.content || '',
+      text: (resp.choices[0]?.message?.content || resp.choices[0]?.message?.reasoning_content || '') || "",
       inputTokens: resp.usage?.prompt_tokens || 0,
       outputTokens: resp.usage?.completion_tokens || 0,
     };
@@ -83,12 +122,19 @@ async function callModel(config, { system, user, maxTokens }) {
     apiKey: config.anthropicApiKey,
     baseURL: config.anthropicBaseUrl || undefined,
   });
-  const resp = await withRetry(() => client.messages.create({
-    model: config.claudeModel,
-    max_tokens: maxTokens,
-    system,
-    messages: [{ role: 'user', content: user }],
-  }));
+  let resp;
+  try {
+    resp = await withRetry(() => client.messages.create({
+      model: config.claudeModel,
+      max_tokens: maxTokens,
+      system,
+      messages: [{ role: 'user', content: user }],
+    }, { signal: AbortSignal.timeout(MODEL_CALL_TIMEOUT_MS) }));
+  } catch (err) {
+    console.error(`[digest-generator] ${phaseName}: LLM call FAILED after ${Date.now() - callStart}ms: ${err.message}`);
+    throw err;
+  }
+  console.log(`[digest-generator] ${phaseName}: LLM call OK in ${Date.now() - callStart}ms`);
   return {
     text: resp.content[0]?.text || '',
     inputTokens: resp.usage?.input_tokens || 0,
@@ -98,6 +144,8 @@ async function callModel(config, { system, user, maxTokens }) {
 
 export async function generateDigest(db, articles, config) {
   const log = [];
+  const genStart = Date.now();
+  console.log(`[digest-generator] generateDigest START: ${articles.length} article(s) at ${new Date().toISOString()}`);
 
   // Token accounting across every successful model call (Phase A + Phase B).
   let totalInputTokens = 0;
@@ -136,8 +184,11 @@ export async function generateDigest(db, articles, config) {
         system: commentarySystem,
         user: userMessage,
         maxTokens: 512,
-      });
+      }, `commentary[${article.id}]`);
       const commentary = res.text;
+      if (!commentary || !commentary.trim()) {
+        throw new Error(`LLM returned empty commentary for article ${article.id}`);
+      }
       totalInputTokens += res.inputTokens;
       totalOutputTokens += res.outputTokens;
       updateArticleCommentary(article.id, commentary);
@@ -175,7 +226,7 @@ export async function generateDigest(db, articles, config) {
     .join('\n\n');
 
   const assemblyUserMessageParts = [
-    `Ось ${articlesWithCommentary.length} опрацьованих коментарів для складання дайджесту:`,
+    `Ось ${articlesWithCommentary.length} коментарів для складання дайджесту:`,
     '',
     commentaryList,
     '',
@@ -189,20 +240,44 @@ export async function generateDigest(db, articles, config) {
 
   assemblyUserMessageParts.push(`Кордон / дисклеймер (у кінці): ${config.boundaryIntent}`);
   assemblyUserMessageParts.push('');
-  assemblyUserMessageParts.push(`Хештеги (в самому кінці): ${config.hashtagsSuffix}`);
+  assemblyUserMessageParts.push('Хештеги: не використовуй старі шаблонні хештеги. Наприкінці залиш місце для тематичних хештегів, які система додасть після складання з реальних тем статей.');
 
   const assemblyUserMessage = assemblyUserMessageParts.join('\n');
 
   log.push('Assembling digest...');
+  console.log(`[digest-generator] Phase A complete: ${articlesWithCommentary.length} commentary(ies); Phase B (assembly) START`);
 
-  const assemblyRes = await callModel(config, {
-    system: config.assemblyPrompt,
-    user: assemblyUserMessage,
-    maxTokens: 16384,
-  });
+  let assemblyRes;
+  try {
+    assemblyRes = await callModel(config, {
+      system: config.assemblyPrompt,
+      user: assemblyUserMessage,
+      maxTokens: 16384,
+    }, 'assembly');
+  } catch (err) {
+    // Phase B (assembly) failed AFTER Phase A marked the articles as
+    // 'processing'. Roll them back to 'new' so the next run retries them
+    // instead of leaving them stuck in 'processing' forever.
+    const rollbackStmt = db.prepare(
+      `UPDATE articles SET status = 'new', updated_at = datetime('now') WHERE id = ? AND status = 'processing'`
+    );
+    for (const a of articlesWithCommentary) {
+      rollbackStmt.run(a.id);
+    }
+    log.push(`Digest assembly failed — reset ${articlesWithCommentary.length} article(s) back to 'new': ${err.message}`);
+    throw err;
+  }
   let digestContent = assemblyRes.text;
   totalInputTokens += assemblyRes.inputTokens;
   totalOutputTokens += assemblyRes.outputTokens;
+
+  // Never publish the legacy config.md footer (currently #AI #News). Build
+  // topical hashtags from the actual source articles and append them after the
+  // disclaimer so every platform receives real, post-specific tags.
+  const dynamicHashtags = buildDynamicHashtags(articlesWithCommentary, digestContent, {
+    staticSuffix: config.hashtagsSuffix,
+  });
+  digestContent = replaceHashtagFooter(digestContent, dynamicHashtags, config.hashtagsSuffix);
 
   // Post-processing: remove any preamble before the content starts
   // LLM sometimes adds explanatory text before the actual digest
@@ -217,7 +292,7 @@ export async function generateDigest(db, articles, config) {
     }
   } else {
     // If no hashtag, try to find the start of the first item "1."
-    digestStart = digestContent.indexOf('1.');
+    digestStart = digestContent.indexOf('\n1.');
     if (digestStart > 0) {
       digestContent = digestContent.substring(digestStart);
       log.push(`Removed ${digestStart} chars of preamble before "1."`);
@@ -255,6 +330,7 @@ export async function generateDigest(db, articles, config) {
   // Assign articles to digest
   const articleIds = articlesWithCommentary.map((a) => a.id);
   assignArticlesToDigest(articleIds, digestId);
+  console.log(`[digest-generator] Digest ${digestId} created & articles assigned in ${Date.now() - genStart}ms`);
 
   // Save digest as .txt file
   const filePath = saveDigestToFile(today, digestContent);

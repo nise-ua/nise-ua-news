@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS digests (
   facebook_post_id TEXT,
   telegram_message_id TEXT,
   youtube_post_id TEXT,
+  video_url TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );

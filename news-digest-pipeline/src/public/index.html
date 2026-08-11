@@ -304,6 +304,17 @@
       margin-top: 14px;
       letter-spacing: 0.2px;
     }
+    .video-progress {
+      display: inline-flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 150px;
+      color: #7c3aed;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .video-progress-track { height: 5px; background: #eeeaf8; border-radius: 4px; overflow: hidden; }
+    .video-progress-bar { height: 100%; background: linear-gradient(90deg, #7c3aed, #3b82f6); transition: width .3s ease; }
 
     /* Row number */
     .row-num {
@@ -440,8 +451,9 @@
     <div class="header">
       <h1>Панель керування дайджестом новин</h1>
       <div class="header-right">
-        <a class="btn-settings" href="articles.html">&#128240; Статті</a>
-        <a class="btn-settings" href="settings.html">&#9881; Налаштування</a>
+        <a class="btn-settings" href="articles.html">📚 Статті</a>
+        <a class="btn-settings" href="settings.html">⚙️ Налаштування</a>
+        <button class="btn btn-publish-reel" onclick="publishReelUI()" style="margin-left:8px;">📽️ Publish Reel</button>
         <span class="version-badge">v2.0.4 &middot; 13.04.2026</span>
       </div>
     </div>
@@ -502,6 +514,8 @@
       }
     }
 
+    const activeVideoJobs = new Map();
+
     function render(digests) {
       const tbody = document.getElementById('tbody');
       const subtitle = document.getElementById('subtitle');
@@ -531,19 +545,40 @@
           ? `<span class="pub-date">${pub.date} ${pub.time}</span>`
           : '<span class="no-pub">—</span>';
 
-        // Action buttons — per-platform (Facebook only)
+        // Action buttons — per-platform (Facebook & Video)
         let actionBtn = '';
         if (!hasContent) {
           actionBtn = '<span style="color:#444;font-size:12px">немає контенту</span>';
         } else {
           const fbSent = !!d.facebook_post_id;
+          const videoExists = !!d.video_url;
 
           const fbBtn = fbSent
             ? `<button class="plat-btn sent" disabled>✓ FB</button>`
             : `<button class="plat-btn" onclick="publishFacebook('${d.id}',this)">📘 FB</button>`;
+          
+          const activeJob = activeVideoJobs.get(d.id);
+          let videoBtn;
+          if (activeJob) {
+            // If the job has completed, show a direct link instead of the progress UI.
+            if (activeJob.status === 'completed' && activeJob.videoUrl) {
+              videoBtn = `<a class="plat-btn" href="${activeJob.videoUrl}" target="_blank">🎬 Video</a>`;
+            } else {
+              videoBtn = `<span class="video-progress" data-video-job="${activeJob.jobId}"><span class="video-progress-label">⏳ ${activeJob.message || 'Створення відео…'} (${activeJob.progress || 0}%)</span><span class="video-progress-track"><span class="video-progress-bar" style="width:${activeJob.progress || 0}%"></span></span></span>`;
+            }
+          } else if (videoExists) {
+            videoBtn = `<a class="plat-btn" href="${d.video_url}" target="_blank">🎬 Video</a>`;
+          } else {
+            videoBtn = `<button class="plat-btn" onclick="generateVideo('${d.id}', this)">▶️ Video</button>`;
+          }
+
+          // New Reel publish button (if video exists)
+          const reelBtn = videoExists
+            ? `<button class="plat-btn" onclick="publishFacebookReel('${d.id}', this)">📽️ Reel</button>`
+            : '';
 
           const delBtn = `<button class="btn-delete" onclick="deleteDigest('${d.id}')">✕</button>`;
-          actionBtn = `<div class="platform-row"><button class="btn btn-preview" onclick="previewDigest('${d.id}')">&#128065;</button>${fbBtn}<button class="btn btn-copy" onclick="copyDigest('${d.id}', this)">&#128203;</button>${delBtn}</div>`;
+          actionBtn = `<div class="platform-row"><button class="btn btn-preview" onclick="previewDigest('${d.id}')">&#128065;</button>${fbBtn}${videoBtn}${reelBtn}<button class="btn btn-copy" onclick="copyDigest('${d.id}', this)">&#128203;</button>${delBtn}</div>`;
         }
 
         // Status dropdown
@@ -573,6 +608,15 @@
           <td>${actionBtn}</td>
         </tr>`;
       }).join('');
+      for (const [jobId, job] of activeVideoJobs) {
+        const progress = tbody.querySelector(`[data-video-job="${jobId}"]`);
+        if (progress && !job.polling) {
+          pollVideoJob(jobId, progress, null).catch(err => {
+            console.error('Video progress polling failed:', err);
+            job.polling = false;
+          });
+        }
+      }
     }
 
     async function copyDigest(id, btn) {
@@ -642,6 +686,68 @@
       }
     }
 
+    // New Reel publishing function for Facebook
+    async function publishFacebookReel(id, btn) {
+      if (!confirm('Опублікувати Reel у Facebook?')) return;
+      btn.disabled = true;
+      btn.textContent = '⏳...';
+      try {
+        const res = await fetch(`/api/digests/${id}/publish`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platforms: ['facebook-reel'] }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Server error');
+
+        const result = data.published?.facebookReel;
+        if (result?.reelId) {
+          btn.className = 'plat-btn sent';
+          btn.textContent = '📽️ Reel';
+          btn.onclick = null;
+        } else {
+          const errorMsg = result?.error || 'Невідома помилка';
+          alert('Facebook Reel: публікація не вдалася. ' + errorMsg);
+          btn.disabled = false;
+          btn.textContent = '📽️ Reel';
+        }
+        setTimeout(loadDigests, 500);
+      } catch (err) {
+        console.error('Publish Reel failed:', err);
+        alert('Помилка публікації Reel: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = '📽️ Reel';
+      }
+    }
+
+    // UI helper to publish a Reel by entering Digest ID
+    async function publishReelUI() {
+      const id = prompt('Enter Digest ID to publish its Reel:');
+      if (!id) return;
+      if (!confirm('Publish Reel for digest ' + id + '?')) return;
+      try {
+        const res = await fetch(`/api/digests/${id}/publish`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platforms: ['facebook-reel'] }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Server error');
+        const result = data.published?.facebookReel;
+        if (result?.reelId) {
+          alert('Reel published successfully! Reel ID: ' + result.reelId);
+        } else {
+          const errMsg = result?.error || 'Unknown error';
+          alert('Failed to publish Reel: ' + errMsg);
+        }
+        loadDigests();
+      } catch (e) {
+        console.error('Publish Reel UI error:', e);
+        alert('Error publishing Reel: ' + e.message);
+      }
+    }
+
+
     async function deleteDigest(id) {
       if (!confirm('Видалити цей дайджест? Статті повернуться в чергу.')) return;
       try {
@@ -650,6 +756,82 @@
         loadDigests();
       } catch (err) {
         alert('Помилка видалення: ' + err.message);
+      }
+    }
+    
+    // Generate video for a digest via backend endpoint
+    async function generateVideo(id, btn) {
+      if (!confirm('Створити відео для цього дайджеста?')) return;
+      btn.disabled = true;
+      btn.textContent = '⏳ Запуск…';
+      const original = btn.outerHTML;
+      try {
+        const res = await fetch(`/api/digests/${id}/generate-video`, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const retryAfter = res.headers.get('Retry-After');
+          const suffix = retryAfter ? ` Спробуйте через ${retryAfter} с.` : '';
+          throw new Error((data.error || 'Помилка сервера') + suffix);
+        }
+        const job = data.job;
+        activeVideoJobs.set(id, { jobId: job.id, progress: job.progress, message: job.message, polling: false, original, digestId: id });
+        await loadDigests();
+        const progress = document.querySelector(`[data-video-job="${job.id}"]`);
+        if (progress) await pollVideoJob(job.id, progress, original);
+      } catch (err) {
+        console.error('Video generation failed:', err);
+        activeVideoJobs.delete(id);
+        alert('Не вдалося створити відео: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = '▶️ Video';
+      }
+    }
+
+    async function pollVideoJob(jobId, progress, originalButtonHtml) {
+      const active = [...activeVideoJobs.values()].find(job => job.jobId === jobId);
+      if (active?.polling) return;
+      if (active) active.polling = true;
+      for (;;) {
+        const res = await fetch(`/api/digests/video-jobs/${jobId}`);
+        const data = await res.json();
+        if (!res.ok) {
+          if (res.status === 429) {
+            // A transient status request failure should not make the user
+            // restart an already-running video job.
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            continue;
+          }
+          throw new Error(data.error || 'Не вдалося отримати статус відео');
+        }
+        const job = data.job;
+        if (active) Object.assign(active, { progress: job.progress, message: job.message });
+        const currentProgress = document.querySelector(`[data-video-job="${jobId}"]`);
+        if (!currentProgress) {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          continue;
+        }
+        const label = currentProgress.querySelector('.video-progress-label');
+        const bar = currentProgress.querySelector('.video-progress-bar');
+        label.textContent = `${job.status === 'failed' ? '❌' : '⏳'} ${job.message} (${job.progress}%)`;
+        bar.style.width = `${job.progress}%`;
+        if (job.status === 'completed') {
+          const link = document.createElement('a');
+          link.href = job.videoUrl;
+          link.target = '_blank';
+          link.className = 'plat-btn';
+          link.innerHTML = '🎬 Video';
+          currentProgress.replaceWith(link);
+          activeVideoJobs.delete(job.digestId);
+          setTimeout(loadDigests, 300);
+          return;
+        }
+        if (job.status === 'failed') {
+          activeVideoJobs.delete(job.digestId);
+          if (currentProgress.isConnected && originalButtonHtml) currentProgress.replaceWith(document.createRange().createContextualFragment(originalButtonHtml));
+          alert('Не вдалося створити відео: ' + (job.error || 'Невідома помилка'));
+          return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
     }
 

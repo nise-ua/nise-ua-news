@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { MODEL_CATALOG, priceFor } from './model-catalog.js';
 
-describe('MODEL_CATALOG', () => {
-  it('has the expected number of models per vendor', () => {
-    expect(MODEL_CATALOG.anthropic).toHaveLength(7);
-    expect(MODEL_CATALOG.openai).toHaveLength(8);
-  });
+ describe('MODEL_CATALOG', () => {
+   it('has the expected number of models per vendor', () => {
+     expect(MODEL_CATALOG.anthropic).toHaveLength(7);
+     expect(MODEL_CATALOG.openai).toHaveLength(8);
+     expect(MODEL_CATALOG.openrouter).toHaveLength(2);
+   });
 
   it('every model has id, label and numeric input/output pricing', () => {
     for (const vendor of Object.keys(MODEL_CATALOG)) {
@@ -32,9 +33,14 @@ describe('priceFor', () => {
     expect(priceFor('claude-opus-4-6')).toEqual({ input: 5, output: 25 });
   });
 
-  it('returns base prices for a known OpenAI model', () => {
-    expect(priceFor('gpt-5.4-mini')).toEqual({ input: 0.75, output: 4.5 });
-  });
+   it('returns base prices for a known OpenAI model', () => {
+     expect(priceFor('gpt-5.4-mini')).toEqual({ input: 0.75, output: 4.5 });
+   });
+
+   it('returns base prices for a known OpenRouter DeepSeek model', () => {
+     expect(priceFor('deepseek/deepseek-chat')).toEqual({ input: 0.27, output: 1.1 });
+     expect(priceFor('deepseek/deepseek-reasoner')).toEqual({ input: 0.55, output: 2.19 });
+   });
 
   it('returns null for an unknown model', () => {
     expect(priceFor('no-such-model')).toBeNull();
