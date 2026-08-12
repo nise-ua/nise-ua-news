@@ -5,15 +5,38 @@ import { writeFileSync, existsSync, mkdirSync, unlinkSync, readdirSync } from 'f
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import ffmpegStatic from 'ffmpeg-static';
+import ffprobeStaticPkg from 'ffprobe-static';
 import { generateBackgroundMusic, reelMusicPathFor } from './background-music.js';
+import { createShotImage } from './generate-clips.js';
 
 const FFMPEG = ffmpegStatic || 'ffmpeg';
+const FFPROBE = ffprobeStaticPkg.path;
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ASSETS_DIR = join(__dirname, '..', 'assets');
 
 function log(msg) {
   const ts = new Date().toISOString().slice(11, 19);
   console.log(`[${ts}] ${msg}`);
+}
+
+function getVideoDuration(videoPath) {
+  return Number(execSync(
+    `"${FFPROBE}" -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${videoPath}"`,
+    { encoding: 'utf8' }
+  ).trim());
+}
+
+async function generateBlankVideo(outputPath, duration, width = 1080, height = 1920, backgroundImageUrl = null) {
+  let imgPath = null;
+  if (backgroundImageUrl) {
+    const imgBuffer = await createShotImage(backgroundImageUrl, '', '', 'upper', width, height, false);
+    imgPath = join(dirname(outputPath), `blank_bg_${Date.now()}.png`);
+    writeFileSync(imgPath, imgBuffer);
+  }
+  const cmd = `"${FFMPEG}" -y ${imgPath ? `-loop 1 -i "${imgPath}"` : '-f lavfi -i color=c=black'}:s=${width}x${height}:d=${duration} -f lavfi -i anullsrc=r=48000:cl=stereo -c:v libx264 -c:a aac -t ${duration} -pix_fmt yuv420p -movflags +faststart "${outputPath}"`;
+  execSync(cmd, { stdio: 'pipe' });
+  if (imgPath) unlinkSync(imgPath);
+  return outputPath;
 }
 
 /**
@@ -54,7 +77,7 @@ function findStaticBackgroundMusic() {
  * Fresh news-bed synthesis for each reel (distinct style + key/tempo).
  * Falls back to the checked-in asset when synthesis fails.
  */
-function resolveBackgroundMusic({ workDir, reelPath, seed }) {
+function resolveBackgroundMusic({ workDir, reelPath, seed, duration }) {
   if (process.env.BACKGROUND_MUSIC_PATH) {
     const envPath = process.env.BACKGROUND_MUSIC_PATH;
     if (existsSync(envPath) && isUsableMusic(envPath)) {
@@ -69,7 +92,7 @@ function resolveBackgroundMusic({ workDir, reelPath, seed }) {
     : join(workDir, `background-music-${resolvedSeed}.mp3`);
 
   try {
-    const { config } = generateBackgroundMusic({ seed: resolvedSeed, outputPath });
+    const { config } = generateBackgroundMusic({ seed: resolvedSeed, outputPath, duration });
     if (isUsableMusic(outputPath)) {
       log(`Generated fresh background music: ${config.styleLabel} @ ${config.bpm} BPM (seed ${config.seed})`);
       log(`  Saved bed: ${outputPath}`);
@@ -155,15 +178,35 @@ export function mixVoiceoverWithMusic(voiceoverPath, outputPath, musicVolume = 0
   return outputPath;
 }
 
-export function stitchClips({ clipPaths, audioPath, outputPath, backgroundMusic = true, musicSeed }) {
+export async function stitchClips({ clipPaths, audioPath, outputPath, backgroundMusic = true, musicSeed, format = 'facebook', firstFrameImage = null, lastFrameImage = null }) {
   mkdirSync(dirname(outputPath), { recursive: true });
+
+  let finalClipPaths = [...clipPaths];
+  if (format === 'shorts') {
+    const tempDir = dirname(clipPaths[0] || outputPath);
+    log('Generating Shorts intro/outro...');
+
+    const introPath = join(tempDir, `shorts_intro_${Date.now()}.mp4`);
+    await generateBlankVideo(introPath, 5, 1080, 1920, firstFrameImage);
+    finalClipPaths.unshift(introPath);
+
+    const outroPath = join(tempDir, `shorts_outro_${Date.now()}.mp4`);
+    await generateBlankVideo(outroPath, 5, 1080, 1920, lastFrameImage);
+    finalClipPaths.push(outroPath);
+  }
+
   const concatListPath = join(dirname(outputPath), `concat_list_${Date.now()}.txt`);
-  writeFileSync(concatListPath, clipPaths.map(p => `file '${p}'`).join('\n'));
+  writeFileSync(concatListPath, finalClipPaths.map(p => `file '${p}'`).join('\n'));
+
+  let totalDuration = 0;
+  for (const clipPath of finalClipPaths) {
+    totalDuration += getVideoDuration(clipPath);
+  }
 
   let musicMeta = null;
   try {
     const musicSelection = backgroundMusic
-      ? resolveBackgroundMusic({ workDir: dirname(outputPath), reelPath: outputPath, seed: musicSeed })
+      ? resolveBackgroundMusic({ workDir: dirname(outputPath), reelPath: outputPath, seed: musicSeed, duration: totalDuration })
       : { path: null, fresh: false };
     const musicPath = musicSelection.path;
     if (musicSelection.config) musicMeta = musicSelection.config;

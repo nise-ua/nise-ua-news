@@ -54,7 +54,7 @@ bottom or reintroduce the CTA without an explicit product decision.
 
 Run commands from `news-digest-pipeline/`.
 
-### 1. Generate backgrounds only for review
+### 1. Generate backgrounds only for review (Reels and Shorts)
 
 This runs digest loading, storyboard generation, grounding, and image
 generation, then stops before TTS and video assembly:
@@ -69,6 +69,12 @@ For a fixed digest:
 node production/video/src/generate-reel.js d651aa62-b4d3-42f0-9773-28766d130605 --images-only
 ```
 
+To review images for a YouTube Short:
+
+```bash
+node production/video/src/generate-reel.js latest --images-only --format shorts
+```
+
 Outputs:
 
 ```text
@@ -77,12 +83,20 @@ production/video/output/reel-image_<timestamp>_02.png
 ...
 ```
 
-Review these images and get approval before running the full reel.
+Review these images and get approval before running the full reel or Short.
 
-### 2. Generate the full reel after approval
+### 2. Generate the full reel or Short after approval
+
+For Facebook Reels:
 
 ```bash
 node production/video/src/generate-reel.js latest
+```
+
+For YouTube Shorts:
+
+```bash
+node production/video/src/generate-reel.js latest --format shorts
 ```
 
 The full command generates a fresh image set again, creates Ukrainian TTS and
@@ -91,11 +105,13 @@ clips, and stitches the final MP4:
 
 ```text
 production/video/output/reel_<timestamp>.mp4
+production/video/output/shorts_<timestamp>.mp4
 ```
 
 The UI uses the same entry point with a digest ID. The dashboard **Reel**
 button publishes that digest video to Facebook as a Reel (caption links to the
-already-posted digest feed post) and also as a Facebook Story.
+already-posted digest feed post) and also as a Facebook Story. The dashboard
+**YouTube** button publishes the generated Short to YouTube.
 
 ### 3. Generate carousel images only
 

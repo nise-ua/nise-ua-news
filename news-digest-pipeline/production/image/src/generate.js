@@ -16,21 +16,19 @@ import OpenAI from 'openai';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { fal } from '@fal-ai/client';
 import sharp from 'sharp';
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { config as dotenvConfig } from 'dotenv';
-import { execFileSync } from 'child_process';
 import { applyTemplateOverlay } from './overlay.js';
 import { VISUAL_GROUNDING_RULES, groundVisualVariant, finalizeImagePrompt } from '../../lib/visual-grounding.js';
+import { getDigestContent, parseDigestArticles } from '../../lib/digest.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..', '..', '..');
 dotenvConfig({ path: join(ROOT, '.env'), override: false });
 
-const SERVER = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 3000}`;
 const OUTPUT_DIR = join(__dirname, '..', 'output');
-const DB_PATH = join(ROOT, 'data', 'news-digest.db');
 
 // --- Config ---
 
@@ -191,129 +189,7 @@ async function generateGoogleImage(prompt) {
   throw new Error('Failed to obtain image from Google Gemini/Imagen');
 }
 
-// --- Step 1: Get digest content ---
-
-function loadLatestDigestFromDb() {
-  if (!existsSync(DB_PATH)) return null;
-  try {
-    return execFileSync('sqlite3', [
-      DB_PATH,
-      'SELECT content FROM digests ORDER BY date DESC LIMIT 1;',
-    ], { encoding: 'utf8' }).trim() || null;
-  } catch (err) {
-    log(`Warning: could not query DB: ${err.message}`);
-    return null;
-  }
-}
-
-async function getDigestContent(digestId) {
-  // Direct file path
-  if (digestId !== 'latest' && existsSync(digestId)) {
-    log(`Reading digest directly from file: ${digestId}`);
-    return readFileSync(digestId, 'utf-8');
-  }
-
-  // Prefer newest digest by date from pipeline DB (same source as reel)
-  if (digestId === 'latest') {
-    const dbContent = loadLatestDigestFromDb();
-    if (dbContent) {
-      log('Loaded newest digest from pipeline DB (date-ordered).');
-      return dbContent;
-    }
-  } else {
-    // Explicit digest id from DB
-    if (existsSync(DB_PATH)) {
-      try {
-        const row = execFileSync('sqlite3', [
-          DB_PATH,
-          `SELECT content FROM digests WHERE id='${String(digestId).replace(/'/g, "''")}';`,
-        ], { encoding: 'utf8' }).trim();
-        if (row) {
-          log(`Loaded digest ${digestId} from pipeline DB.`);
-          return row;
-        }
-      } catch (err) {
-        log(`Warning: DB lookup by id failed: ${err.message}`);
-      }
-    }
-  }
-
-  try {
-    const url = digestId === 'latest'
-      ? `${SERVER}/api/digests/latest/text`
-      : `${SERVER}/api/digests/${digestId}/text`;
-    
-    // Add API Key if present in .env
-    const headers = {};
-    if (process.env.API_KEY) {
-      headers['X-API-Key'] = process.env.API_KEY;
-    }
-
-    log(`Fetching from API: ${url}`);
-    const res = await fetch(url, { headers });
-    if (res.ok) return await res.text();
-    log(`API fetch failed with status: ${res.status}`);
-  } catch (err) {
-    log(`API connection failed: ${err.message}`);
-  }
-
-  // FALLBACK: Try to find digest files in the local output directory
-  log('Attempting to read from local output/ directory...');
-  const outputDir = join(ROOT, 'output');
-  if (existsSync(outputDir)) {
-    const files = readdirSync(outputDir).filter(f => f.startsWith('digest_') && f.endsWith('.txt'));
-    if (files.length > 0) {
-      // Sort to find the latest
-      files.sort().reverse();
-      const latestFile = files[0];
-      log(`Found local digest file: ${latestFile}`);
-      return readFileSync(join(outputDir, latestFile), 'utf-8');
-    }
-  }
-
-  throw new Error('Could not get digest content from DB, API, or local files.');
-}
-
-// --- Step 1.5: Parse digest to extract articles with URLs ---
-
-function parseDigestArticles(digestText) {
-  // Digest format: numbered items with text followed by URL on next line
-  const articles = [];
-  const clean = String(digestText || '')
-    .replace(/\n🤖[\s\S]*$/g, '')
-    .replace(/\nХештеги:[\s\S]*$/gi, '')
-    .replace(/\n#[\wА-Яа-яІіЇїЄєҐґ]+(?:\s+#[\wА-Яа-яІіЇїЄєҐґ]+)*\s*$/g, '');
-  const lines = clean.split('\n');
-  let currentArticle = { text: '', url: '' };
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-
-    // Match "1." or "#AI 1." / "#news 2." style numbering
-    const numberMatch = line.match(/^(?:#\S+\s+)?(\d+)\.\s*(.*)/);
-    if (numberMatch) {
-      // Save previous article if exists
-      if (currentArticle.text || currentArticle.url) {
-        articles.push(currentArticle);
-      }
-      currentArticle = { text: numberMatch[2], url: '' };
-    } else if (line.startsWith('http')) {
-      // This is a URL
-      currentArticle.url = line;
-    } else {
-      // Continue article text
-      currentArticle.text += (currentArticle.text ? ' ' : '') + line;
-    }
-  }
-  
-  // Don't forget the last article
-  if (currentArticle.text || currentArticle.url) {
-    articles.push(currentArticle);
-  }
-  
-  return articles.filter(a => a.text && a.text.length > 40);
-}
+// --- Step 1: Digest load + parse (shared production/lib/digest.js) ---
 
 // --- Step 2: Generate headlines + image prompts via AI (Anthropic, OpenAI or Google) ---
 
@@ -729,7 +605,7 @@ async function main() {
 
   // Step 1: Get digest
   log(`Fetching digest: ${digestId}`);
-  const digestText = await getDigestContent(digestId);
+  const digestText = await getDigestContent(digestId, { log });
   log(`Digest: ${digestText.length} chars`);
 
   // Step 2: Generate headlines + prompts

@@ -91,3 +91,81 @@ describe('publishDigest facebook-reel', () => {
     expect(updateDigest.mock.calls[0][1].facebook_story_id).toBeUndefined();
   });
 });
+
+describe('publishDigest youtube', () => {
+  const youtubeConfig = {
+    ...config,
+    youtubeClientId: 'yt-client-id',
+    youtubeClientSecret: 'yt-client-secret',
+    youtubeRefreshToken: 'yt-refresh-token',
+    youtubeChannelId: 'yt-channel-id',
+    youtubePrivacyStatus: 'unlisted',
+  };
+
+  const shortsDigest = {
+    id: 'digest-2',
+    content: 'YouTube Shorts content',
+    youtube_shorts_url: 'https://example.com/shorts/shorts_1.mp4',
+    facebook_post_id: 'fb_post_123',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mock('../youtube.js', () => ({ publishToYouTube: vi.fn(() => ({ videoId: 'yt-video-1', url: 'https://youtube.com/shorts/yt-video-1' })) }));
+    vi.mock('../facebook-video-file.js', () => ({
+      digestVideoUrl: vi.fn(),
+      localVideoPathFromUrl: vi.fn((url) => url.includes('shorts_1.mp4') ? './path/to/shorts_1.mp4' : null),
+    }));
+  });
+
+  it('publishes YouTube Shorts with correct metadata', async () => {
+    const { publishToYouTube } = await import('../youtube.js');
+    const results = await publishDigest(shortsDigest, youtubeConfig, ['youtube']);
+
+    expect(publishToYouTube).toHaveBeenCalledWith(
+      './path/to/shorts_1.mp4',
+      'NiSeNews · 1970-01-01 #Shorts',
+      'YouTube Shorts content\n\n#Shorts #новини #Україна\n\nДивіться повний дайджест на Facebook: https://www.facebook.com/111/posts/fb_post_123/',
+      'unlisted',
+    );
+    expect(results.youtube).toEqual({ videoId: 'yt-video-1', url: 'https://youtube.com/shorts/yt-video-1' });
+    expect(updateDigest).toHaveBeenCalledWith('digest-2', expect.objectContaining({
+      youtube_post_id: 'yt-video-1',
+      status: 'published',
+    }));
+  });
+
+  it('publishes YouTube Shorts without Facebook permalink if facebook_post_id is missing', async () => {
+    const { publishToYouTube } = await import('../youtube.js');
+    const digestWithoutFbPost = { ...shortsDigest, facebook_post_id: null };
+    const results = await publishDigest(digestWithoutFbPost, youtubeConfig, ['youtube']);
+
+    expect(publishToYouTube).toHaveBeenCalledWith(
+      './path/to/shorts_1.mp4',
+      'NiSeNews · 1970-01-01 #Shorts',
+      'YouTube Shorts content\n\n#Shorts #новини #Україна',
+      'unlisted',
+    );
+    expect(results.youtube).toEqual({ videoId: 'yt-video-1', url: 'https://youtube.com/shorts/yt-video-1' });
+  });
+
+  it('guards against missing YouTube Shorts video', async () => {
+    const { publishToYouTube } = await import('../youtube.js');
+    const digestWithoutShorts = { ...shortsDigest, youtube_shorts_url: null };
+    const results = await publishDigest(digestWithoutShorts, youtubeConfig, ['youtube']);
+
+    expect(results.youtube.error).toMatch(/No YouTube Shorts video/);
+    expect(publishToYouTube).not.toHaveBeenCalled();
+    expect(updateDigest).not.toHaveBeenCalled();
+  });
+
+  it('guards against missing YouTube OAuth2 credentials', async () => {
+    const { publishToYouTube } = await import('../youtube.js');
+    const configWithoutYtCreds = { ...youtubeConfig, youtubeClientId: null };
+    const results = await publishDigest(shortsDigest, configWithoutYtCreds, ['youtube']);
+
+    expect(results.youtube.error).toMatch(/Missing YouTube OAuth2 credentials/);
+    expect(publishToYouTube).not.toHaveBeenCalled();
+    expect(updateDigest).not.toHaveBeenCalled();
+  });
+});

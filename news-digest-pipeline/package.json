@@ -9,6 +9,9 @@
     "dev": "node --watch src/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:node": "node --test production/lib/*.test.js",
+    "test:production": "vitest run production/lib/__tests__ && node --test production/lib/*.test.js",
+    "test:all": "vitest run && node --test production/lib/*.test.js",
     "restart": "docker restart news-digest-pipeline",
     "restart:local": "./scripts/restart-local.sh"
   },

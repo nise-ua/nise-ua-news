@@ -14,7 +14,9 @@ export async function publishToFacebook(pageAccessToken, pageId, content) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        message: 'Published by AI nise-ua news\n\n' + content,
+        // Keep the message body only. An "AI published" prefix is a spam-filter
+        // signal and can cause "Couldn't Load Post" for other users.
+        message: content,
         access_token: pageAccessToken,
       }),
     });

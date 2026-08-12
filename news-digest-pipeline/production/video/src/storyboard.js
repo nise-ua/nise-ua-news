@@ -8,11 +8,11 @@
 
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { config as dotenvConfig } from 'dotenv';
 import { VISUAL_GROUNDING_RULES, groundVisualVariant } from '../../lib/visual-grounding.js';
+import { parseDigestItems } from '../../lib/digest.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..', '..', '..');
@@ -26,29 +26,13 @@ function log(msg) {
   console.log(`[${ts}] ${msg}`);
 }
 
-function parseDigestItems(digestText) {
-  const items = [];
-  const clean = digestText.replace(/\n🤖[\s\S]*$/g, '');
-  const regex = /(\d+)\.\s+([\s\S]*?)(?=\n\d+\.\s|\n🤖|$)/g;
-  let match;
-  while ((match = regex.exec(clean)) !== null) {
-    let body = match[2].trim();
-    const urlMatch = body.match(/(https?:\/\/\S+)/);
-    body = body.replace(/https?:\/\/\S+/g, '').trim();
-    if (body.length > 40) {
-      items.push({ text: body, url: urlMatch ? urlMatch[1] : '' });
-    }
-  }
-  return items;
-}
-
-export async function generateStoryboard(digestText) {
+export async function generateStoryboard(digestText, format = 'facebook') {
   log('Generating video storyboard from digest text...');
 
   const articles = parseDigestItems(digestText);
   log(`Parsed ${articles.length} digest blocks for storyboard.`);
 
-  const systemPrompt = `Ти — режисер Instagram та Facebook Reels для новинного дайджесту.
+  const systemPrompt = `Ти — режисер ${format === 'shorts' ? 'YouTube Shorts' : 'Instagram та Facebook Reels'} для новинного дайджесту.
 На вхід — ОКРЕМІ блоки новин. Створи РІВНО ОДИН shot для КОЖНОГО блоку.
 Кількість shot визначається тільки кількістю блоків у цьому дайджесті; не
 додавай, не об'єднуй і не вигадуй блоки.
@@ -60,7 +44,7 @@ export async function generateStoryboard(digestText) {
 4. newsTone — "positive" | "neutral" | "negative" (лише з coreFact, не з сарказму автора)
 5. visualSubject — 1 конкретна сцена англійською з цих сутностей і дії
 6. headline — змістовний headline ТІЛЬКИ УКРАЇНСЬКОЮ (6-10 слів), який самостійно пояснює головний факт новини. Не копіюй саркастичні зачини («Знову революція?», «Оце так історія»). Не використовуй розмиті фрази на кшталт «ШІ змінює все».
-7. spokenText — коротке ЗАВЕРШЕНЕ речення ТІЛЬКИ УКРАЇНСЬКОЮ для диктора (8-12 слів, приблизно 4-6 секунд). Обов'язково закінчуй крапкою/знаком оклику. Це має бути ФАКТ, не сарказм. Назви брендів і продуктів можна лишати латиницею.
+7. spokenText — ${format === 'shorts' ? `ТІЛЬКИ УКРАЇНСЬКОЮ (18-30 слів), повне речення, 12-18 секунд. Обов\'язково закінчуй крапкою/знаком оклику. Це має бути ФАКТ, не сарказм. Назви брендів і продуктів можна лишати латиницею.` : `коротке ЗАВЕРШЕНЕ речення ТІЛЬКИ УКРАЇНСЬКОЮ для диктора (8-12 слів, приблизно 4-6 секунд). Обов\'язково закінчуй крапкою/знаком оклику. Це має бути ФАКТ, не сарказм. Назви брендів і продуктів можна лишати латиницею.`}
 8. detailText — РІВНО 1 КОРОТКЕ ПОВНЕ РЕЧЕННЯ УКРАЇНСЬКОЮ (8-12 слів). Головна конкретна деталь новини. Обов'язково закінчуй крапкою. КРИТИЧНО: РІВНО ОДНЕ РЕЧЕННЯ, ніколи не більше, і ніколи не незавершене!
 9. textPosition — завжди "upper": текст розміщується у верхніх 25% кадру, нижче брендингу.
 10. prompt — англійський промпт фону, ОБОВ'ЯЗКОВО з visualSubject. Додавай: "professional news photography, cinematic lighting, 9:16 vertical composition"

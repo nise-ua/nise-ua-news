@@ -447,6 +447,7 @@
       { id: 'scenarios',  title: 'Сценарії' },
       { id: 'content',    title: 'Контент' },
       { id: 'publishing', title: 'Публікація' },
+      { id: 'youtube',    title: 'YouTube' },
       { id: 'help',       title: 'Довідка' },
     ];
 
@@ -554,8 +555,7 @@
         out += plannedRow('TikTok · Access Token', planned.tiktok.accessToken, planned.tiktok.status);
       }
       if (planned.youtube) {
-        out += plannedRow('YouTube · Токен доступу', planned.youtube.accessToken, planned.youtube.status);
-        out += plannedRow('YouTube · ID каналу', planned.youtube.channelId, '');
+        // YouTube now has its own section
       }
       if (planned.gemini) {
         out += plannedRow('Google Gemini · API-ключ', planned.gemini.apiKey, planned.gemini.status);
@@ -700,6 +700,34 @@
             ${secretRow('Moonshot API Key', pub.moonshotApiKey)}
             ${secretRow('Fal Key', pub.falKey)}
             ${plannedSection(pub.planned)}
+          </div>`;
+      } else if (active === 'youtube') {
+        const yt = d.youtube;
+        html = `
+          <div class="card active">
+            <h2>YouTube</h2>
+            <p class="card-desc">Налаштування публікації Shorts на YouTube. Потрібно отримати <a href="https://console.developers.google.com/apis/credentials" target="_blank">OAuth Client ID</a> та <a href="https://console.developers.google.com/apis/library/youtube.googleapis.com" target="_blank">увімкнути YouTube Data API v3</a>.
+            </p>
+            <div class="status-note">
+              <span class="badge on">Крок 1:</span> Вкажіть Client ID та Client Secret у файлі <code>.env</code>.
+              <br><span class="badge on">Крок 2:</span> Запустіть <code>node news-digest-pipeline/scripts/youtube-oauth.js</code> в консолі, щоб отримати Refresh Token.
+              <br><span class="badge on">Крок 3:</span> Додайте Refresh Token до файлу <code>.env</code>.
+            </div>
+            <div class="group-subtitle">Авторизація</div>
+            ${secretRow('Client ID', yt.clientId)}
+            ${secretRow('Client Secret', yt.clientSecret)}
+            ${secretRow('Refresh Token', yt.refreshToken)}
+            ${secretRow('Channel ID', yt.channelId)}
+            <div class="group-subtitle">Налаштування відео</div>
+            <div class="field">
+              <label>Приватність відео (YOUTUBE_PRIVACY_STATUS)</label>
+              <select id="f-youtubePrivacyStatus">
+                <option value="public" ${yt.privacyStatus.value === 'public' ? 'selected' : ''}>Public</option>
+                <option value="unlisted" ${yt.privacyStatus.value === 'unlisted' ? 'selected' : ''}>Unlisted</option>
+                <option value="private" ${yt.privacyStatus.value === 'private' ? 'selected' : ''}>Private</option>
+              </select>
+            </div>
+            ${saveBar('youtube')}
           </div>`;
       } else if (active === 'scenarios') {
         const sc = d.scenarios;
@@ -854,6 +882,11 @@
       if (id === 'deep')       return { deep:       { text: document.getElementById('ta-deep').value } };
       if (id === 'content')    return { content:    { text: document.getElementById('ta-content').value } };
       if (id === 'scenarios')  return { activeScenario: selectedScenario };
+      if (id === 'youtube') {
+        return {
+          youtubePrivacyStatus: document.getElementById('f-youtubePrivacyStatus').value,
+        };
+      }
       return {};
     }
 
