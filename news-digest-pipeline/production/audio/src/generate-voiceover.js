@@ -13,16 +13,19 @@
 
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { config as dotenvConfig } from 'dotenv';
+import { getDigestContent } from '../../lib/digest.js';
+import ffprobeStatic from 'ffprobe-static';
+import { execSync } from 'child_process';
+import { prepareTtsText } from '../../lib/tts-pronunciation.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..', '..', '..');
 dotenvConfig({ path: join(ROOT, '.env'), override: true });
 
-const SERVER = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 3000}`;
 const OUTPUT_DIR = join(__dirname, '..', 'output');
 
 const openai = new OpenAI({
@@ -37,43 +40,6 @@ function log(msg) {
   const ts = new Date().toISOString().slice(11, 19);
   console.log(`[${ts}] ${msg}`);
 }
-
-async function getDigestContent(digestId) {
-  try {
-    const url = digestId === 'latest'
-      ? `${SERVER}/api/digests/latest/text`
-      : `${SERVER}/api/digests/${digestId}/text`;
-
-    const headers = {};
-    if (process.env.API_SECRET_KEY) {
-      headers['X-API-Key'] = process.env.API_SECRET_KEY;
-    }
-
-    log(`Fetching from API: ${url}`);
-    const res = await fetch(url, { headers });
-    if (res.ok) return await res.text();
-    log(`API fetch failed with status: ${res.status}`);
-  } catch (err) {
-    log(`API connection failed: ${err.message}`);
-  }
-
-  // Fallback to local output directory
-  const outputDir = join(ROOT, 'output');
-  if (existsSync(outputDir)) {
-    const files = readdirSync(outputDir).filter(f => f.startsWith('digest_') && f.endsWith('.txt'));
-    if (files.length > 0) {
-      files.sort().reverse();
-      log(`Found local digest file: ${files[0]}`);
-      return readFileSync(join(outputDir, files[0]), 'utf-8');
-    }
-  }
-
-  throw new Error('Could not get digest content from API or local files.');
-}
-
-import ffprobeStatic from 'ffprobe-static';
-import { execSync } from 'child_process';
-import { prepareTtsText } from '../../lib/tts-pronunciation.js';
 
 export function getAudioDuration(audioPath) {
   try {
@@ -184,7 +150,7 @@ async function main() {
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
 
-  const digestText = await getDigestContent(digestId);
+  const digestText = await getDigestContent(digestId, { log });
   const audioScript = await prepareAudioScript(digestText, mode);
   log(`Script prepared:\n"${audioScript.slice(0, 150)}..."`);
 

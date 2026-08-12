@@ -7,7 +7,7 @@ import { publishToTelegram } from './telegram.js';
 import { publishToYouTube } from './youtube.js';
 import { updateDigest } from '../../db/index.js';
 import { buildReelCaption } from './facebook-caption.js';
-import { digestVideoUrl } from './facebook-video-file.js';
+import { digestVideoUrl, localVideoPathFromUrl } from './facebook-video-file.js';
 
 /**
  * Publish a digest to selected platforms.
@@ -133,15 +133,30 @@ export async function publishDigest(digest, config, platforms) {
     }
   }
 
-  // YouTube (placeholder)
-  if (shouldPublish('youtube') && config.youtubeAccessToken && config.youtubeChannelId) {
-    results.youtube = await publishToYouTube(
-      config.youtubeAccessToken,
-      config.youtubeChannelId,
-      digest.content,
-    );
-    if (results.youtube?.postId) {
-      updateFields.youtube_post_id = results.youtube.postId;
+  // YouTube
+  if (shouldPublish('youtube')) {
+    const youtubeShortsPath = localVideoPathFromUrl(digest.youtube_shorts_url);
+    if (!config.youtubeClientId || !config.youtubeClientSecret || !config.youtubeRefreshToken) {
+      results.youtube = { error: '[youtube] Missing YouTube OAuth2 credentials or refresh token.' };
+    } else if (!youtubeShortsPath) {
+      results.youtube = { error: '[youtube] No YouTube Shorts video. Generate the Shorts video first.' };
+    } else {
+      const date = new Date(digest.date).toISOString().slice(0, 10); // YYYY-MM-DD
+      const title = `NiSeNews · ${date} #Shorts`;
+      let description = `${digest.content}\n\n#Shorts #новини #Україна`;
+      if (digest.facebook_post_id) {
+        description += `\n\nДивіться повний дайджест на Facebook: https://www.facebook.com/${config.facebookPageId}/posts/${digest.facebook_post_id}/`;
+      }
+
+      results.youtube = await publishToYouTube(
+        youtubeShortsPath,
+        title,
+        description,
+        config.youtubePrivacyStatus,
+      );
+      if (results.youtube?.videoId) {
+        updateFields.youtube_post_id = results.youtube.videoId;
+      }
     }
   }
 

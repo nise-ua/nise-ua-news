@@ -557,14 +557,20 @@
           const fbSent = !!d.facebook_post_id;
           const videoExists = !!(d.video_url || d.reel_url);
           const reelSent = !!d.facebook_reel_id;
+          const youtubeShortsExists = !!d.youtube_shorts_url;
+          const youtubeSent = !!d.youtube_post_id;
+          const youtubeShortsExists = !!d.youtube_shorts_url;
+          const youtubeSent = !!d.youtube_post_id;
 
           const fbBtn = fbSent
             ? `<button class="plat-btn sent" disabled>✓ FB</button>`
             : `<button class="plat-btn" onclick="publishFacebook('${d.id}',this)">📘 FB</button>`;
           
           const activeJob = activeVideoJobs.get(d.id);
-          let videoBtn;
-          if (activeJob) {
+          let videoBtn, shortsBtn;
+
+          // Facebook Video Button
+          if (activeJob && activeJob.format !== 'shorts') {
             // If the job has completed, show a direct link instead of the progress UI.
             if (activeJob.status === 'completed' && activeJob.videoUrl) {
               videoBtn = `<a class="plat-btn" href="${activeJob.videoUrl}" target="_blank">🎬 Video</a>`;
@@ -577,14 +583,29 @@
             videoBtn = `<button class="plat-btn" onclick="generateVideo('${d.id}', this)">▶️ Video</button>`;
           }
 
+          // YouTube Shorts Button
+          if (activeJob && activeJob.format === 'shorts') {
+            shortsBtn = `<span class="video-progress" data-video-job="${activeJob.jobId}"><span class="video-progress-label">⏳ ${activeJob.message || 'Створення Shorts…'} (${activeJob.progress || 0}%)</span><span class="video-progress-track"><span class="video-progress-bar" style="width:${activeJob.progress || 0}%"></span></span></span>`;
+          } else if (youtubeShortsExists) {
+            shortsBtn = `<a class="plat-btn" href="https://youtube.com/shorts/${d.youtube_post_id || ''}" target="_blank">▶️ Shorts</a>`; // Assuming youtube_post_id will be available if youtube_shorts_url is.
+          } else {
+            shortsBtn = `<button class="plat-btn" onclick="generateVideo('${d.id}', this, 'shorts')">▶️ Shorts</button>`;
+          }
+
           const reelBtn = !videoExists
             ? ''
             : reelSent
               ? `<button class="plat-btn sent" disabled>✓ Reel</button>`
               : `<button class="plat-btn" onclick="publishFacebookReel('${d.id}', this, ${fbSent ? 'true' : 'false'})">📽️ Reel</button>`;
 
+          const youtubePublishBtn = !youtubeShortsExists
+            ? ''
+            : youtubeSent
+              ? `<button class="plat-btn sent" disabled>✓ YT</button>`
+              : `<button class="plat-btn" onclick="publishYouTube('${d.id}', this)">▶️ YouTube</button>`;
+
           const delBtn = `<button class="btn-delete" onclick="deleteDigest('${d.id}')">✕</button>`;
-          actionBtn = `<div class="platform-row"><button class="btn btn-preview" onclick="previewDigest('${d.id}')">&#128065;</button>${fbBtn}${videoBtn}${reelBtn}<button class="btn btn-copy" onclick="copyDigest('${d.id}', this)">&#128203;</button>${delBtn}</div>`;
+          actionBtn = `<div class="platform-row"><button class="btn btn-preview" onclick="previewDigest('${d.id}')">&#128065;</button>${fbBtn}${videoBtn}${shortsBtn}${reelBtn}${youtubePublishBtn}<button class="btn btn-copy" onclick="copyDigest('${d.id}', this)">&#128203;</button>${delBtn}</div>`;
         }
 
         // Status dropdown
@@ -777,13 +798,17 @@
     }
     
     // Generate video for a digest via backend endpoint
-    async function generateVideo(id, btn) {
-      if (!confirm('Створити відео для цього дайджеста?')) return;
+    async function generateVideo(id, btn, format = 'facebook') {
+      if (!confirm(`Створити ${format === 'shorts' ? 'Shorts' : 'відео'} для цього дайджеста?`)) return;
       btn.disabled = true;
       btn.textContent = '⏳ Запуск…';
       const original = btn.outerHTML;
       try {
-        const res = await fetch(`/api/digests/${id}/generate-video`, { method: 'POST' });
+        const res = await fetch(`/api/digests/${id}/generate-video`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ format }),
+        });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           const retryAfter = res.headers.get('Retry-After');
@@ -791,7 +816,7 @@
           throw new Error((data.error || 'Помилка сервера') + suffix);
         }
         const job = data.job;
-        activeVideoJobs.set(id, { jobId: job.id, progress: job.progress, message: job.message, polling: false, original, digestId: id });
+        activeVideoJobs.set(id, { jobId: job.id, progress: job.progress, message: job.message, polling: false, original, digestId: id, format });
         await loadDigests();
         const progress = document.querySelector(`[data-video-job="${job.id}"]`);
         if (progress) await pollVideoJob(job.id, progress, original);
@@ -800,7 +825,40 @@
         activeVideoJobs.delete(id);
         alert('Не вдалося створити відео: ' + err.message);
         btn.disabled = false;
-        btn.textContent = '▶️ Video';
+        btn.textContent = `▶️ ${format === 'shorts' ? 'Shorts' : 'Video'}`;
+      }
+    }
+
+    async function publishYouTube(id, btn) {
+      if (!confirm('Опублікувати Shorts у YouTube?')) return;
+      btn.disabled = true;
+      btn.textContent = '⏳...';
+      try {
+        const res = await fetch(`/api/digests/${id}/publish`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platforms: ['youtube'] }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Server error');
+
+        const result = data.published?.youtube;
+        if (result?.videoId) {
+          btn.className = 'plat-btn sent';
+          btn.textContent = '✓ YT';
+          btn.onclick = null;
+        } else {
+          const errorMsg = result?.error || 'Невідома помилка';
+          alert('YouTube: публікація не вдалася. ' + errorMsg);
+          btn.disabled = false;
+          btn.textContent = '▶️ YouTube';
+        }
+        setTimeout(loadDigests, 500);
+      } catch (err) {
+        console.error('Publish failed:', err);
+        alert('Помилка публікації: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = '▶️ YouTube';
       }
     }
 
@@ -821,7 +879,7 @@
           throw new Error(data.error || 'Не вдалося отримати статус відео');
         }
         const job = data.job;
-        if (active) Object.assign(active, { progress: job.progress, message: job.message });
+        if (active) Object.assign(active, { progress: job.progress, message: job.message, videoUrl: job.videoUrl });
         const currentProgress = document.querySelector(`[data-video-job="${jobId}"]`);
         if (!currentProgress) {
           await new Promise(resolve => setTimeout(resolve, 1500));
@@ -833,12 +891,12 @@
         bar.style.width = `${job.progress}%`;
         if (job.status === 'completed') {
           const link = document.createElement('a');
-          link.href = job.videoUrl;
+          link.href = active.videoUrl;
           link.target = '_blank';
           link.className = 'plat-btn';
-          link.innerHTML = '🎬 Video';
+          link.innerHTML = active.format === 'shorts' ? '▶️ Shorts' : '🎬 Video';
           currentProgress.replaceWith(link);
-          activeVideoJobs.delete(job.digestId);
+          activeVideoJobs.delete(active.digestId);
           setTimeout(loadDigests, 300);
           return;
         }

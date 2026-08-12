@@ -18,7 +18,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ASSETS_DIR = join(__dirname, '..', 'assets');
 
 const SR = 48000;
-const DURATION = 36;
 
 export const MUSIC_STYLES = {
   anthem: { label: 'Anthem Drive', bpmOptions: [128, 130, 132, 134, 136] },
@@ -171,11 +170,11 @@ function addPad(l, r, inBar, f, gain = 0.14) {
   return [l + pad, r + pad];
 }
 
-function synthesizeAnthem(config) {
+function synthesizeAnthem(config, duration) {
   const { bpm, chords, noiseSeeds } = config;
   const beat = 60 / bpm;
   const bar = beat * 4;
-  const n = Math.floor(SR * DURATION);
+  const n = Math.floor(SR * duration);
   const L = new Float32Array(n);
   const R = new Float32Array(n);
   const noise = makeNoise(config);
@@ -218,11 +217,11 @@ function synthesizeAnthem(config) {
   return { L, R };
 }
 
-function synthesizeTicker(config) {
+function synthesizeTicker(config, duration) {
   const { bpm, chords, noiseSeeds } = config;
   const beat = 60 / bpm;
   const bar = beat * 4;
-  const n = Math.floor(SR * DURATION);
+  const n = Math.floor(SR * duration);
   const L = new Float32Array(n);
   const R = new Float32Array(n);
   const noise = makeNoise(config);
@@ -251,11 +250,11 @@ function synthesizeTicker(config) {
   return { L, R };
 }
 
-function synthesizeBreaking(config) {
+function synthesizeBreaking(config, duration) {
   const { bpm, chords } = config;
   const beat = 60 / bpm;
   const bar = beat * 4;
-  const n = Math.floor(SR * DURATION);
+  const n = Math.floor(SR * duration);
   const L = new Float32Array(n);
   const R = new Float32Array(n);
   const noise = makeNoise(config);
@@ -290,11 +289,11 @@ function synthesizeBreaking(config) {
   return { L, R };
 }
 
-function synthesizeBroadcast(config) {
+function synthesizeBroadcast(config, duration) {
   const { bpm, chords } = config;
   const beat = 60 / bpm;
   const bar = beat * 4;
-  const n = Math.floor(SR * DURATION);
+  const n = Math.floor(SR * duration);
   const L = new Float32Array(n);
   const R = new Float32Array(n);
   const noise = makeNoise(config);
@@ -326,11 +325,11 @@ function synthesizeBroadcast(config) {
   return { L, R };
 }
 
-function synthesizePulse(config) {
+function synthesizePulse(config, duration) {
   const { bpm, chords } = config;
   const beat = 60 / bpm;
   const bar = beat * 4;
-  const n = Math.floor(SR * DURATION);
+  const n = Math.floor(SR * duration);
   const L = new Float32Array(n);
   const R = new Float32Array(n);
   const noise = makeNoise(config);
@@ -369,9 +368,9 @@ const SYNTHESIZERS = {
   pulse: synthesizePulse,
 };
 
-export function synthesizeBackgroundMusic(config) {
+export function synthesizeBackgroundMusic(config, duration) {
   const synth = SYNTHESIZERS[config.styleKey] || synthesizeAnthem;
-  return synth(config);
+  return synth(config, duration);
 }
 
 function writeWav(path, left, right) {
@@ -410,11 +409,11 @@ function encodeWavToMp3(wavPath, mp3Path) {
   ], { stdio: 'pipe' });
 }
 
-export function generateBackgroundMusic({ seed, outputPath } = {}) {
+export function generateBackgroundMusic({ seed, outputPath, duration = DURATION } = {}) {
   if (!outputPath) throw new Error('outputPath is required');
   const resolvedSeed = seed != null ? Number(seed) : Date.now();
   const config = buildMusicConfig(resolvedSeed);
-  const { L, R } = synthesizeBackgroundMusic(config);
+  const { L, R } = synthesizeBackgroundMusic(config, duration);
 
   mkdirSync(dirname(outputPath), { recursive: true });
   const wavPath = outputPath.replace(/\.mp3$/i, '-tmp.wav');

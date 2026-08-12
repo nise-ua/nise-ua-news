@@ -132,8 +132,11 @@ function buildConfig() {
     telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
     telegramChatId: process.env.TELEGRAM_CHAT_ID || '',
     telegramPublishChatId: process.env.TELEGRAM_PUBLISH_CHAT_ID || '',
-    youtubeAccessToken: process.env.YOUTUBE_ACCESS_TOKEN || '',
+    youtubeClientId: process.env.YOUTUBE_CLIENT_ID || '',
+    youtubeClientSecret: process.env.YOUTUBE_CLIENT_SECRET || '', // secret
+    youtubeRefreshToken: process.env.YOUTUBE_REFRESH_TOKEN || '', // secret
     youtubeChannelId: process.env.YOUTUBE_CHANNEL_ID || '',
+    youtubePrivacyStatus: process.env.YOUTUBE_PRIVACY_STATUS || 'unlisted',
 
     // Planned integrations (placeholders for status display only — pipelines
     // are not implemented yet).

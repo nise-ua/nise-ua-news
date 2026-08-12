@@ -14,10 +14,10 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { config as dotenvConfig } from 'dotenv';
+import { getDigestContent, parseDigestArticles } from '../../lib/digest.js';
 
 dotenvConfig();
 
-const SERVER = 'https://YOUR_DOMAIN';
 const MODEL = 'claude-opus-4-20250514';
 
 function log(msg) {
@@ -27,60 +27,22 @@ function log(msg) {
 
 // --- API ---
 
-async function getDigestContent(digestId) {
-  const url = digestId === 'latest'
-    ? `${SERVER}/api/digests/latest/text`
-    : `${SERVER}/api/digests/${digestId}/text`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to get digest: ${res.status}`);
-  return await res.text();
-}
-
 /**
  * Parse digest into individual news items.
  * Each item is numbered: "1. text\nhttps://..."
  */
 function parseNewsItems(digestText) {
-  // Cut off everything after the footer/disclaimer
-  // Footer starts with emoji 🤖 or "причини підписатися" or hashtags block
-  let cleanText = digestText;
-  const footerPatterns = [
-    /\n🤖[\s\S]*$/,
-  ];
-  for (const pattern of footerPatterns) {
-    cleanText = cleanText.replace(pattern, '');
-  }
-
-  const items = [];
-
-  // Match numbered items: "N. text" possibly followed by URL on next line
-  // Each item ends when the next numbered item begins or text ends
-  const regex = /(\d+)\.\s+([\s\S]*?)(?=\n\d+\.\s|\n🤖|$)/g;
-  let match;
-
-  while ((match = regex.exec(cleanText)) !== null) {
-    const num = parseInt(match[1]);
-    let text = match[2].trim();
-
-    // Remove URLs from text (they go in separate field)
-    const urlMatch = text.match(/(https?:\/\/\S+)/);
-    text = text.replace(/https?:\/\/\S+/g, '').trim();
-
-    // Skip short items, footers, and non-news content
-    if (text.length > 50 &&
-        !text.includes('підписатися') &&
-        !text.includes('коментувати') &&
-        !text.includes('Розмістіть мій блог') &&
-        !text.includes('Відпишіться')) {
-      items.push({
-        num,
-        text,
-        url: urlMatch ? urlMatch[1] : null,
-      });
-    }
-  }
-
-  return items;
+  return parseDigestArticles(digestText)
+    .filter((item) =>
+      !item.text.includes('підписатися') &&
+      !item.text.includes('коментувати') &&
+      !item.text.includes('Розмістіть мій блог') &&
+      !item.text.includes('Відпишіться'))
+    .map((item, i) => ({
+      num: i + 1,
+      text: item.text,
+      url: item.url || null,
+    }));
 }
 
 // --- Step 1: Rate each news by clickbait potential (0-10) ---
@@ -289,7 +251,7 @@ async function main() {
   }
 
   log(`Fetching digest: ${args[0]}`);
-  const digestText = await getDigestContent(args[0]);
+  const digestText = await getDigestContent(args[0] || 'latest', { log });
   log(`Digest: ${digestText.length} chars`);
 
   const result = await generateHeadlines(digestText);

@@ -60,6 +60,18 @@ Digest (DB, newest by DATE) ──► Storyboard
    reel_<timestamp>.mp4   (1080×1920, H.264/AAC, faststart; one shot per digest block)
 ```
 
+### YouTube Shorts
+
+To generate a YouTube Short, use the `--format shorts` flag:
+
+```bash
+node src/generate-reel.js latest --format shorts
+```
+
+This will produce a video optimized for YouTube Shorts (longer narration, intro/outro, etc.) with a filename like `shorts_<timestamp>.mp4`.
+
+
+
 ### Key production components
 
 | Step | What works today | Notes |

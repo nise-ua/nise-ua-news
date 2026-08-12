@@ -37,6 +37,7 @@ import { generateShotClip } from './generate-clips.js';
 import { stitchClips, mergeShotVideoAndAudio } from './stitch.js';
 import { groundVisualVariant, buildGroundedPrompt, inferNewsToneFromFact } from '../../lib/visual-grounding.js';
 import { prepareTtsText } from '../../lib/tts-pronunciation.js';
+import { getDigestContent, parseDigestItemTexts } from '../../lib/digest.js';
 
 import OpenAI from 'openai';
 import { fal } from '@fal-ai/client';
@@ -302,80 +303,6 @@ async function generateImageWithRetry(shot, model, index) {
 }
 
 // ---------------------------------------------------------------------------
-// Digest loading (DB-first, date-ordered — matches the real image/digest sync)
-// ---------------------------------------------------------------------------
-
-async function fetchDigestFromApi(digestId) {
-  try {
-    const url = digestId === 'latest'
-      ? `${SERVER}/api/digests/latest/text`
-      : `${SERVER}/api/digests/${digestId}/text`;
-    const headers = {};
-    if (process.env.API_ACCESS_KEY) headers['X-API-Key'] = process.env.API_ACCESS_KEY;
-    log(`Fetching digest from API: ${url}`);
-    const res = await fetch(url, { headers });
-    if (res.ok) return await res.text();
-    log(`API fetch failed with status: ${res.status}`);
-  } catch (err) {
-    log(`API connection failed: ${err.message}`);
-  }
-  return null;
-}
-
-/**
- * Load the newest digest by DATE from the pipeline SQLite DB.
- * The image carousels are generated from the newest digest; using the same
- * DB lookup guarantees voiceover, pictures and digest stay in sync.
- */
-function loadLatestDigestFromDb() {
-  if (!existsSync(DB_PATH)) return null;
-  try {
-    return execFileSync('sqlite3', [
-      DB_PATH,
-      'SELECT content FROM digests ORDER BY date DESC LIMIT 1;',
-    ], { encoding: 'utf8' }).trim() || null;
-  } catch (err) {
-    log(`Warning: could not query DB: ${err.message}`);
-    return null;
-  }
-}
-
-function loadDigestFromLocalFiles() {
-  const outputDir = join(ROOT, 'output');
-  if (existsSync(outputDir)) {
-    const files = readdirSync(outputDir).filter(f => f.startsWith('digest_') && f.endsWith('.txt'));
-    if (files.length > 0) {
-      files.sort().reverse();
-      log(`Found local digest file: ${files[0]}`);
-      return readFileSync(join(outputDir, files[0]), 'utf-8');
-    }
-  }
-  return null;
-}
-
-async function getDigestContent(digestId) {
-  // 1) For 'latest': prefer the newest digest by date from the pipeline DB —
-  //    the same source the Instagram carousels are built from.
-  if (digestId === 'latest') {
-    const dbContent = loadLatestDigestFromDb();
-    if (dbContent) {
-      log('Loaded newest digest from pipeline DB (date-ordered).');
-      return dbContent;
-    }
-  }
-
-  // 2) Try the API (works when the server is running).
-  const apiContent = await fetchDigestFromApi(digestId);
-  if (apiContent) return apiContent;
-
-  // 3) Fallback: local digest files under output/.
-  const localContent = loadDigestFromLocalFiles();
-  if (localContent) return localContent;
-
-  throw new Error('Could not get digest content from DB, API, or local files.');
-}
-
-// ---------------------------------------------------------------------------
 // Natural Ukrainian TTS (edge-tts neural voice — free, no API credits)
 // ---------------------------------------------------------------------------
 
@@ -393,7 +320,7 @@ function getAudioDuration(audioPath) {
  * ElevenLabs; otherwise edge-tts is the default (no paid credits needed).
  * Returns [{ audioPath, duration }].
  */
-async function generatePerArticleAudio(shots, tempDir) {
+async function generatePerArticleAudio(shots, tempDir, format) {
   const results = [];
   for (let i = 0; i < shots.length; i++) {
     const shot = shots[i];
@@ -536,19 +463,6 @@ async function saveGeneratedImage(imageUrl, filepath) {
 // Digest -> storyboard (AI when available, otherwise direct item parsing)
 // ---------------------------------------------------------------------------
 
-function parseDigestItems(digestText) {
-  const items = [];
-  const clean = digestText.replace(/\n🤖[\s\S]*$/g, '');
-  const regex = /(\d+)\.\s+([\s\S]*?)(?=\n\d+\.\s|\n🤖|$)/g;
-  let match;
-  while ((match = regex.exec(clean)) !== null) {
-    let body = match[2].trim();
-    body = body.replace(/https?:\/\/\S+/g, '').trim();
-    if (body.length > 40) items.push(body);
-  }
-  return items;
-}
-
 function stripSarcasticLeadIn(text) {
   return String(text || '')
     .replace(/^\s*ну що,?\s*/i, '')
@@ -560,7 +474,7 @@ function stripSarcasticLeadIn(text) {
 }
 
 function fallbackStoryboard(digestText) {
-  const items = parseDigestItems(digestText);
+  const items = parseDigestItemTexts(digestText);
   log(`Fallback storyboard: parsing ${items.length} digest items into shots.`);
   return {
     shots: items.map((item, i) => {
@@ -597,6 +511,7 @@ async function main() {
   const args = process.argv.slice(2);
   const digestId = args.find(a => !a.startsWith('--')) || 'latest';
   const imagesOnly = args.includes('--images-only');
+  const format = args.includes('--format') ? args[args.indexOf('--format') + 1] : 'facebook';
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
   removeStaleTempRuns();
@@ -606,13 +521,13 @@ async function main() {
 
   try {
     // Step 1: Digest content (DB-by-date for 'latest', API, or local files)
-    const digestText = await getDigestContent(digestId);
+    const digestText = await getDigestContent(digestId, { log });
     log(`Digest: ${digestText.length} chars`);
 
     // Step 2: Storyboard (AI if keys available, else parse digest items)
     let storyboard;
     try {
-      storyboard = await generateStoryboard(digestText);
+      storyboard = await generateStoryboard(digestText, format);
       log(`Storyboard created with ${storyboard.shots.length} shots.`);
     } catch (err) {
       log(`Storyboard AI unavailable (${err.message}); using fallback parser.`);
@@ -650,7 +565,7 @@ async function main() {
     }
 
     // Step 4: Generate natural Ukrainian TTS, one clip per shot, timed exactly.
-    const audioResults = await generatePerArticleAudio(storyboard.shots, tempDir);
+    const audioResults = await generatePerArticleAudio(storyboard.shots, tempDir, format);
 
     // Step 5: Generate synchronized clips.
     log('Generating synchronized video clips for shots...');
@@ -659,6 +574,10 @@ async function main() {
       const shot = shotsWithImages[i];
       const audio = audioResults[i];
       shot.duration = audio ? audio.duration : 5;
+      if (format === 'shorts') {
+        // Add 1.5-3s music-only interstitial
+        shot.duration += 2.25; // Average of 1.5 and 3
+      }
       log(`  Shot ${i + 1}: ${shot.duration.toFixed(2)}s — "${(shot.headline || '').slice(0, 50)}..."`);
 
       const silentVideoPath = await generateShotClip(shot, tempDir);
@@ -674,13 +593,16 @@ async function main() {
     // Step 6: Stitch synchronized shots into final Reel MP4 WITH a fresh
     // energetic news-bed (synthesized per run — similar TV-news style, new seed).
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
-    const finalReelPath = join(OUTPUT_DIR, `reel_${timestamp}.mp4`);
+    const finalReelPath = join(OUTPUT_DIR, `${format === 'shorts' ? 'shorts' : 'reel'}_${timestamp}.mp4`);
 
     stitchClips({
       clipPaths: syncedShotPaths,
       outputPath: finalReelPath,
       backgroundMusic: true,
       musicSeed: Date.now(),
+      format,
+      firstFrameImage: shotsWithImages[0]?.imageUrl,
+      lastFrameImage: shotsWithImages[shotsWithImages.length - 1]?.imageUrl,
     });
 
     const musicMeta = stitchClips.lastMusicMeta;
@@ -704,7 +626,14 @@ async function main() {
         if (row) digestToUpdateId = row.id;
       }
       if (digestToUpdateId) {
-        updateDigest(digestToUpdateId, { video_url: publicVideoUrl, reel_url: publicReelUrl });
+        const updateData = {};
+        if (format === 'shorts') {
+          updateData.youtube_shorts_url = publicVideoUrl;
+        } else {
+          updateData.video_url = publicVideoUrl;
+          updateData.reel_url = publicReelUrl;
+        }
+        updateDigest(digestToUpdateId, updateData);
         console.log(`[update] Video URL stored for digest ${digestToUpdateId}: ${publicVideoUrl}`);
       }
     } catch (e) {

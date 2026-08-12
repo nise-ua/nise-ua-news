@@ -8,22 +8,23 @@ const router = Router();
 
 const MAX_TEXT_BYTES = 100 * 1024; // ~100KB per text field
 
- // .env keys that this API is allowed to write. Everything else is preserved
- // untouched. Secrets are deliberately NOT in this list.
-  const ENV_WRITABLE = {
-    claudeModel: 'CLAUDE_MODEL',
-    llmVendor: 'LLM_VENDOR',
-    anthropicBaseUrl: 'ANTHROPIC_BASE_URL',
-    openaiBaseUrl: 'OPENAI_BASE_URL',
-    openrouterBaseUrl: 'OPENROUTER_BASE_URL',
-    moonshotBaseUrl: 'MOONSHOT_BASE_URL',
-    articleThreshold: 'ARTICLE_THRESHOLD',
-    maxArticlesPerDigest: 'MAX_ARTICLES_PER_DIGEST',
-    checkIntervalMs: 'CHECK_INTERVAL_MS',
-    activeScenario: 'ACTIVE_SCENARIO',
-  };
+    // .env keys that this API is allowed to write. Everything else is preserved
+    // untouched. Secrets are deliberately NOT in this list.
+     const ENV_WRITABLE = {
+       claudeModel: 'CLAUDE_MODEL',
+       llmVendor: 'LLM_VENDOR',
+       anthropicBaseUrl: 'ANTHROPIC_BASE_URL',
+       openaiBaseUrl: 'OPENAI_BASE_URL',
+       openrouterBaseUrl: 'OPENROUTER_BASE_URL',
+       moonshotBaseUrl: 'MOONSHOT_BASE_URL',
+       articleThreshold: 'ARTICLE_THRESHOLD',
+       maxArticlesPerDigest: 'MAX_ARTICLES_PER_DIGEST',
+       checkIntervalMs: 'CHECK_INTERVAL_MS',
+       activeScenario: 'ACTIVE_SCENARIO',
+       youtubePrivacyStatus: 'YOUTUBE_PRIVACY_STATUS',
+     };
   
-  const LLM_VENDORS = ['anthropic', 'openai', 'openrouter', 'moonshot'];
+     const LLM_VENDORS = ['anthropic', 'openai', 'openrouter', 'moonshot'];
 
 // Suggested model ids per vendor come from the shared catalog
 // (src/data/model-catalog.js), which also carries pricing. The UI always
@@ -146,16 +147,18 @@ function buildSettingsPayload() {
           accessToken: maskSecret(config.tiktokAccessToken),
           status: 'Пайплайн не реалізовано — потрібно додати',
         },
-        youtube: {
-          accessToken: maskSecret(config.youtubeAccessToken),
-          channelId: maskSecret(config.youtubeChannelId),
-          status: 'Community Posts API недоступний — заглушка',
-        },
         gemini: {
           apiKey: maskSecret(config.geminiApiKey),
           status: 'API-ключ для майбутніх пайплайнів — потрібно додати',
         },
       },
+    },
+    youtube: {
+      clientId: maskSecret(config.youtubeClientId),
+      clientSecret: maskSecret(config.youtubeClientSecret),
+      refreshToken: maskSecret(config.youtubeRefreshToken),
+      channelId: maskSecret(config.youtubeChannelId),
+      privacyStatus: { value: config.youtubePrivacyStatus, editable: true },
     },
   };
 }
@@ -302,6 +305,16 @@ function validatePatch(body) {
   intField('articleThreshold', 1, 100);
   intField('maxArticlesPerDigest', 1, 100);
   intField('checkIntervalMs', 5000, 3600000);
+
+  if (body.youtubePrivacyStatus !== undefined) {
+    const v = body.youtubePrivacyStatus;
+    const allowed = ['public', 'unlisted', 'private'];
+    if (typeof v !== 'string' || !allowed.includes(v)) {
+      errors.push(`youtubePrivacyStatus: має бути одним із ${allowed.join(', ')}`);
+    } else {
+      env[ENV_WRITABLE.youtubePrivacyStatus] = v;
+    }
+  }
 
   // --- scenario selector ---
   if (body.activeScenario !== undefined) {
