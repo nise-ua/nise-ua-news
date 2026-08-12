@@ -18,6 +18,7 @@
  */
 
 import { generateShotClip } from './generate-clips.js';
+import { prepareTtsText } from '../../lib/tts-pronunciation.js';
 import { stitchClips, mergeShotVideoAndAudio } from './stitch.js';
 import { readdirSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
@@ -39,7 +40,10 @@ const IMAGE_DIR = join(__dirname, '..', '..', 'image', 'output');
 const OUTPUT_DIR = join(__dirname, '..', 'output');
 const DB_PATH = join(__dirname, '..', '..', '..', 'data', 'news-digest.db');
 
-const EDGE_VOICE = process.env.EDGE_TTS_VOICE || 'uk-UA-PolinaNeural';
+const configuredEdgeVoice = process.env.EDGE_TTS_VOICE || '';
+const EDGE_VOICE = /^uk-UA-/i.test(configuredEdgeVoice)
+  ? configuredEdgeVoice
+  : 'uk-UA-PolinaNeural';
 
 function log(msg) {
   const ts = new Date().toISOString().slice(11, 19);
@@ -63,7 +67,7 @@ function getAudioDuration(audioPath) {
 function generateUkrainianTTS(shots, tempDir) {
   const results = [];
   for (let i = 0; i < shots.length; i++) {
-    const text = shots[i].spokenText || shots[i].headline || '';
+    const text = prepareTtsText(shots[i].spokenText || shots[i].headline || '');
     const mp3Path = join(tempDir, `audio_shot_${i + 1}.mp3`);
     const tmpPath = join(tempDir, `tts_raw_${i + 1}.mp3`);
     log(`  TTS ${i + 1}/${shots.length} (${EDGE_VOICE}): "${text.slice(0, 60)}..."`);
@@ -164,12 +168,13 @@ async function main() {
   const tempDir = join(OUTPUT_DIR, `temp_real_${Date.now()}`);
   mkdirSync(tempDir, { recursive: true });
 
-  // Pick the newest complete Instagram carousel set (5 images).
+  // Pick the newest non-empty Instagram carousel set. Its size is determined
+  // by the selected digest and must not be hard-coded here.
   const instagramFiles = readdirSync(IMAGE_DIR)
-    .filter(f => /^instagram_.*_0[1-5]\.png$/.test(f));
+    .filter(f => /^instagram_.*_\d+\.png$/.test(f));
   const batches = new Map();
   for (const filename of instagramFiles) {
-    const match = filename.match(/^(instagram_.*)_0[1-5]\.png$/);
+    const match = filename.match(/^(instagram_.*)_\d+\.png$/);
     if (!match) continue;
     const prefix = match[1];
     if (!batches.has(prefix)) batches.set(prefix, []);
@@ -177,13 +182,13 @@ async function main() {
   }
 
   const latestBatch = [...batches.entries()]
-    .filter(([, files]) => files.length === 5)
+    .filter(([, files]) => files.length > 0)
     .sort(([a], [b]) => a.localeCompare(b))
     .at(-1)?.[1]
     .sort((a, b) => Number(a.match(/_(\d+)\.png$/)[1]) - Number(b.match(/_(\d+)\.png$/)[1]));
 
   if (!latestBatch) {
-    throw new Error('No complete 5-image Instagram batch found in the image output directory.');
+    throw new Error('No Instagram carousel batch found in the image output directory.');
   }
 
   const images = latestBatch.map(filename => join(IMAGE_DIR, filename));

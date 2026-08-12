@@ -73,6 +73,7 @@ async function getDigestContent(digestId) {
 
 import ffprobeStatic from 'ffprobe-static';
 import { execSync } from 'child_process';
+import { prepareTtsText } from '../../lib/tts-pronunciation.js';
 
 export function getAudioDuration(audioPath) {
   try {
@@ -91,7 +92,9 @@ export async function generatePerArticleAudio(articles, tempDir) {
 
   for (let i = 0; i < articles.length; i++) {
     const item = articles[i];
-    const scriptText = item.spokenText || item.headline;
+    const rawScript = item.spokenText || item.headline;
+    const scriptText = prepareTtsText(rawScript);
+    if (scriptText !== rawScript) log(`  TTS pronunciation: "${rawScript.slice(0, 50)}..." → "${scriptText.slice(0, 50)}..."`);
     log(`  Audio ${i + 1}/${articles.length}: "${scriptText.slice(0, 50)}..."`);
     const audioBuffer = await generateTTS(scriptText);
     const audioPath = join(tempDir, `audio_shot_${i + 1}.mp3`);

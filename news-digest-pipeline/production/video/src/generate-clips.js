@@ -15,8 +15,8 @@
  *
  * Text layout (createReelsOverlay):
  *  - NiSeNews branding + dot-grid sit flush at the very top of the frame.
- *  - News text (headline + second-sentence detail) is pushed higher than before
- *    so it clears the image's main focal objects, while staying in the safe zone.
+ *  - News text (headline + detail) uses the storyboard position, normally the
+ *    upper 25% safe zone, above the main visual subject.
  *  - Headline font enlarged for reel-screen readability; detail ("second
  *    sentence") font enlarged by the same relative step.
  */
@@ -30,6 +30,7 @@ import { fileURLToPath } from 'url';
 import { fal } from '@fal-ai/client';
 import { config as dotenvConfig } from 'dotenv';
 import ffmpegStatic from 'ffmpeg-static';
+import { getOverlayThemeColors, UPPER_READABILITY_BAND } from '../../lib/reel-overlay-theme.js';
 
 const FFMPEG = ffmpegStatic || 'ffmpeg';
 
@@ -146,34 +147,13 @@ async function fetchImageBuffer(urlOrDataUri) {
  *  - Detail Text: 36px font size (500 weight), 46px line height (strictly 1 short complete sentence).
  */
 
-function createReelsOverlay(headline, detailText = '', textPosition = 'lower', width = 1080, height = 1920) {
+function createReelsOverlay(headline, detailText = '', textPosition = 'lower', width = 1080, height = 1920, overlayTheme = 'light') {
   const margin = 80;
-
-  let svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">`;
-
-  // Preserve the image while adding contrast only where the text lives.
-  svg += `<defs><linearGradient id="reelBottomGradient" x1="0" y1="1" x2="0" y2="0">`;
-  svg += `<stop offset="0%" stop-color="black" stop-opacity="0.82"/>`;
-  svg += `<stop offset="50%" stop-color="black" stop-opacity="0.35"/>`;
-  svg += `<stop offset="100%" stop-color="black" stop-opacity="0"/>`;
-  svg += `</linearGradient></defs>`;
-  const gradientY = textPosition === 'upper' ? 150 : Math.round(height * 0.44);
-  svg += `<rect x="0" y="${gradientY}" width="${width}" height="${height - gradientY}" fill="url(#reelBottomGradient)"/>`;
-
-  // Brand — top LEFT, flushed at the very top of the reel frame (enlarged)
-  svg += `<text x="${margin}" y="${margin + 48}" fill="white" font-family="Arial, sans-serif" font-size="48" font-weight="900">NiSe<tspan fill="#E41E48">News</tspan></text>`;
-
-  // Dots — top RIGHT, enlarged and spread across the upper band
-  const dotsX = width - margin - 150;
-  const dotsY = margin + 15;
-  for (let row = 0; row < 3; row++) {
-    for (let col = 0; col < 6; col++) {
-      svg += `<circle cx="${dotsX + col * 22}" cy="${dotsY + row * 22}" r="5" fill="white" opacity="0.8" />`;
-    }
-  }
+  const safeTextPosition = textPosition === 'upper' ? 'upper' : 'lower';
+  // Upper reel layout always uses the locked Google-Earth-style dark band + white text.
+  const colors = getOverlayThemeColors(safeTextPosition === 'upper' ? 'light' : overlayTheme);
 
   const hx = margin;
-
   const lines = wrapText(headline, 24, 4);
   const cleanDetail = sanitizeDetailText(detailText);
   const detailLines = wrapText(cleanDetail, 40, 3);
@@ -182,36 +162,67 @@ function createReelsOverlay(headline, detailText = '', textPosition = 'lower', w
   const headlineLineHeight = 70;
   const detailFontSize = 36;
   const detailLineHeight = 46;
+  const detailFontWeight = colors.detailFontWeight || 800;
   const gapBetween = 20;
 
   const headlineTotalHeight = lines.length > 0 ? (lines.length - 1) * headlineLineHeight + headlineFontSize : 0;
   const detailTotalHeight = detailLines.length > 0 ? (detailLines.length - 1) * detailLineHeight + detailFontSize : 0;
 
   let hy;
-  if (textPosition === 'upper') {
-    // Moved up to occupy the top 25% of the 1920px frame (top 480px) so the
-    // news text sits well below the top branding and clear of the image's
-    // main focal objects near the upper third of the image.
-    hy = 380;
-
+  if (safeTextPosition === 'upper') {
+    hy = 300;
   } else {
-    // Target bottom Y moved higher (was height - 360) so the lower text block
-    // clears the image's main objects while staying above FB/IG Reels action buttons.
     const targetBottomY = height - 500;
     const totalBlockHeight = headlineTotalHeight + (detailLines.length > 0 ? gapBetween + detailTotalHeight : 0);
     hy = targetBottomY - totalBlockHeight + headlineFontSize;
   }
 
+  let svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">`;
+
+  if (safeTextPosition === 'upper') {
+    // Locked readability rectangle: solid dark panel over the top ~22%, then soft fade.
+    const solidHeight = Math.round(height * UPPER_READABILITY_BAND.solidRatio);
+    const fadeHeight = Math.round(height * UPPER_READABILITY_BAND.fadeRatio);
+    svg += `<defs><linearGradient id="reelUpperBandFade" x1="0" y1="0" x2="0" y2="1">`;
+    for (const [offset, stopColor, opacity] of UPPER_READABILITY_BAND.fadeStops) {
+      svg += `<stop offset="${offset}" stop-color="${stopColor}" stop-opacity="${opacity}"/>`;
+    }
+    svg += `</linearGradient></defs>`;
+    svg += `<rect x="0" y="0" width="${width}" height="${solidHeight}" fill="${UPPER_READABILITY_BAND.solidColor}" fill-opacity="${UPPER_READABILITY_BAND.solidOpacity}"/>`;
+    svg += `<rect x="0" y="${solidHeight}" width="${width}" height="${fadeHeight}" fill="url(#reelUpperBandFade)"/>`;
+  } else {
+    const gradientId = 'reelBottomGradient';
+    svg += `<defs><linearGradient id="${gradientId}" x1="0" y1="1" x2="0" y2="0">`;
+    for (const [offset, stopColor, opacity] of colors.gradientStops) {
+      svg += `<stop offset="${offset}" stop-color="${stopColor}" stop-opacity="${opacity}"/>`;
+    }
+    svg += `</linearGradient></defs>`;
+    const gradientY = Math.round(height * 0.44);
+    const gradientHeight = height - gradientY;
+    svg += `<rect x="0" y="${gradientY}" width="${width}" height="${gradientHeight}" fill="url(#${gradientId})"/>`;
+  }
+
+  // Brand — top LEFT, flushed at the very top of the reel frame (enlarged)
+  svg += `<text x="${margin}" y="${margin + 48}" fill="${colors.brandNiSeFill}" font-family="Arial, sans-serif" font-size="48" font-weight="900">NiSe<tspan fill="${colors.brandNewsFill}">News</tspan></text>`;
+
+  // Dots — top RIGHT, enlarged and spread across the upper band
+  const dotsX = width - margin - 150;
+  const dotsY = margin + 15;
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 6; col++) {
+      svg += `<circle cx="${dotsX + col * 22}" cy="${dotsY + row * 22}" r="5" fill="${colors.dotsFill}" opacity="${colors.dotsOpacity}" />`;
+    }
+  }
 
   lines.forEach(line => {
-    svg += `<text x="${hx}" y="${hy}" fill="white" font-family="Arial, sans-serif" font-size="${headlineFontSize}" font-weight="900" stroke="black" stroke-opacity="0.35" stroke-width="3" paint-order="stroke">${escapeXml(line)}</text>`;
+    svg += `<text x="${hx}" y="${hy}" fill="${colors.headlineFill}" font-family="Arial, sans-serif" font-size="${headlineFontSize}" font-weight="900" stroke="${colors.headlineStroke}" stroke-opacity="${colors.headlineStrokeOpacity}" stroke-width="${colors.headlineStrokeWidth}" paint-order="stroke">${escapeXml(line)}</text>`;
     hy += headlineLineHeight;
   });
 
   if (detailLines.length > 0) {
     hy += (gapBetween - headlineLineHeight + detailFontSize);
     detailLines.forEach(line => {
-      svg += `<text x="${hx}" y="${hy}" fill="white" font-family="Arial, sans-serif" font-size="${detailFontSize}" font-weight="500" opacity="0.95" stroke="black" stroke-opacity="0.30" stroke-width="2" paint-order="stroke">${escapeXml(line)}</text>`;
+      svg += `<text x="${hx}" y="${hy}" fill="${colors.detailFill}" font-family="Arial, sans-serif" font-size="${detailFontSize}" font-weight="${detailFontWeight}">${escapeXml(line)}</text>`;
       hy += detailLineHeight;
     });
   }
@@ -227,7 +238,7 @@ function createReelsOverlay(headline, detailText = '', textPosition = 'lower', w
  *  - Headline overlay positioned for both full-screen Reels AND Facebook feed
  *    center-crops (1:1 / 4:5).
  */
-async function createShotImage(imageUrl, headline, detailText = '', textPosition = 'lower', width = 1080, height = 1920, overlay = true) {
+export async function createShotImage(imageUrl, headline, detailText = '', textPosition = 'lower', width = 1080, height = 1920, overlay = true) {
   let bgBuffer = null;
 
   // The AI generated image is the text-free background of the news frame.
@@ -264,8 +275,13 @@ async function createShotImage(imageUrl, headline, detailText = '', textPosition
   // Carousel images from the image pipeline already contain the complete
   // NiSeNews/text design baked in — overlaying again would duplicate the text.
   // AI-generated text-free backgrounds should pass overlay=true.
+  // Upper layout always uses the locked dark readability band + white text
+  // (Google Earth style), independent of background brightness.
   if (overlay && headline && headline.length > 0) {
-    const overlaySvg = createReelsOverlay(headline, detailText, textPosition, width, height);
+    if (textPosition === 'upper') {
+      log('  Overlay: locked dark upper band + white text');
+    }
+    const overlaySvg = createReelsOverlay(headline, detailText, textPosition, width, height, 'light');
     base = await sharp(base)
       .composite([{ input: Buffer.from(overlaySvg), top: 0, left: 0 }])
       .png()
@@ -284,7 +300,7 @@ export async function generateShotClip(shot, tempDir) {
   // Create the native 9:16 frame: full-bleed background + positioned text overlay.
   // `shot.overlay` defaults to true (AI backgrounds need the headline); set it
   // to false for carousel images that already contain their own design/text.
-  const imgBuffer = await createShotImage(shot.imageUrl, shot.headline, shot.detailText, shot.textPosition, 1080, 1920, shot.overlay !== false);
+  const imgBuffer = await createShotImage(shot.imageUrl, shot.headline, shot.detailText, 'upper', 1080, 1920, shot.overlay !== false);
   const imgPath = join(tempDir, `shot_${shot.shot}_bg.png`);
   writeFileSync(imgPath, imgBuffer);
 

@@ -20,14 +20,17 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { config as dotenvConfig } from 'dotenv';
+import { execFileSync } from 'child_process';
 import { applyTemplateOverlay } from './overlay.js';
+import { VISUAL_GROUNDING_RULES, groundVisualVariant, finalizeImagePrompt } from '../../lib/visual-grounding.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..', '..', '..');
-dotenvConfig({ path: join(ROOT, '.env'), override: true });
+dotenvConfig({ path: join(ROOT, '.env'), override: false });
 
 const SERVER = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 3000}`;
 const OUTPUT_DIR = join(__dirname, '..', 'output');
+const DB_PATH = join(ROOT, 'data', 'news-digest.db');
 
 // --- Config ---
 
@@ -52,6 +55,10 @@ function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // Normalize model aliases from the shared model catalog to OpenAI Images API
 // model IDs. The API does not accept provider prefixes and does not expose a
 // gpt-image-1-mini model; mapping the alias prevents all image jobs failing.
@@ -71,6 +78,24 @@ async function generateOpenRouterImage(prompt, model) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error('OPENROUTER_API_KEY missing in .env');
   const baseUrl = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
+
+  // Determine supported parameters based on model
+  let resolution = '2K';
+  let aspectRatio = '4:5';
+  let outputFormat = 'png';
+
+  // gpt-image-1 and gpt-image-1-mini only support specific aspect ratios
+  if (model?.includes('gpt-image-1')) {
+    resolution = undefined; // not supported
+    aspectRatio = '2:3';    // closest to vertical 9:16, supported by gpt-image-1
+    outputFormat = 'png';
+  }
+
+  const body = { model, prompt, n: 1 };
+  if (resolution) body.resolution = resolution;
+  if (aspectRatio) body.aspect_ratio = aspectRatio;
+  if (outputFormat) body.output_format = outputFormat;
+
   const response = await fetch(`${baseUrl}/images`, {
     method: 'POST',
     headers: {
@@ -79,7 +104,7 @@ async function generateOpenRouterImage(prompt, model) {
       ...(process.env.BASE_URL ? { 'HTTP-Referer': process.env.BASE_URL } : {}),
       'X-Title': 'NiSeNews image pipeline',
     },
-    body: JSON.stringify({ model, prompt, n: 1, resolution: '2K', aspect_ratio: '4:5', output_format: 'png' }),
+    body: JSON.stringify(body),
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload?.error?.message || `OpenRouter image request failed (${response.status})`);
@@ -98,74 +123,69 @@ async function generateGoogleImage(prompt) {
   const apiKey = process.env.GOOGLE_API_KEY;
   if (!apiKey) throw new Error('GOOGLE_API_KEY missing in .env');
 
-  const modelName = process.env.GOOGLE_MODEL && process.env.GOOGLE_MODEL.includes('imagen')
-    ? process.env.GOOGLE_MODEL
-    : 'imagen-3.0-generate-002';
+  const preferredModel = process.env.GOOGLE_MODEL || 'gemini-2.5-flash-image';
+  const modelsToTry = [
+    preferredModel,
+    'gemini-2.5-flash-image',
+    'gemini-2.0-flash-preview-image-generation',
+  ].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
-  // 1. Try Google Imagen 3 REST API endpoint (:predict)
-  try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:predict?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        instances: [{ prompt }],
-        parameters: { sampleCount: 1, aspectRatio: '9:16' }
-      })
-    });
-    if (res.ok) {
-      const data = await res.json();
-      const b64 = data?.predictions?.[0]?.bytesBase64Encoded;
-      if (b64) return `data:image/png;base64,${b64}`;
-    } else {
-      const errText = await res.text();
-      log(`  Google Imagen REST API returned ${res.status}: ${errText.slice(0, 150)}`);
+  // 1. Prefer Gemini image models via generateContent (current working path)
+  for (const modelName of modelsToTry) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+          }),
+        }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const parts = data?.candidates?.[0]?.content?.parts || [];
+        for (const part of parts) {
+          if (part?.inlineData?.data) {
+            const mime = part.inlineData.mimeType || 'image/png';
+            return `data:${mime};base64,${part.inlineData.data}`;
+          }
+        }
+        log(`  Google ${modelName}: response OK but no image part`);
+      } else {
+        const errText = await res.text();
+        log(`  Google ${modelName} returned ${res.status}: ${errText.slice(0, 150)}`);
+      }
+    } catch (err) {
+      log(`  Google ${modelName} fetch error: ${err.message}`);
     }
-  } catch (err) {
-    log(`  Google Imagen REST fetch error: ${err.message}`);
   }
 
-  // 2. Try Google Imagen 3 Fast variant endpoint
-  try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-fast-generate-001:predict?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        instances: [{ prompt }],
-        parameters: { sampleCount: 1, aspectRatio: '9:16' }
-      })
-    });
-    if (res.ok) {
-      const data = await res.json();
-      const b64 = data?.predictions?.[0]?.bytesBase64Encoded;
-      if (b64) return `data:image/png;base64,${b64}`;
+  // 2. Try Google Imagen predict endpoints (may be unavailable on some keys)
+  const imagenModels = ['imagen-3.0-generate-002', 'imagen-3.0-fast-generate-001'];
+  for (const modelName of imagenModels) {
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:predict?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instances: [{ prompt }],
+          parameters: { sampleCount: 1, aspectRatio: '9:16' }
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const b64 = data?.predictions?.[0]?.bytesBase64Encoded;
+        if (b64) return `data:image/png;base64,${b64}`;
+      } else {
+        const errText = await res.text();
+        log(`  Google Imagen ${modelName} returned ${res.status}: ${errText.slice(0, 120)}`);
+      }
+    } catch (err) {
+      log(`  Google Imagen ${modelName} error: ${err.message}`);
     }
-  } catch (err) {
-    // Ignore
-  }
-
-  // 3. Try Google Gemini SDK generateContent if standard text/multimodal model
-  try {
-    const model = genAI.getGenerativeModel({ model: process.env.GOOGLE_MODEL || 'gemini-1.5-flash' });
-    const result = await model.generateContent(prompt);
-    const candidates = result?.response?.candidates;
-    if (candidates && candidates.length) {
-      const part = candidates[0].content?.parts?.[0];
-      if (part?.inlineData?.data) return `data:image/png;base64,${part.inlineData.data}`;
-      if (part?.blob?.data) return `data:image/png;base64,${part.blob.data}`;
-    }
-    if (typeof result?.response?.text === 'function') {
-      const txt = result.response.text().trim();
-      if (txt.startsWith('http') || txt.startsWith('data:')) return txt;
-    }
-  } catch (err) {
-    log(`  Gemini generateContent error: ${err.message}`);
-  }
-
-  // 4. Fallback to OpenRouter image model if OPENROUTER_API_KEY is available
-  if (process.env.OPENROUTER_API_KEY) {
-    log('  Fallback: generating image via OpenRouter...');
-    const url = await generateOpenRouterImage(prompt, process.env.DALLE_MODEL || 'qwen/qwen-image-3-pro');
-    if (url) return url;
   }
 
   throw new Error('Failed to obtain image from Google Gemini/Imagen');
@@ -173,11 +193,49 @@ async function generateGoogleImage(prompt) {
 
 // --- Step 1: Get digest content ---
 
+function loadLatestDigestFromDb() {
+  if (!existsSync(DB_PATH)) return null;
+  try {
+    return execFileSync('sqlite3', [
+      DB_PATH,
+      'SELECT content FROM digests ORDER BY date DESC LIMIT 1;',
+    ], { encoding: 'utf8' }).trim() || null;
+  } catch (err) {
+    log(`Warning: could not query DB: ${err.message}`);
+    return null;
+  }
+}
+
 async function getDigestContent(digestId) {
-  // First, check if it's a direct file path
+  // Direct file path
   if (digestId !== 'latest' && existsSync(digestId)) {
     log(`Reading digest directly from file: ${digestId}`);
     return readFileSync(digestId, 'utf-8');
+  }
+
+  // Prefer newest digest by date from pipeline DB (same source as reel)
+  if (digestId === 'latest') {
+    const dbContent = loadLatestDigestFromDb();
+    if (dbContent) {
+      log('Loaded newest digest from pipeline DB (date-ordered).');
+      return dbContent;
+    }
+  } else {
+    // Explicit digest id from DB
+    if (existsSync(DB_PATH)) {
+      try {
+        const row = execFileSync('sqlite3', [
+          DB_PATH,
+          `SELECT content FROM digests WHERE id='${String(digestId).replace(/'/g, "''")}';`,
+        ], { encoding: 'utf8' }).trim();
+        if (row) {
+          log(`Loaded digest ${digestId} from pipeline DB.`);
+          return row;
+        }
+      } catch (err) {
+        log(`Warning: DB lookup by id failed: ${err.message}`);
+      }
+    }
   }
 
   try {
@@ -213,7 +271,7 @@ async function getDigestContent(digestId) {
     }
   }
 
-  throw new Error('Could not get digest content from API or local files.');
+  throw new Error('Could not get digest content from DB, API, or local files.');
 }
 
 // --- Step 1.5: Parse digest to extract articles with URLs ---
@@ -221,15 +279,19 @@ async function getDigestContent(digestId) {
 function parseDigestArticles(digestText) {
   // Digest format: numbered items with text followed by URL on next line
   const articles = [];
-  const lines = digestText.split('\n');
+  const clean = String(digestText || '')
+    .replace(/\n🤖[\s\S]*$/g, '')
+    .replace(/\nХештеги:[\s\S]*$/gi, '')
+    .replace(/\n#[\wА-Яа-яІіЇїЄєҐґ]+(?:\s+#[\wА-Яа-яІіЇїЄєҐґ]+)*\s*$/g, '');
+  const lines = clean.split('\n');
   let currentArticle = { text: '', url: '' };
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-    
-    // Check if line starts with a number (1., 2., etc.)
-    const numberMatch = line.match(/^(\d+)\.\s*(.*)/);
+
+    // Match "1." or "#AI 1." / "#news 2." style numbering
+    const numberMatch = line.match(/^(?:#\S+\s+)?(\d+)\.\s*(.*)/);
     if (numberMatch) {
       // Save previous article if exists
       if (currentArticle.text || currentArticle.url) {
@@ -250,7 +312,7 @@ function parseDigestArticles(digestText) {
     articles.push(currentArticle);
   }
   
-  return articles;
+  return articles.filter(a => a.text && a.text.length > 40);
 }
 
 // --- Step 2: Generate headlines + image prompts via AI (Anthropic, OpenAI or Google) ---
@@ -265,40 +327,38 @@ async function generateHeadlinesAndPrompts(digestText) {
 
   const systemPrompt = `Ти створюєш клікбейтні зображення для Instagram/дописів для українського медіа.
 
-На основі цього дайджесту виділи КОЖНУ окрему новину/статтю (зазвичай 3-7 новин).
+На вхід приходять ОКРЕМІ блоки новин. Для КОЖНОГО блоку створи поля:
+1. **coreFact** — нейтральний факт англійською (хто/що/що сталося), БЕЗ сарказму автора
+2. **entities** — масив конкретних назв (компанії, продукти, технології, місця)
+3. **newsTone** — "positive" | "neutral" | "negative" (лише з coreFact, не з сарказму)
+4. **visualSubject** — 1 конкретна сцена англійською з цих сутностей і дії
+5. **headline** — заголовок українською (5-8 слів, макс 2 рядки). Конкретика (цифри, імена, продукти). Без саркастичних слів на кшталт «революція/історія», якщо це не буквальний факт
+6. **prompt** — англійський промпт фону (1-2 речення), ОБОВ'ЯЗКОВО побудований з visualSubject
+7. **url** — URL джерела (якщо є у блоці)
 
-Для КОЖНОЇ новини створи:
-1. **headline** — заголовок українською (5-8 слів, максимум 2 рядки). Має викликати цікавість, емоції, але не брехливим. З конкретикою (цифри, імена, місця).
-2. **prompt** — промпт для генерації фонового зображення (АНГЛІЙСЬКОЮ, 1-2 речення).
-3. **url** — URL джерела новини.
+${VISUAL_GROUNDING_RULES}
 
-НАЙВАЖЛИВІШІ ПРАВИЛА для промпту:
-- Промпт МАЄ описувати ВІЗУАЛЬНУ метафору новини, а не абстрактний фон
-- Використовуй символи, об'єкти, сцени, які асоціюються з темою новини
-- КРИТИЧНО ВАЖЛИВО: Зображення НЕ МАЄ містити жодного тексту, літер, цифр, слів, логотипів, написів — НІЯКОГО ТЕКСТУ ВОВНЕ!
-- Стиль: кінематографічний, неоновий/кіберпанк для технологій, мрачний для небезпеки, епічний для глобальних тем
-- Фон має бути достатньо темним для белого тексту поверх
-- Закінчуй промпт: "No text, no letters, no numbers, no words, no logos. Dark moody atmosphere, high contrast for white text overlay. Cinematic lighting, 1080x1350."
+Закінчуй prompt: no UI screenshots, no readable text on the image, lighting/colors matching newsTone, photorealistic news photography, 1080x1350.
 
-Приклад хорошого промпту для AI музики: "Futuristic recording studio with AI neural network visualizing music as glowing particle waves, synthesizer keyboards floating, dark purple and blue cinematic lighting, high detail. No text, no letters, no numbers, no words, no logos. Dark moody atmosphere, high contrast for white text overlay."
-
-Приклад для OpenAI про автора: "Classic typewriter with AI neural threads typing by itself, ghostly author silhouette fading away, warm sepia and cold blue contrast, dramatic lighting. No text, no letters, no numbers, no words, no logos. Dark moody atmosphere, high contrast for white text overlay."
-
-Приклад для кібербезпеки: "Shattered digital shield with binary code and passwords leaking out like water, hacker hoodie silhouette in background, dark cyan and red alert lighting. No text, no letters, no numbers, no words, no logos. Dark moody atmosphere, high contrast for white text overlay."
-
-Приклад для дата-центрів: "Massive data center cooling towers merging with suburban neighborhood, angry residents with protest signs (no text on signs), power lines dominating sky, golden hour dramatic lighting. No text, no letters, no numbers, no words, no logos. Dark moody atmosphere, high contrast for white text overlay."
-
-Приклад Китай vs США: "Two giant AI dragons (red Chinese, blue American) battling in digital clouds over globe, neural network patterns, epic scale, dramatic lightning. No text, no letters, no numbers, no words, no logos. Dark moody atmosphere, high contrast for white text overlay."
-
-Відповідай в JSON форматі (один об'єкт "variants" з елементами для КОЖНОЇ новини):
+Відповідай ТІЛЬКИ JSON:
 {
   "variants": [
-    {"headline": "...", "prompt": "...", "url": "..."},
-    {"headline": "...", "prompt": "...", "url": "..."}
+    {
+      "coreFact": "...",
+      "entities": ["...", "..."],
+      "newsTone": "positive|neutral|negative",
+      "visualSubject": "...",
+      "headline": "...",
+      "prompt": "...",
+      "url": "..."
+    }
   ]
 }`;
 
-  const userPrompt = `Дайджест:\n${digestText.slice(0, 4000)}`;
+  const articleBlocks = articles.length > 0
+    ? articles.map((a, i) => `--- ARTICLE ${i + 1} ---\n${a.text}${a.url ? `\nURL: ${a.url}` : ''}`).join('\n\n')
+    : digestText.slice(0, 4000);
+  const userPrompt = `Опрацюй КОЖЕН блок окремо. Ігноруй авторський сарказм; візуал = факт новини.\n\n${articleBlocks}`;
 
   let text;
   if (vendor === 'openai') {
@@ -312,6 +372,31 @@ async function generateHeadlinesAndPrompts(digestText) {
       response_format: { type: 'json_object' }
     });
     text = response.choices[0].message.content;
+  } else if (vendor === 'openrouter') {
+    if (!process.env.OPENROUTER_API_KEY) throw new Error('OPENROUTER_API_KEY missing in .env');
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    const baseUrl = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        ...(process.env.BASE_URL ? { 'HTTP-Referer': process.env.BASE_URL } : {}),
+        'X-Title': 'NiSeNews image pipeline',
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL || 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        response_format: { type: 'json_object' }
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.error?.message || `OpenRouter chat request failed (${response.status})`);
+    text = payload?.choices?.[0]?.message?.content;
+    if (!text) throw new Error('OpenRouter response did not contain text content');
   } else if (vendor === 'google') {
     if (!process.env.GOOGLE_API_KEY) throw new Error('GOOGLE_API_KEY missing in .env');
     const textModel = (process.env.GOOGLE_MODEL && !process.env.GOOGLE_MODEL.includes('image'))
@@ -340,7 +425,7 @@ async function generateHeadlinesAndPrompts(digestText) {
   if (!jsonMatch) throw new Error('Failed to parse AI response as JSON');
   const result = JSON.parse(jsonMatch[0]);
   
-  // Merge URLs from parsed articles if AI didn't include them
+  // Merge URLs from parsed articles if AI didn't include them, then ground prompts
   if (result.variants && articles.length > 0) {
     result.variants.forEach((v, i) => {
       if (!v.url && articles[i] && articles[i].url) {
@@ -348,6 +433,16 @@ async function generateHeadlinesAndPrompts(digestText) {
       }
     });
   }
+
+  result.variants = (result.variants || []).map((v, i) => {
+    const grounded = groundVisualVariant(v, i);
+    if (grounded.prompt !== v.prompt) {
+      log(`  Variant ${i + 1}: rebuilt prompt from coreFact/entities (sarcasm/abstract rejected)`);
+    }
+    log(`  Variant ${i + 1} fact: ${(grounded.coreFact || '').slice(0, 80)}`);
+    log(`  Variant ${i + 1} prompt: ${(grounded.prompt || '').slice(0, 100)}`);
+    return grounded;
+  });
   
   return result;
 }
@@ -394,17 +489,25 @@ async function generateBackgroundImages(variants) {
   const rawVendor = (process.env.IMAGE_VENDOR || '').trim().toLowerCase();
   const vendor = rawVendor || (process.env.OPENAI_API_KEY ? 'dalle' : 'fal');
   log(`Image vendor resolved to '${vendor}'`);
-  log(`Generating ${variants.length} background images via ${vendor}...`);
+  log(`Generating ${variants.length} background images via ${vendor} (sequential mode)...`);
 
-  const results = await Promise.all(
-    variants.map(async (v, i) => {
-      // Choose a random background style to add variety
-      const styles = ["bright and colorful", "vibrant high‑contrast", "soft pastel tones", "cinematic lighting", "dark moody"];
-      const style = styles[Math.floor(Math.random() * styles.length)];
-      const promptWithStyle = `${style}, ${v.prompt}`;
-      log(`  Image ${i + 1}: \"${promptWithStyle.slice(0, 60)}...\"`);
+  const results = [];
+  const requestDelayMs = Math.max(0, Number(process.env.IMAGE_REQUEST_DELAY_MS || 2000));
+
+  for (let i = 0; i < variants.length; i++) {
+    const v = variants[i];
+    const promptWithStyle = finalizeImagePrompt(v.prompt, {
+      newsTone: v.newsTone,
+      coreFact: v.coreFact,
+      index: i,
+    });
+    log(`  Image ${i + 1}: \"${promptWithStyle.slice(0, 60)}...\"`);
+
+    const maxAttempts = Math.max(1, Number(process.env.IMAGE_MAX_RETRIES || 3) + 1);
+    let imageUrl = null;
+    let lastErr = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        let imageUrl;
         if (vendor === 'openrouter') {
           imageUrl = await generateOpenRouterImage(promptWithStyle, process.env.DALLE_MODEL || 'qwen/qwen-image-3-pro');
         } else if (vendor === 'dalle' || vendor === 'openai') {
@@ -451,20 +554,40 @@ async function generateBackgroundImages(variants) {
           });
           imageUrl = result.data.images[0].url;
         }
-        log(`  Image ${i + 1}: ✅ ${safeLogUrl(imageUrl)}`);
-        return { ...v, imageUrl, index: i };
+        break;
       } catch (err) {
-        log(`  Image ${i + 1}: ❌ Error type: ${err.constructor.name}`);
-        log(`  Image ${i + 1}: ❌ Message: ${err.message}`);
-        if (err.response) {
-          log(`  Image ${i + 1}: ❌ Response Data: ${JSON.stringify(err.response.data).slice(0, 200)}`);
+        lastErr = err;
+        log(`  Image ${i + 1}: attempt ${attempt}/${maxAttempts} failed: ${err.message}`);
+        if (attempt < maxAttempts) {
+          const delayMs = 2500 * attempt;
+          log(`  Retrying image ${i + 1} in ${delayMs}ms...`);
+          await sleep(delayMs);
         }
-        return { ...v, imageUrl: null, index: i };
       }
-    })
-  );
+    }
 
-  return results.filter(r => r.imageUrl);
+    if (imageUrl) {
+      log(`  Image ${i + 1}: ✅ ${safeLogUrl(imageUrl)}`);
+      results.push({ ...v, imageUrl, index: i });
+    } else {
+      log(`  Image ${i + 1}: ❌ Error type: ${lastErr?.constructor?.name || 'Error'}`);
+      log(`  Image ${i + 1}: ❌ Message: ${lastErr?.message || 'unknown'}`);
+      results.push({ ...v, imageUrl: null, index: i });
+    }
+
+    // Delay between requests to avoid rate limiting and concurrent issues
+    if (i < variants.length - 1 && requestDelayMs > 0) {
+      log(`  Waiting ${requestDelayMs}ms before next image...`);
+      await sleep(requestDelayMs);
+    }
+  }
+
+  const ok = results.filter(r => r.imageUrl);
+  if (ok.length !== variants.length) {
+    log(`Only ${ok.length}/${variants.length} images succeeded — refusing partial set.`);
+    return [];
+  }
+  return ok;
 }
 
 // --- Step 4: Pick best image+headline via AI Vision (Anthropic, OpenAI or Google) ---

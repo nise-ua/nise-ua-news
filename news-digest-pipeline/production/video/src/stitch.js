@@ -5,6 +5,7 @@ import { writeFileSync, existsSync, mkdirSync, unlinkSync, readdirSync } from 'f
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import ffmpegStatic from 'ffmpeg-static';
+import { generateBackgroundMusic, reelMusicPathFor } from './background-music.js';
 
 const FFMPEG = ffmpegStatic || 'ffmpeg';
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -27,7 +28,7 @@ function log(msg) {
  * "tracks" (pure floor noise) so that hiss can never be amplified into a
  * reel as if it were music.
  */
-function findBackgroundMusic() {
+function findStaticBackgroundMusic() {
   if (process.env.BACKGROUND_MUSIC_PATH) {
     const envPath = process.env.BACKGROUND_MUSIC_PATH;
     if (existsSync(envPath) && isUsableMusic(envPath)) return envPath;
@@ -47,6 +48,44 @@ function findBackgroundMusic() {
     .map(filename => join(ASSETS_DIR, filename))
     .find(isUsableMusic);
   return fallback || null;
+}
+
+/**
+ * Fresh news-bed synthesis for each reel (distinct style + key/tempo).
+ * Falls back to the checked-in asset when synthesis fails.
+ */
+function resolveBackgroundMusic({ workDir, reelPath, seed }) {
+  if (process.env.BACKGROUND_MUSIC_PATH) {
+    const envPath = process.env.BACKGROUND_MUSIC_PATH;
+    if (existsSync(envPath) && isUsableMusic(envPath)) {
+      log(`Using BACKGROUND_MUSIC_PATH override: ${envPath}`);
+      return { path: envPath, fresh: false };
+    }
+  }
+
+  const resolvedSeed = seed != null ? Number(seed) : Date.now();
+  const outputPath = reelPath
+    ? reelMusicPathFor(reelPath)
+    : join(workDir, `background-music-${resolvedSeed}.mp3`);
+
+  try {
+    const { config } = generateBackgroundMusic({ seed: resolvedSeed, outputPath });
+    if (isUsableMusic(outputPath)) {
+      log(`Generated fresh background music: ${config.styleLabel} @ ${config.bpm} BPM (seed ${config.seed})`);
+      log(`  Saved bed: ${outputPath}`);
+      return { path: outputPath, fresh: true, config };
+    }
+    log(`Fresh background music failed validation: ${outputPath}`);
+  } catch (err) {
+    log(`Fresh background music generation failed: ${err.message}`);
+  }
+
+  const staticPath = findStaticBackgroundMusic();
+  if (staticPath) {
+    log(`⚠️  Falling back to static background music: ${staticPath}`);
+    return { path: staticPath, fresh: false };
+  }
+  return { path: null, fresh: false };
 }
 
 // Reject audio assets that are effectively low-level noise (e.g. an old
@@ -105,7 +144,7 @@ export function mergeShotVideoAndAudio(videoPath, audioPath, outputPath) {
 }
 
 export function mixVoiceoverWithMusic(voiceoverPath, outputPath, musicVolume = 0.8) {
-  const musicPath = findBackgroundMusic();
+  const { path: musicPath } = resolveBackgroundMusic({ workDir: dirname(outputPath) });
   if (!musicPath) {
     execSync(`"${FFMPEG}" -y -i "${voiceoverPath}" -c:a aac -b:a 192k -ar 48000 -ac 2 "${outputPath}"`, { stdio: 'pipe' });
     return outputPath;
@@ -116,13 +155,18 @@ export function mixVoiceoverWithMusic(voiceoverPath, outputPath, musicVolume = 0
   return outputPath;
 }
 
-export function stitchClips({ clipPaths, audioPath, outputPath, backgroundMusic = true }) {
+export function stitchClips({ clipPaths, audioPath, outputPath, backgroundMusic = true, musicSeed }) {
   mkdirSync(dirname(outputPath), { recursive: true });
   const concatListPath = join(dirname(outputPath), `concat_list_${Date.now()}.txt`);
   writeFileSync(concatListPath, clipPaths.map(p => `file '${p}'`).join('\n'));
 
+  let musicMeta = null;
   try {
-    const musicPath = backgroundMusic ? findBackgroundMusic() : null;
+    const musicSelection = backgroundMusic
+      ? resolveBackgroundMusic({ workDir: dirname(outputPath), reelPath: outputPath, seed: musicSeed })
+      : { path: null, fresh: false };
+    const musicPath = musicSelection.path;
+    if (musicSelection.config) musicMeta = musicSelection.config;
     // Default post-mix music level is 0.35: keeps the voiceover dominant while
     // the music bed is still clearly audible underneath.
     // Use BACKGROUND_MUSIC_VOLUME env var to tune.
@@ -146,6 +190,9 @@ export function stitchClips({ clipPaths, audioPath, outputPath, backgroundMusic 
     execSync(cmd, { stdio: 'inherit' });
   } finally {
     if (existsSync(concatListPath)) unlinkSync(concatListPath);
+  }
+  if (musicMeta) {
+    stitchClips.lastMusicMeta = musicMeta;
   }
   return outputPath;
 }

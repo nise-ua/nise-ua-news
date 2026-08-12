@@ -35,6 +35,8 @@ import { createRequire } from 'module';
 import { generateStoryboard } from './storyboard.js';
 import { generateShotClip } from './generate-clips.js';
 import { stitchClips, mergeShotVideoAndAudio } from './stitch.js';
+import { groundVisualVariant, buildGroundedPrompt, inferNewsToneFromFact } from '../../lib/visual-grounding.js';
+import { prepareTtsText } from '../../lib/tts-pronunciation.js';
 
 import OpenAI from 'openai';
 import { fal } from '@fal-ai/client';
@@ -58,7 +60,10 @@ const SERVER = process.env.SERVER_URL || `http://localhost:${process.env.PORT ||
 const OUTPUT_DIR = join(__dirname, '..', 'output');
 const DB_PATH = join(ROOT, 'data', 'news-digest.db');
 
-const EDGE_VOICE = process.env.EDGE_TTS_VOICE || 'uk-UA-PolinaNeural';
+const configuredEdgeVoice = process.env.EDGE_TTS_VOICE || '';
+const EDGE_VOICE = /^uk-UA-/i.test(configuredEdgeVoice)
+  ? configuredEdgeVoice
+  : 'uk-UA-PolinaNeural';
 
 function removeStaleTempRuns(maxAgeMs = 24 * 60 * 60 * 1000) {
   if (!existsSync(OUTPUT_DIR)) return;
@@ -392,14 +397,16 @@ async function generatePerArticleAudio(shots, tempDir) {
   const results = [];
   for (let i = 0; i < shots.length; i++) {
     const shot = shots[i];
-    const text = completeClause(shot.spokenText || shot.headline || '');
+    const rawText = completeClause(shot.spokenText || shot.headline || '');
+    const text = prepareTtsText(rawText);
     const mp3Path = join(tempDir, `audio_shot_${i + 1}.mp3`);
     const tmpPath = join(tempDir, `tts_raw_${i + 1}.mp3`);
+    if (text !== rawText) log(`  TTS pronunciation: "${rawText.slice(0, 50)}..." → "${text.slice(0, 50)}..."`);
     log(`  Audio ${i + 1}/${shots.length} (${EDGE_VOICE}): "${text.slice(0, 50)}..."`);
 
     // Edge neural TTS (natural Ukrainian). Fallback to ElevenLabs if configured.
-    if (process.env.ELEVENLABS_API_KEY) {
-      const voiceId = process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
+    if (process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_UKRAINIAN_VOICE_ID) {
+      const voiceId = process.env.ELEVENLABS_UKRAINIAN_VOICE_ID;
       log(`  Using ElevenLabs TTS (voice ${voiceId})...`);
       const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
         method: 'POST',
@@ -449,19 +456,23 @@ async function generateBackgroundImagesForShots(shots) {
   const results = [];
   const requestDelayMs = Math.max(0, Number(process.env.IMAGE_REQUEST_DELAY_MS || 1500));
   for (let i = 0; i < shots.length; i += 1) {
-    const shot = shots[i];
-    log(`  Image ${i + 1}: "${(shot.prompt || '').slice(0, 60)}..."`);
+    // Ground at the final image boundary as well as in storyboard generation.
+    // This protects the reel path when a fallback storyboard or another caller
+    // supplies a prompt that contains author sarcasm or an abstract metaphor.
+    const shot = groundVisualVariant(shots[i], i);
+    const imagePrompt = shot.prompt;
+    log(`  Image ${i + 1}: "${(imagePrompt || '').slice(0, 60)}..."`);
     try {
       let imageUrl;
       if (vendor === 'openrouter') {
-        imageUrl = await generateImageWithRetry(shot, process.env.DALLE_MODEL || 'qwen/qwen-image-3-pro', i);
+        imageUrl = await generateImageWithRetry({ ...shot, prompt: imagePrompt }, process.env.DALLE_MODEL || 'qwen/qwen-image-3-pro', i);
       } else if (vendor === 'dalle' || vendor === 'openai') {
         if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY missing in .env');
         const model = resolveImageModel(process.env.DALLE_MODEL);
         const size = imageSizeForModel(model);
         const response = await openai.images.generate({
           model,
-          prompt: shot.prompt,
+          prompt: imagePrompt,
           n: 1,
           size,
           quality: ["dall-e-3","gpt-image-3"].includes(model) ? 'standard' : undefined,
@@ -473,14 +484,14 @@ async function generateBackgroundImagesForShots(shots) {
         log(`  OpenAI response: ${safeLogUrl(imageUrl)}`);
       } else if (vendor === 'google') {
         // Use Google Gemini for image generation
-        imageUrl = await generateGoogleImage(shot.prompt);
+        imageUrl = await generateGoogleImage(imagePrompt);
         if (!imageUrl) throw new Error('Google Gemini image generation failed');
         log(`  Google Gemini response: ${safeLogUrl(imageUrl)}`);
       } else {
         if (!process.env.FAL_KEY) throw new Error('FAL_KEY missing in .env');
         const result = await fal.subscribe('fal-ai/flux/dev', {
           input: {
-            prompt: shot.prompt,
+            prompt: imagePrompt,
             image_size: { width: 1080, height: 1920 },
             num_inference_steps: 28,
             guidance_scale: 3.5,
@@ -510,6 +521,17 @@ async function generateBackgroundImagesForShots(shots) {
   return ok.length === shots.length ? ok : [];
 }
 
+async function saveGeneratedImage(imageUrl, filepath) {
+  if (String(imageUrl).startsWith('data:')) {
+    const encoded = String(imageUrl).split(',')[1] || '';
+    writeFileSync(filepath, Buffer.from(encoded, 'base64'));
+    return;
+  }
+  const response = await fetch(imageUrl);
+  if (!response.ok) throw new Error(`Failed to download generated image (${response.status})`);
+  writeFileSync(filepath, Buffer.from(await response.arrayBuffer()));
+}
+
 // ---------------------------------------------------------------------------
 // Digest -> storyboard (AI when available, otherwise direct item parsing)
 // ---------------------------------------------------------------------------
@@ -527,19 +549,43 @@ function parseDigestItems(digestText) {
   return items;
 }
 
+function stripSarcasticLeadIn(text) {
+  return String(text || '')
+    .replace(/^\s*ну що,?\s*/i, '')
+    .replace(/^\s*знову\s*[«"']?революція[»"']?\s*\??\s*/i, '')
+    .replace(/^\s*оце так історія\.?\s*/i, '')
+    .replace(/^\s*інтересненько[^.!?]*[.!?]\s*/i, '')
+    .replace(/^\s*ага,?\s*/i, '')
+    .trim();
+}
+
 function fallbackStoryboard(digestText) {
   const items = parseDigestItems(digestText);
   log(`Fallback storyboard: parsing ${items.length} digest items into shots.`);
   return {
-    shots: items.map((item, i) => ({
-      shot: i + 1,
-      headline: buildFallbackTitle(item),
-      detailText: buildFallbackDetail(item),
-      spokenText: buildFallbackHook(item),
-      textPosition: 'upper',
-      prompt: `Professional news photography depicting the actual subject of: ${firstSentence(item)}, cinematic lighting, 9:16 vertical composition, photorealistic, high quality, no text, no logos, no words, no letters, no numbers. Show the real people, companies, products, or events the news is about — not abstract symbols or single keywords.`,
-    })),
-
+    shots: items.map((item, i) => {
+      const factual = stripSarcasticLeadIn(item) || item;
+      const coreFact = firstSentence(factual);
+      const newsTone = inferNewsToneFromFact(coreFact);
+      return {
+        shot: i + 1,
+        coreFact,
+        entities: [],
+        newsTone,
+        visualSubject: coreFact,
+        headline: buildFallbackTitle(factual),
+        detailText: buildFallbackDetail(factual),
+        spokenText: buildFallbackHook(factual),
+        textPosition: 'upper',
+        prompt: buildGroundedPrompt({
+          visualSubject: coreFact,
+          coreFact,
+          entities: [],
+          newsTone,
+          index: i,
+        }),
+      };
+    }),
   };
 }
 
@@ -550,6 +596,7 @@ function fallbackStoryboard(digestText) {
 async function main() {
   const args = process.argv.slice(2);
   const digestId = args.find(a => !a.startsWith('--')) || 'latest';
+  const imagesOnly = args.includes('--images-only');
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
   removeStaleTempRuns();
@@ -589,6 +636,19 @@ async function main() {
       shotsWithImages.forEach(s => { s.overlay = true; });
     }
 
+    if (imagesOnly) {
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+      const savedImages = [];
+      for (let i = 0; i < shotsWithImages.length; i += 1) {
+        const filepath = join(OUTPUT_DIR, `reel-image_${timestamp}_${String(i + 1).padStart(2, '0')}.png`);
+        await saveGeneratedImage(shotsWithImages[i].imageUrl, filepath);
+        savedImages.push(filepath);
+        log(`  Saved reel background ${i + 1}/${shotsWithImages.length}: ${filepath}`);
+      }
+      log(`Generated ${savedImages.length} reel background images; stopped before TTS/video assembly.`);
+      return savedImages;
+    }
+
     // Step 4: Generate natural Ukrainian TTS, one clip per shot, timed exactly.
     const audioResults = await generatePerArticleAudio(storyboard.shots, tempDir);
 
@@ -611,8 +671,8 @@ async function main() {
       }
     }
 
-    // Step 6: Stitch synchronized shots into final Reel MP4 WITH energetic
-    // background music (assets/background-music.mp3 — 132 BPM news bed).
+    // Step 6: Stitch synchronized shots into final Reel MP4 WITH a fresh
+    // energetic news-bed (synthesized per run — similar TV-news style, new seed).
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
     const finalReelPath = join(OUTPUT_DIR, `reel_${timestamp}.mp4`);
 
@@ -620,9 +680,14 @@ async function main() {
       clipPaths: syncedShotPaths,
       outputPath: finalReelPath,
       backgroundMusic: true,
+      musicSeed: Date.now(),
     });
 
-    log(`\n🎉 Final Synchronized Video Reel successfully created!    Voice: ${EDGE_VOICE} | images: AI 9:16 | music: background-music.mp3`);
+    const musicMeta = stitchClips.lastMusicMeta;
+    const musicNote = musicMeta
+      ? `${musicMeta.styleLabel} @ ${musicMeta.bpm} BPM`
+      : 'news bed';
+    log(`\n🎉 Final Synchronized Video Reel successfully created!    Voice: ${EDGE_VOICE} | images: AI 9:16 | music: ${musicNote}`);
     // IMPORTANT: the last stdout line must be the absolute path to the reel —
     // the digests route (POST /:id/generate-video) reads the final line and
     // maps it to /videos/<filename>.
