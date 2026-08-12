@@ -4,6 +4,22 @@
 
 A verified Facebook account with 27K followers, whose posts are instantly removed without notification despite a clean Account Quality, has likely triggered an **automated spam filter**. This mechanism is fundamentally different from the official strike system: it operates outside the official strike framework, is not reflected in Account Quality, and sends no user notifications. This behavior is particularly common for accounts showing signs of automation or unusual activity patterns. Critical: repeated posting attempts in this state will worsen the situation.
 
+### Symptom: "Couldn't Load Post" for another user
+
+When the **author** (or Page admin) can see a fresh post, but **another account** opening the same post — including via a share notification like *"X shared Nise-ua's post"* — gets:
+
+> **Couldn't Load Post**  
+> This post may have expired, or it may only be visible to an audience you're not in.
+
+…that is the same silent-restriction pattern, not a client bug. The notification can still fire for the sharer while the underlying object is already blocked for third parties.
+
+Common pipeline triggers that make this worse:
+- Prefixing captions with automation language (e.g. `Published by AI …`)
+- Rapid publish/delete or republish loops while testing Reels/Stories
+- Browser automation (Patchright) sessions that look unlike normal human use
+
+After each Page feed publish, the pipeline now runs `checkFacebookPostVisibility` (`facebook-visibility.js`) and logs a warning if Graph reports `is_hidden`, non-public `privacy`, or `is_published=false`. Graph **cannot fully prove** third-party reach — so an all-clear log does not rule out a silent spam filter. Always confirm once from a second account.
+
 ***
 
 ## 1. Meta Official Documentation: Does Silent Removal Exist?
@@ -92,9 +108,11 @@ Repeated posting attempts during a restriction is the most common mistake. The s
 
 ### Immediate Steps
 1. **Stop all posting** for 24–48 hours to let the system "cool off."
-2. **Check three locations** for hidden info: Support Inbox, Account Quality, and Email (including spam).
-3. **Ensure account security**: Change password and enable 2FA in case compromise was the cause.
-4. **Submit one appeal** via Account Quality if the "Request Review" button is available.
+2. **Confirm from a second account** (or Incognito without logging into the Page admin) that the latest post shows "Couldn't Load Post" — document the post URL/time.
+3. **Check three locations** for hidden info: Support Inbox, Account Quality, and Email (including spam).
+4. **Ensure account security**: Change password and enable 2FA in case compromise was the cause.
+5. **Submit one appeal** via Account Quality if the "Request Review" button is available.
+6. **Do not delete and repost** the failed item — that deepens the spam signal. Leave it alone and wait.
 
 ### What NOT to Do
 - ❌ **Do not change IP, browser, or device** — flagged as evasive behavior.

@@ -3,6 +3,8 @@
  * Publishes digest content to a Facebook page feed.
  */
 
+import { verifyPublishedFacebookPost } from './facebook-visibility.js';
+
 export async function publishToFacebook(pageAccessToken, pageId, content) {
   if (!pageAccessToken || !pageId) {
     const errMsg = '[facebook] Missing pageAccessToken or pageId';
@@ -28,7 +30,9 @@ export async function publishToFacebook(pageAccessToken, pageId, content) {
       return { error: `[facebook] API error: ${errorMessage}` };
     }
 
-    return { postId: data.id };
+    const postId = data.id;
+    const visibility = await verifyPublishedFacebookPost(pageAccessToken, pageId, postId);
+    return { postId, visibility };
   } catch (err) {
     const errorMessage = `[facebook] Network/Error publishing: ${err.message}`;
     console.error(errorMessage);

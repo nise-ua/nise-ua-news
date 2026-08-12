@@ -55,6 +55,13 @@ export async function publishDigest(digest, config, platforms) {
     );
     if (results.facebook?.postId) {
       updateFields.facebook_post_id = results.facebook.postId;
+      // visibility is attached by publishToFacebook; surface a soft warning only
+      if (results.facebook.visibility && results.facebook.visibility.ok === false) {
+        console.warn(
+          '[publish] Facebook post may be invisible to other users:',
+          results.facebook.visibility.reasons?.join('; ') || results.facebook.visibility.error,
+        );
+      }
     }
   }
 

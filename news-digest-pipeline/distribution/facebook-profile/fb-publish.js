@@ -126,7 +126,9 @@ async function publishToFacebook(text, loginOnly = false) {
 
     // Insert text
     log(`Inserting text (${text.length} chars)...`);
-    await page.keyboard.insertText('Published by AI nise-ua news\n\n' + text);
+    // Do not prefix with "Published by AI" — Meta spam filters treat that as
+    // automation and can make the post unloadable for other users.
+    await page.keyboard.insertText(text);
     await sleep(rand(3000, 6000));
 
     // Verify text inserted
