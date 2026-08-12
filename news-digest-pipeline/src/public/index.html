@@ -277,6 +277,10 @@
       cursor: default;
       box-shadow: none;
     }
+    .plat-btn:disabled:not(.sent) {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
 
     /* Delete button */
     .btn-delete {
@@ -551,7 +555,8 @@
           actionBtn = '<span style="color:#444;font-size:12px">немає контенту</span>';
         } else {
           const fbSent = !!d.facebook_post_id;
-          const videoExists = !!d.video_url;
+          const videoExists = !!(d.video_url || d.reel_url);
+          const reelSent = !!d.facebook_reel_id;
 
           const fbBtn = fbSent
             ? `<button class="plat-btn sent" disabled>✓ FB</button>`
@@ -567,15 +572,16 @@
               videoBtn = `<span class="video-progress" data-video-job="${activeJob.jobId}"><span class="video-progress-label">⏳ ${activeJob.message || 'Створення відео…'} (${activeJob.progress || 0}%)</span><span class="video-progress-track"><span class="video-progress-bar" style="width:${activeJob.progress || 0}%"></span></span></span>`;
             }
           } else if (videoExists) {
-            videoBtn = `<a class="plat-btn" href="${d.video_url}" target="_blank">🎬 Video</a>`;
+            videoBtn = `<a class="plat-btn" href="${d.video_url || d.reel_url}" target="_blank">🎬 Video</a>`;
           } else {
             videoBtn = `<button class="plat-btn" onclick="generateVideo('${d.id}', this)">▶️ Video</button>`;
           }
 
-          // New Reel publish button (if video exists)
-          const reelBtn = videoExists
-            ? `<button class="plat-btn" onclick="publishFacebookReel('${d.id}', this)">📽️ Reel</button>`
-            : '';
+          const reelBtn = !videoExists
+            ? ''
+            : reelSent
+              ? `<button class="plat-btn sent" disabled>✓ Reel</button>`
+              : `<button class="plat-btn" onclick="publishFacebookReel('${d.id}', this, ${fbSent ? 'true' : 'false'})">📽️ Reel</button>`;
 
           const delBtn = `<button class="btn-delete" onclick="deleteDigest('${d.id}')">✕</button>`;
           actionBtn = `<div class="platform-row"><button class="btn btn-preview" onclick="previewDigest('${d.id}')">&#128065;</button>${fbBtn}${videoBtn}${reelBtn}<button class="btn btn-copy" onclick="copyDigest('${d.id}', this)">&#128203;</button>${delBtn}</div>`;
@@ -686,9 +692,13 @@
       }
     }
 
-    // New Reel publishing function for Facebook
-    async function publishFacebookReel(id, btn) {
-      if (!confirm('Опублікувати Reel у Facebook?')) return;
+    // Publish digest video as a Facebook Reel + Story
+    async function publishFacebookReel(id, btn, fbSent) {
+      if (!fbSent) {
+        alert('Спочатку опублікуйте текстовий дайджест у Facebook — посилання на цей пост буде в описі Reel.');
+        return;
+      }
+      if (!confirm('Опублікувати Reel у Facebook і додати його в Stories?')) return;
       btn.disabled = true;
       btn.textContent = '⏳...';
       try {
@@ -701,10 +711,14 @@
         if (!res.ok) throw new Error(data.error || 'Server error');
 
         const result = data.published?.facebookReel;
+        const story = data.published?.facebookStory;
         if (result?.reelId) {
           btn.className = 'plat-btn sent';
-          btn.textContent = '📽️ Reel';
+          btn.textContent = '✓ Reel';
           btn.onclick = null;
+          if (story?.error) {
+            alert('Reel опубліковано, але Stories не вдалося: ' + story.error);
+          }
         } else {
           const errorMsg = result?.error || 'Невідома помилка';
           alert('Facebook Reel: публікація не вдалася. ' + errorMsg);
@@ -720,11 +734,10 @@
       }
     }
 
-    // UI helper to publish a Reel by entering Digest ID
     async function publishReelUI() {
       const id = prompt('Enter Digest ID to publish its Reel:');
       if (!id) return;
-      if (!confirm('Publish Reel for digest ' + id + '?')) return;
+      if (!confirm('Опублікувати Reel і Stories для дайджеста ' + id + '?')) return;
       try {
         const res = await fetch(`/api/digests/${id}/publish`, {
           method: 'POST',
@@ -734,8 +747,12 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Server error');
         const result = data.published?.facebookReel;
+        const story = data.published?.facebookStory;
         if (result?.reelId) {
-          alert('Reel published successfully! Reel ID: ' + result.reelId);
+          const storyNote = story?.error
+            ? '\nStories не вдалося: ' + story.error
+            : (story?.storyId ? '\nStories: ' + story.storyId : '');
+          alert('Reel опубліковано. ID: ' + result.reelId + storyNote);
         } else {
           const errMsg = result?.error || 'Unknown error';
           alert('Failed to publish Reel: ' + errMsg);

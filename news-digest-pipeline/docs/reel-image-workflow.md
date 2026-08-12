@@ -93,7 +93,9 @@ clips, and stitches the final MP4:
 production/video/output/reel_<timestamp>.mp4
 ```
 
-The UI uses the same entry point with a digest ID.
+The UI uses the same entry point with a digest ID. The dashboard **Reel**
+button publishes that digest video to Facebook as a Reel (caption links to the
+already-posted digest feed post) and also as a Facebook Story.
 
 ### 3. Generate carousel images only
 
@@ -137,9 +139,5 @@ All editorial output must be Ukrainian:
 - Image prompts remain English internally for the image provider, but they are
   never rendered as reel text.
 
-## Known post-run warning
-
-The full reel can successfully create the MP4 and then exit with
-`Database not initialized. Call initDb() first.` during the final metadata
-update. Verify the MP4 exists in `production/video/output/` before treating
-that warning as an image or video generation failure.
+After a successful full reel, the script stores `video_url` and `reel_url` on
+the digest so the dashboard Reel button can publish it.

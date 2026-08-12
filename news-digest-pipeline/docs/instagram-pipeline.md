@@ -151,9 +151,9 @@ CLI shorthand for selecting the newest digest.
 
 7. **Output**: `production/video/output/reel_<timestamp>.mp4` — 1080×1920 9:16 H.264/AAC.
 
-8. **Facebook caption URL**: when `BASE_URL` is configured, the publisher adds
-   `Більше новин тут: <BASE_URL>` above the digest content in the Reel/Video
-   caption. This is the clickable-link location; the MP4 contains no CTA text.
+8. **Facebook Reel caption**: the publisher adds `Більше новин тут:` plus a
+   permalink to the already-published Facebook digest post. Publishing a Reel
+   also posts the digest video as a Facebook Story. The MP4 contains no CTA text.
 
 **Scripts:**
 ```

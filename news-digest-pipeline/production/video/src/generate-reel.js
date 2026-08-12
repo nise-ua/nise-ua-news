@@ -29,7 +29,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execFileSync } from 'child_process';
 import { config as dotenvConfig } from 'dotenv';
-import { updateDigest } from '../../../src/db/index.js';
+import { initDb, getDb, updateDigest } from '../../../src/db/index.js';
 import { createRequire } from 'module';
 
 import { generateStoryboard } from './storyboard.js';
@@ -693,24 +693,22 @@ async function main() {
     // maps it to /videos/<filename>.
     console.log(`Path: ${finalReelPath}`);
 
-    // Store public Reel URL in DB for later publishing
-    const publicUrl = `${SERVER}/reels/${require('path').basename(finalReelPath)}`;
-    // Determine which digest to update: if a specific ID was provided, use it; otherwise update the latest digest.
+    const fileName = require('path').basename(finalReelPath);
+    const publicReelUrl = `${SERVER}/reels/${fileName}`;
+    const publicVideoUrl = `${SERVER}/videos/${fileName}`;
     let digestToUpdateId = digestId !== 'latest' ? digestId : null;
-    if (!digestToUpdateId) {
-      // Fetch latest digest ID from DB (ordered by date DESC)
-      const db = require('../../../src/db/index.js').getDb();
-      const row = db.prepare('SELECT id FROM digests ORDER BY date DESC LIMIT 1;').get();
-      if (row) digestToUpdateId = row.id;
-    }
-    if (digestToUpdateId) {
-      try {
-        const { updateDigest } = require('../../db/index.js');
-        updateDigest(digestToUpdateId, { reel_url: publicUrl });
-        console.log(`[update] Reel URL stored for digest ${digestToUpdateId}: ${publicUrl}`);
-      } catch (e) {
-        console.error('[update] Failed to store Reel URL:', e.message);
+    try {
+      initDb(process.env.DB_PATH || DB_PATH);
+      if (!digestToUpdateId) {
+        const row = getDb().prepare('SELECT id FROM digests ORDER BY date DESC LIMIT 1').get();
+        if (row) digestToUpdateId = row.id;
       }
+      if (digestToUpdateId) {
+        updateDigest(digestToUpdateId, { video_url: publicVideoUrl, reel_url: publicReelUrl });
+        console.log(`[update] Video URL stored for digest ${digestToUpdateId}: ${publicVideoUrl}`);
+      }
+    } catch (e) {
+      console.error('[update] Failed to store video URL:', e.message);
     }
 
     return finalReelPath;

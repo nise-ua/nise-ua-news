@@ -22,7 +22,7 @@ These rules are the production contract for every V1 run:
 - Render optional Ukrainian detail text below the headline in a smaller font. It must be one or two short, complete sentences and must not repeat the headline.
 - Keep each spoken hook short and complete (8–12 Ukrainian words); narration must never end mid-phrase.
 - Keep the headline/detail block in the upper 25% of the frame, below the branding row. Image prompts must leave negative space in that upper area so text does not cover the subject.
-- Do not render `Більше новин тут...` or any other CTA inside the MP4. Video text is not clickable. When `BASE_URL` is configured, the Facebook Reel/Video caption contains `Більше новин тут: <BASE_URL>` followed by the digest content, making the URL clickable in the post.
+- Do not render `Більше новин тут...` or any other CTA inside the MP4. Video text is not clickable. The Facebook Reel caption links to the already-published Facebook digest post (`📘 Більше новин тут: https://www.facebook.com/{page}/posts/{id}`). Publishing a Reel also posts the same video as a Facebook Story.
 - Generate a complete new background set for every digest. Never reuse an older carousel image or substitute a synthetic fallback for a missing shot.
 
 The CLI and UI use this same contract and entry point. The UI request

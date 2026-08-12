@@ -30,9 +30,12 @@ CREATE TABLE IF NOT EXISTS digests (
   cost_usd REAL,
   published_at TEXT,
   facebook_post_id TEXT,
+  facebook_reel_id TEXT,
+  facebook_story_id TEXT,
   telegram_message_id TEXT,
   youtube_post_id TEXT,
   video_url TEXT,
+  reel_url TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );

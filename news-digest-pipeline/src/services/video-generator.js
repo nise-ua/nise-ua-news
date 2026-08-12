@@ -129,7 +129,8 @@ export function startVideoGeneration(digestId) {
     const fileName = videoPath.split(/[\\/]/).pop();
     const baseUrl = process.env.BASE_URL || 'https://your-public-domain.com';
     const videoUrl = `${baseUrl}/videos/${encodeURIComponent(fileName)}`;
-    updateDigest(digestId, { video_url: videoUrl });
+    const reelUrl = `${baseUrl}/reels/${encodeURIComponent(fileName)}`;
+    updateDigest(digestId, { video_url: videoUrl, reel_url: reelUrl });
     updateJob(job, { status: 'completed', stage: 'completed', progress: 100, message: 'Відео готове', videoUrl });
     scheduleJobCleanup(job.id);
   });
@@ -173,8 +174,8 @@ export async function generateVideoForDigest(digestId) {
       const fileName = videoPath.trim().split(/[\\/]/).pop();
       const baseUrl = process.env.BASE_URL || 'https://your-public-domain.com';
       const videoUrl = `${baseUrl}/videos/${encodeURIComponent(fileName)}`;
-      // Store URL in digest record
-      updateDigest(digestId, { video_url: videoUrl });
+      const reelUrl = `${baseUrl}/reels/${encodeURIComponent(fileName)}`;
+      updateDigest(digestId, { video_url: videoUrl, reel_url: reelUrl });
       resolve(videoUrl);
     });
   });
