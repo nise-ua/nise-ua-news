@@ -4,6 +4,7 @@ import {
   getDigests,
   getNewArticles,
   getArticlesByDigestId,
+  updateDigest,
 } from '../db/index.js';
 import { generateDigest } from '../services/digest-generator.js';
 import { publishDigest } from '../services/publishers/index.js';
@@ -174,6 +175,39 @@ router.patch('/:id/mark-copied', (req, res) => {
     res.json({ ok: true, id: req.params.id, status: 'copied' });
   } catch (err) {
     console.error('[digests] PATCH /:id/mark-copied error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/digests/:id/facebook-post — set Facebook post URL/id manually
+router.patch('/:id/facebook-post', (req, res) => {
+  try {
+    const raw = req.body?.facebook_post_id ?? req.body?.url;
+    if (raw === undefined || raw === null) {
+      return res.status(400).json({ error: 'facebook_post_id (or url) is required' });
+    }
+    if (typeof raw !== 'string') {
+      return res.status(400).json({ error: 'facebook_post_id must be a string' });
+    }
+
+    const facebook_post_id = raw.trim();
+    const digest = getDigest(req.params.id);
+    if (!digest) {
+      return res.status(404).json({ error: 'Digest not found' });
+    }
+
+    updateDigest(req.params.id, {
+      facebook_post_id: facebook_post_id || null,
+    });
+
+    const updated = getDigest(req.params.id);
+    res.json({
+      ok: true,
+      id: req.params.id,
+      facebook_post_id: updated.facebook_post_id,
+    });
+  } catch (err) {
+    console.error('[digests] PATCH /:id/facebook-post error:', err);
     res.status(500).json({ error: err.message });
   }
 });

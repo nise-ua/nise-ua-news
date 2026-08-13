@@ -41,19 +41,22 @@ function readFileOrWarn(filePath, label) {
   }
 }
 
-function parseConfigMd(text) {
+export function parseConfigMd(text) {
   const result = {
     hashtag: '',
     boundaryIntent: '',
     hashtagsSuffix: '',
   };
 
-  if (!text) return result;
+  if (!text) {
+    result.hashtag = '#новини';
+    return result;
+  }
 
   // 1. Extract hashtags suffix using regex first (global search)
   const hashtagMarkerRegex = /додавати в кінці поста хе[шс]теги:/i;
   const hashtagMatch = text.match(new RegExp(`${hashtagMarkerRegex.source}\\s*\\n+([\\s\\S]*?)(?:\\n##|\\n\\n\\n|$)`, 'i'));
-  
+
   if (hashtagMatch) {
     result.hashtagsSuffix = hashtagMatch[1].trim();
   }
@@ -66,12 +69,17 @@ function parseConfigMd(text) {
     const heading = lines[0]?.trim().toLowerCase() || '';
     let body = lines.slice(1).join('\n').trim();
 
-    if (heading.startsWith('хештег')) {
+    // Singular opening tag only — do not treat "Хештеги" / "Hashtags" as the lead tag.
+    if (/^(хештег(?!и)|hashtag(?!s))\b/i.test(heading)) {
       result.hashtag = body.split('\n')[0].trim();
     } else if (
-      heading.includes('кордон') || 
+      heading.includes('кордон') ||
       heading.includes('відписка') ||
-      heading.includes('дисклеймер')
+      heading.includes('дисклеймер') ||
+      heading.includes('border') ||
+      heading.includes('disclaimer') ||
+      heading.includes('opt-out') ||
+      heading.includes('opt out')
     ) {
       // Prevent greediness: if this section contains the hashtags marker, cut it off
       if (hashtagMarkerRegex.test(body)) {
@@ -81,6 +89,7 @@ function parseConfigMd(text) {
     }
   }
 
+  if (!result.hashtag) result.hashtag = '#новини';
   return result;
 }
 
@@ -127,6 +136,10 @@ function buildConfig() {
     // Publishers
     facebookPageId: process.env.FACEBOOK_PAGE_ID || '',
     facebookPageAccessToken: process.env.FACEBOOK_PAGE_ACCESS_TOKEN || '',
+    facebookPageName: process.env.FACEBOOK_PAGE_NAME || '',
+    facebookBrowserProfileDir: process.env.FACEBOOK_BROWSER_PROFILE_DIR
+      || join(parentDir, '.fb-page-profile'),
+    facebookBrowserTimezone: process.env.FACEBOOK_BROWSER_TIMEZONE || 'America/New_York',
     facebookAppId: process.env.FACEBOOK_APP_ID || '',
     facebookAppSecret: process.env.FACEBOOK_APP_SECRET || '',
     telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',

@@ -12,6 +12,7 @@ vi.mock('./telegram.js', () => ({ publishToTelegram: vi.fn() }));
 vi.mock('./youtube.js', () => ({ publishToYouTube: vi.fn() }));
 
 import { updateDigest } from '../../db/index.js';
+import { publishToFacebook } from './facebook.js';
 import { publishReelToFacebook } from './facebook-reel.js';
 import { publishStoryToFacebook } from './facebook-story.js';
 import { publishDigest } from './index.js';
@@ -19,6 +20,9 @@ import { publishDigest } from './index.js';
 const config = {
   facebookPageAccessToken: 'token',
   facebookPageId: '111',
+  facebookPageName: 'Nise-ua',
+  facebookBrowserProfileDir: '/tmp/fb-page-profile',
+  facebookBrowserTimezone: 'America/New_York',
 };
 
 const digest = {
@@ -27,6 +31,32 @@ const digest = {
   video_url: 'https://example.com/videos/reel_1.mp4',
   facebook_post_id: '111_222',
 };
+
+describe('publishDigest facebook text', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    publishToFacebook.mockResolvedValue({ postId: '111_999', via: 'browser' });
+  });
+
+  it('publishes Page text via the composer publisher', async () => {
+    const results = await publishDigest(digest, config, ['facebook']);
+    expect(publishToFacebook).toHaveBeenCalledWith(
+      'token',
+      '111',
+      'Дайджест текст',
+      {
+        pageName: 'Nise-ua',
+        profileDir: '/tmp/fb-page-profile',
+        timezoneId: 'America/New_York',
+      },
+    );
+    expect(results.facebook).toEqual({ postId: '111_999', via: 'browser' });
+    expect(updateDigest).toHaveBeenCalledWith('digest-1', expect.objectContaining({
+      facebook_post_id: '111_999',
+      status: 'published',
+    }));
+  });
+});
 
 describe('publishDigest facebook-reel', () => {
   beforeEach(() => {

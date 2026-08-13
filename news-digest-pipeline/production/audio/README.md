@@ -98,11 +98,11 @@ ffmpeg -i intro.mp3 -i voiceover.mp3 -i outro.mp3 \
 ## Структура
 
 ```
-distribution/audio/
+production/audio/
 ├── README.md                # Цей файл
-├── research-tts-apis.md     # Повне дослідження TTS API
-├── voice-samples/           # Зразки для клонування
 └── src/
-    ├── generate-voiceover.js
-    └── overlay-audio.js     # FFmpeg wrapper
+    └── generate-voiceover.js
 ```
+
+Shared FFmpeg merge helpers live in `production/lib/ffmpeg-helpers.js`
+(archived unused CLI: `.archive/production/audio/src/overlay-audio.js`).

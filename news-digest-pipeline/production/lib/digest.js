@@ -53,6 +53,7 @@ export function parseDigestArticles(digestText) {
   for (const raw of lines) {
     const line = raw.trim();
     if (!line) continue;
+    if (/^#[\p{L}\p{N}_-]+$/u.test(line)) continue;
 
     const numberMatch = line.match(/^(?:#\S+\s+)?(\d+)\.\s*(.*)/);
     if (numberMatch) {

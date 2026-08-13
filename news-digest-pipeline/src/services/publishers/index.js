@@ -46,12 +46,17 @@ export async function publishDigest(digest, config, platforms) {
 
   const videoCaption = formatCaption(digest.content);
 
-  // Facebook
-  if (shouldPublish('facebook') && config.facebookPageAccessToken && config.facebookPageId) {
+  // Facebook text: Page composer (Patchright), not Graph /feed.
+  if (shouldPublish('facebook') && config.facebookPageId) {
     results.facebook = await publishToFacebook(
       config.facebookPageAccessToken,
       config.facebookPageId,
       digest.content,
+      {
+        pageName: config.facebookPageName,
+        profileDir: config.facebookBrowserProfileDir,
+        timezoneId: config.facebookBrowserTimezone,
+      },
     );
     if (results.facebook?.postId) {
       updateFields.facebook_post_id = results.facebook.postId;

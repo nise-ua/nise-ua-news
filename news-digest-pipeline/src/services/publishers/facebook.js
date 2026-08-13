@@ -1,40 +1,67 @@
 /**
- * Facebook publisher.
- * Publishes digest content to a Facebook page feed.
+ * Facebook Page text publisher.
+ * Uses the Page composer (Patchright) instead of Graph /feed.
+ * Graph text posts from the Meta app are silently hidden from non-admins.
  */
 
 import { verifyPublishedFacebookPost } from './facebook-visibility.js';
+import { publishToFacebookPageViaBrowser } from './facebook-page-browser.js';
+import { resolveLatestBrowserPost } from './facebook-page-match.js';
 
-export async function publishToFacebook(pageAccessToken, pageId, content) {
-  if (!pageAccessToken || !pageId) {
-    const errMsg = '[facebook] Missing pageAccessToken or pageId';
+export async function publishToFacebook(pageAccessToken, pageId, content, extra = {}) {
+  if (!pageId) {
+    const errMsg = '[facebook] Missing pageId';
+    console.error(errMsg);
+    return { error: errMsg };
+  }
+  if (!content || String(content).trim().length < 10) {
+    const errMsg = '[facebook] Missing content';
     console.error(errMsg);
     return { error: errMsg };
   }
 
   try {
-    const response = await fetch(`https://graph.facebook.com/v19.0/${pageId}/feed`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: content,
-        access_token: pageAccessToken,
-      }),
+    const browser = await publishToFacebookPageViaBrowser({
+      pageId,
+      pageName: extra.pageName || '',
+      content,
+      profileDir: extra.profileDir,
+      timezoneId: extra.timezoneId,
     });
+    if (browser?.error) return browser;
 
-    const data = await response.json();
-
-    if (!response.ok || data.error) {
-      const errorMessage = data.error?.message || JSON.stringify(data);
-      console.error('[facebook] API error:', errorMessage);
-      return { error: `[facebook] API error: ${errorMessage}` };
+    if (!pageAccessToken) {
+      return {
+        error: '[facebook] Browser post ran, but FACEBOOK_PAGE_ACCESS_TOKEN is missing so the composer post id cannot be confirmed.',
+        via: 'browser',
+      };
     }
 
-    const postId = data.id;
-    const visibility = await verifyPublishedFacebookPost(pageAccessToken, pageId, postId);
-    return { postId, visibility };
+    const resolved = await resolveLatestBrowserPost(pageAccessToken, pageId, content);
+    if (resolved?.error || !resolved?.postId) {
+      return {
+        error: resolved?.error || '[facebook] Browser post ran, but Graph could not find the composer post.',
+        via: 'browser',
+      };
+    }
+
+    if (resolved.application?.name || resolved.raw?.admin_creator?.name) {
+      const appName = resolved.application?.name || resolved.raw?.admin_creator?.name;
+      return {
+        error: `[facebook] Resolved post is still tagged as app "${appName}". Composer did not post as the Page.`,
+        via: 'browser',
+      };
+    }
+
+    const visibility = await verifyPublishedFacebookPost(pageAccessToken, pageId, resolved.postId);
+    return {
+      postId: resolved.postId,
+      permalinkUrl: resolved.permalinkUrl || null,
+      via: 'browser',
+      visibility,
+    };
   } catch (err) {
-    const errorMessage = `[facebook] Network/Error publishing: ${err.message}`;
+    const errorMessage = `[facebook] ${err.message}`;
     console.error(errorMessage);
     return { error: errorMessage };
   }

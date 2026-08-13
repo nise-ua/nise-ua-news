@@ -5,10 +5,19 @@ data/*.db-wal
 data/*.db-shm
 .env
 .fb-profile/
+.fb-page-profile/
 .fb-profile-posted.json
 .chrome-debug-profile/
 output/
 logs/
+
+.DS_Store
+*.mp3
+*.mp4
+*.png
+*.jpg
+*.jpeg
+production/.music_work/
 
 # Local development overrides
 docker-compose.local.yml

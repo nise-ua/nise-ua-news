@@ -18,7 +18,9 @@ Common pipeline triggers that make this worse:
 - Rapid publish/delete or republish loops while testing Reels/Stories
 - Browser automation (Patchright) sessions that look unlike normal human use
 
-After each Page feed publish, the pipeline now runs `checkFacebookPostVisibility` (`facebook-visibility.js`) and logs a warning if Graph reports `is_hidden`, non-public `privacy`, or `is_published=false`. Graph **cannot fully prove** third-party reach — so an all-clear log does not rule out a silent spam filter. Always confirm once from a second account.
+After each Page text publish, the pipeline runs `checkFacebookPostVisibility` (`facebook-visibility.js`) and logs a warning if Graph reports `is_hidden`, non-public `privacy`, or `is_published=false`. Graph **cannot fully prove** third-party reach — so an all-clear log does not rule out a silent spam filter. Always confirm once from a second account.
+
+**Nise-ua finding (Aug 2026):** Graph `/feed` text posts from app `news` are invisible to followers (object may later return `#10`). The same digest posted in the Page composer is visible. Reels from the same app still work. Page text publishing therefore uses Patchright as the Page (`facebook-page-browser.js`), not `/feed`.
 
 ***
 

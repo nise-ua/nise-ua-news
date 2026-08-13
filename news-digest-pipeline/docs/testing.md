@@ -1,8 +1,7 @@
 # Production / pipeline tests
 
 Agent contract for running tests **before and after** any `production/lib`
-refactor. Do not start extracting image backends, TTS, FFmpeg, or logging until
-the digest caller migration is requested. Always re-run tests after each step.
+refactor. Always re-run tests after each step.
 
 Work from `news-digest-pipeline/` (the repo root `package.json` has no test
 script).
@@ -62,17 +61,53 @@ new `node:test` files.
 |--------|--------|--------------------|
 | `production/lib/digest.js` | `__tests__/digest.test.js` | — |
 | `production/lib/visual-grounding.js` | `__tests__/visual-grounding.test.js` | `visual-grounding.test.js` |
+| `production/lib/image-backends.js` | `__tests__/image-backends.test.js` | — |
+| `production/lib/tts.js` | `__tests__/tts.test.js` | — |
+| `production/lib/ffmpeg-helpers.js` | `__tests__/ffmpeg-helpers.test.js` | — |
+| `production/lib/logging.js` | `__tests__/logging.test.js` | — |
 | `production/lib/tts-pronunciation.js` | — | `tts-pronunciation.test.js` |
 | `production/lib/reel-overlay-theme.js` | — | `reel-overlay-theme.test.js` |
 | Shared mocks / digest fixtures | `__tests__/helpers.js`, `__tests__/helpers.test.js`, `__tests__/fixtures/digest.js` | — |
+| `production/video/src/generate-reel.js` (ESM/post-stitch) | `__tests__/generate-reel-esm.test.js` | — |
+| `src/services/video-generator.js` | `src/services/video-generator.test.js` | — |
 
 Digest callers (do not reimplement load/parse locally):
 
 - `production/image/src/generate.js`
-- `production/image/src/headlines.js`
 - `production/video/src/generate-reel.js`
 - `production/video/src/storyboard.js`
 - `production/audio/src/generate-voiceover.js`
+
+Image backend callers (do not reimplement vendor adapters locally; pass `aspect: '4:5'` for feed, `aspect: '9:16'` for reels):
+
+- `production/image/src/generate.js`
+- `production/video/src/generate-reel.js`
+
+TTS callers (do not reimplement edge-tts / ElevenLabs shot audio locally; use `production/lib/tts.js`):
+
+- `production/video/src/generate-reel.js`
+- `production/video/src/stitch-real-test.mjs`
+- `production/audio/src/generate-voiceover.js` (re-exports shared helpers; CLI keeps OpenAI podcast path)
+
+FFmpeg helpers callers (do not reimplement duration probe / shot A+V merge /
+music mix filter locally; use `production/lib/ffmpeg-helpers.js`):
+
+- `production/lib/tts.js` (re-exports `getAudioDuration`)
+- `production/video/src/stitch.js` (re-exports `mergeShotVideoAndAudio`; keeps background-music resolution)
+- `production/video/src/generate-reel.js` (via stitch)
+- `production/video/src/stitch-real-test.mjs` (via stitch)
+
+Logging / path helpers (do not reimplement `[HH:MM:SS]` log or
+`join(__dirname, '..', '..', '..')` ROOT locally; use `production/lib/logging.js`):
+
+- `production/image/src/generate.js`
+- `production/video/src/generate-reel.js`
+- `production/video/src/storyboard.js`
+- `production/video/src/generate-clips.js`
+- `production/video/src/stitch.js`
+- `production/audio/src/generate-voiceover.js`
+- `production/video/src/stitch-real-test.mjs`
+- `production/video/src/test-functional.mjs`
 
 App / publisher tests live under `src/` (hashtags, model catalog, Facebook
 caption/video/publish). Those are Vitest-only.

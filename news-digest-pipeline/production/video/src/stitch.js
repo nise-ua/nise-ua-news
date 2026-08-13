@@ -3,28 +3,22 @@
 import { execSync } from 'child_process';
 import { writeFileSync, existsSync, mkdirSync, unlinkSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import ffmpegStatic from 'ffmpeg-static';
-import ffprobeStaticPkg from 'ffprobe-static';
+import {
+  defaultFfmpegPath,
+  getVideoDuration,
+  buildMusicMixFilter,
+  mergeShotVideoAndAudio,
+  runMusicMix,
+} from '../../lib/ffmpeg-helpers.js';
 import { generateBackgroundMusic, reelMusicPathFor } from './background-music.js';
 import { createShotImage } from './generate-clips.js';
+import { log, scriptDir } from '../../lib/logging.js';
 
-const FFMPEG = ffmpegStatic || 'ffmpeg';
-const FFPROBE = ffprobeStaticPkg.path;
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const FFMPEG = defaultFfmpegPath();
+const __dirname = scriptDir(import.meta.url);
 const ASSETS_DIR = join(__dirname, '..', 'assets');
 
-function log(msg) {
-  const ts = new Date().toISOString().slice(11, 19);
-  console.log(`[${ts}] ${msg}`);
-}
-
-function getVideoDuration(videoPath) {
-  return Number(execSync(
-    `"${FFPROBE}" -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${videoPath}"`,
-    { encoding: 'utf8' }
-  ).trim());
-}
+export { mergeShotVideoAndAudio };
 
 async function generateBlankVideo(outputPath, duration, width = 1080, height = 1920, backgroundImageUrl = null) {
   let imgPath = null;
@@ -134,48 +128,13 @@ function isUsableMusic(filePath) {
   }
 }
 
-/**
- * Shared filter graph for mixing background music with a voiceover.
- *
- * - Both inputs are resampled to 48 kHz stereo.
- * - The music is attenuated by `musicPostVolume` so the voiceover stays
- *   dominant. NOTE: loudnorm is NOT applied to the music branch — running
- *   loudnorm on an infinitely looped (-stream_loop -1) stream only emits a
- *   tiny buffer (~0.1s), truncating the whole mix. Assets are pre-validated
- *   by isUsableMusic() (rejects near-silent noise), so a plain volume gain
- *   is sufficient and safe.
- * - amix uses `normalize=0` so volumes are not scaled down by input count.
- * - A final limiter prevents clipping.
- */
-function buildMusicMixFilter(musicPostVolume) {
-  const postVol = musicPostVolume != null ? musicPostVolume : 0.8;
-  return (
-    `[0:a]aresample=48000,aformat=channel_layouts=stereo,loudnorm=I=-16:TP=-1.5:LRA=11,volume=1.0[voice];` +
-    `[1:a]aresample=48000,aformat=channel_layouts=stereo,` +
-    `volume=${postVol}[music];` +
-    `[voice][music]amix=inputs=2:duration=first:dropout_transition=3:normalize=0,` +
-    `alimiter=limit=0.95[aout]`
-  );
-}
-
-export function mergeShotVideoAndAudio(videoPath, audioPath, outputPath) {
-  // Explicitly map the second input: generated clips contain a silent track,
-  // so relying on FFmpeg's default stream selection would keep the silence.
-  const cmd = `"${FFMPEG}" -y -i "${videoPath}" -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -ar 48000 -ac 2 -shortest "${outputPath}"`;
-  execSync(cmd, { stdio: 'pipe' });
-  return outputPath;
-}
-
 export function mixVoiceoverWithMusic(voiceoverPath, outputPath, musicVolume = 0.8) {
   const { path: musicPath } = resolveBackgroundMusic({ workDir: dirname(outputPath) });
   if (!musicPath) {
     execSync(`"${FFMPEG}" -y -i "${voiceoverPath}" -c:a aac -b:a 192k -ar 48000 -ac 2 "${outputPath}"`, { stdio: 'pipe' });
     return outputPath;
   }
-  const filter = buildMusicMixFilter(musicVolume);
-  const cmd = `"${FFMPEG}" -y -i "${voiceoverPath}" -stream_loop -1 -i "${musicPath}" -filter_complex "${filter}" -map "[aout]" -c:a aac -b:a 192k -ar 48000 -ac 2 -shortest "${outputPath}"`;
-  execSync(cmd, { stdio: 'pipe' });
-  return outputPath;
+  return runMusicMix(voiceoverPath, musicPath, outputPath, musicVolume);
 }
 
 export async function stitchClips({ clipPaths, audioPath, outputPath, backgroundMusic = true, musicSeed, format = 'facebook', firstFrameImage = null, lastFrameImage = null }) {
