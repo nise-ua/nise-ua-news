@@ -25,17 +25,17 @@ import sharp from 'sharp';
 import { execSync } from 'child_process';
 import { writeFileSync, existsSync, mkdirSync, unlinkSync, readFileSync } from 'fs';
 
-import { join, dirname, basename } from 'path';
-import { fileURLToPath } from 'url';
+import { join, basename } from 'path';
 import { fal } from '@fal-ai/client';
 import { config as dotenvConfig } from 'dotenv';
 import ffmpegStatic from 'ffmpeg-static';
 import { getOverlayThemeColors, UPPER_READABILITY_BAND } from '../../lib/reel-overlay-theme.js';
+import { log, projectRoot, scriptDir } from '../../lib/logging.js';
 
 const FFMPEG = ffmpegStatic || 'ffmpeg';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(__dirname, '..', '..', '..');
+const __dirname = scriptDir(import.meta.url);
+const ROOT = projectRoot(import.meta.url);
 dotenvConfig({ path: join(ROOT, '.env'), override: true });
 // Simple in-memory cache to ensure one background image per news article
 if (!globalThis.__imageCache) {
@@ -43,11 +43,6 @@ if (!globalThis.__imageCache) {
 }
 if (process.env.FAL_KEY) {
   fal.config({ credentials: process.env.FAL_KEY });
-}
-
-function log(msg) {
-  const ts = new Date().toISOString().slice(11, 19);
-  console.log(`[${ts}] ${msg}`);
 }
 
 function escapeXml(str) {

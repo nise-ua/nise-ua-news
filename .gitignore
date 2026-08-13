@@ -36,12 +36,7 @@ secrets/
 .handoffs/local/
 .handoffs/*.local.md
 
-# --- Framework / Agent files (private) ---
-AGENTS.md
-CLAUDE.md
-manifest.md
-scripts/framework-state-mode.sh
-scripts/switch-repo-access.sh
+# Agent/project contracts (AGENTS.md, CLAUDE.md, manifest.md, framework scripts) stay tracked — do not ignore.
 
 # --- IDE / workspace configs ---
 News.code-workspace
@@ -53,6 +48,11 @@ implementation_plan.md
 output.log
 test_output.txt
 restart.sh
+
+# --- Root orphan screenshots / dumps (not checked-in assets) ---
+*.jpeg
+template_card.jpeg
+Image *.jpeg
 
 # --- Root-level orphaned package files (superseded by news-digest-pipeline/package.json) ---
 /package.json

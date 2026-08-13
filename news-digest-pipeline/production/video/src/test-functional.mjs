@@ -9,6 +9,7 @@
 
 import { generateShotClip } from './generate-clips.js';
 import { mixVoiceoverWithMusic } from './stitch.js';
+import { log } from '../../lib/logging.js';
 import { mkdirSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
@@ -31,11 +32,6 @@ function parseVolumeDetect(output) {
 function runVolumeDetect(inputPath) {
   const command = `${FFMPEG} -hide_banner -i "${inputPath}" -af volumedetect -f null - 2>&1`;
   return parseVolumeDetect(execSync(command, { encoding: 'utf8' }));
-}
-
-function log(msg) {
-  const ts = new Date().toISOString().slice(11, 19);
-  console.log(`[${ts}] ${msg}`);
 }
 
 async function runTests() {

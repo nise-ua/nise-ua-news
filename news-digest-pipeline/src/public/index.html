@@ -559,13 +559,15 @@
           const reelSent = !!d.facebook_reel_id;
           const youtubeShortsExists = !!d.youtube_shorts_url;
           const youtubeSent = !!d.youtube_post_id;
-          const youtubeShortsExists = !!d.youtube_shorts_url;
-          const youtubeSent = !!d.youtube_post_id;
 
+          const fbHref = /^https?:\/\//i.test(d.facebook_post_id || '') ? d.facebook_post_id : '';
           const fbBtn = fbSent
-            ? `<button class="plat-btn sent" disabled>✓ FB</button>`
+            ? (fbHref
+                ? `<a class="plat-btn sent" href="${fbHref.replace(/"/g, '&quot;')}" target="_blank" title="${fbHref.replace(/"/g, '&quot;')}">✓ FB</a>`
+                : `<button class="plat-btn sent" disabled>✓ FB</button>`)
             : `<button class="plat-btn" onclick="publishFacebook('${d.id}',this)">📘 FB</button>`;
-          
+          const fbUrlBtn = `<button class="plat-btn" onclick="setFacebookUrl('${d.id}', ${JSON.stringify(d.facebook_post_id || '')})" title="Вказати Facebook URL вручну">🔗</button>`;
+
           const activeJob = activeVideoJobs.get(d.id);
           let videoBtn, shortsBtn;
 
@@ -605,7 +607,7 @@
               : `<button class="plat-btn" onclick="publishYouTube('${d.id}', this)">▶️ YouTube</button>`;
 
           const delBtn = `<button class="btn-delete" onclick="deleteDigest('${d.id}')">✕</button>`;
-          actionBtn = `<div class="platform-row"><button class="btn btn-preview" onclick="previewDigest('${d.id}')">&#128065;</button>${fbBtn}${videoBtn}${shortsBtn}${reelBtn}${youtubePublishBtn}<button class="btn btn-copy" onclick="copyDigest('${d.id}', this)">&#128203;</button>${delBtn}</div>`;
+          actionBtn = `<div class="platform-row"><button class="btn btn-preview" onclick="previewDigest('${d.id}')">&#128065;</button>${fbBtn}${fbUrlBtn}${videoBtn}${shortsBtn}${reelBtn}${youtubePublishBtn}<button class="btn btn-copy" onclick="copyDigest('${d.id}', this)">&#128203;</button>${delBtn}</div>`;
         }
 
         // Status dropdown
@@ -683,7 +685,7 @@
     async function publishFacebook(id, btn) {
       if (!confirm('Опублікувати у Facebook?')) return;
       btn.disabled = true;
-      btn.textContent = '⏳...';
+      btn.textContent = '⏳ браузер...';
       try {
         const res = await fetch(`/api/digests/${id}/publish`, {
           method: 'POST',
@@ -710,6 +712,24 @@
         alert('Помилка публікації: ' + err.message);
         btn.disabled = false;
         btn.textContent = '📘 FB';
+      }
+    }
+
+    async function setFacebookUrl(id, current) {
+      const url = prompt('Facebook post URL (або Graph post id):', current || '');
+      if (url === null) return;
+      try {
+        const res = await fetch(`/api/digests/${id}/facebook-post`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ facebook_post_id: url.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Server error');
+        loadDigests();
+      } catch (err) {
+        console.error('Set Facebook URL failed:', err);
+        alert('Не вдалося зберегти Facebook URL: ' + err.message);
       }
     }
 

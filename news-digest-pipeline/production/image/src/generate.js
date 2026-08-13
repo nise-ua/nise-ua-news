@@ -17,15 +17,21 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { fal } from '@fal-ai/client';
 import sharp from 'sharp';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { config as dotenvConfig } from 'dotenv';
 import { applyTemplateOverlay } from './overlay.js';
 import { VISUAL_GROUNDING_RULES, groundVisualVariant, finalizeImagePrompt } from '../../lib/visual-grounding.js';
 import { getDigestContent, parseDigestArticles } from '../../lib/digest.js';
+import {
+  generateImage,
+  resolveImageVendor,
+  safeLogUrl,
+  sleep,
+} from '../../lib/image-backends.js';
+import { log, projectRoot, scriptDir } from '../../lib/logging.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(__dirname, '..', '..', '..');
+const __dirname = scriptDir(import.meta.url);
+const ROOT = projectRoot(import.meta.url);
 dotenvConfig({ path: join(ROOT, '.env'), override: false });
 
 const OUTPUT_DIR = join(__dirname, '..', 'output');
@@ -44,149 +50,8 @@ const openai = new OpenAI({
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || 'dummy-key-for-init');
 
-function log(msg) {
-  const ts = new Date().toISOString().slice(11, 19);
-  console.log(`[${ts}] ${msg}`);
-}
-
 function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-// Normalize model aliases from the shared model catalog to OpenAI Images API
-// model IDs. The API does not accept provider prefixes and does not expose a
-// gpt-image-1-mini model; mapping the alias prevents all image jobs failing.
-function resolveImageModel(configuredModel) {
-  let model = String(configuredModel || 'dall-e-3').trim();
-  if (model.includes('/')) model = model.split('/').pop();
-  return model === 'gpt-image-1-mini' ? 'gpt-image-1' : model;
-}
-
-function imageSizeForModel(model) {
-  if (model === 'dall-e-3') return '1024x1792';
-  if (model === 'gpt-image-1') return '1024x1536';
-  return '1024x1024';
-}
-
-async function generateOpenRouterImage(prompt, model) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error('OPENROUTER_API_KEY missing in .env');
-  const baseUrl = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
-
-  // Determine supported parameters based on model
-  let resolution = '2K';
-  let aspectRatio = '4:5';
-  let outputFormat = 'png';
-
-  // gpt-image-1 and gpt-image-1-mini only support specific aspect ratios
-  if (model?.includes('gpt-image-1')) {
-    resolution = undefined; // not supported
-    aspectRatio = '2:3';    // closest to vertical 9:16, supported by gpt-image-1
-    outputFormat = 'png';
-  }
-
-  const body = { model, prompt, n: 1 };
-  if (resolution) body.resolution = resolution;
-  if (aspectRatio) body.aspect_ratio = aspectRatio;
-  if (outputFormat) body.output_format = outputFormat;
-
-  const response = await fetch(`${baseUrl}/images`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      ...(process.env.BASE_URL ? { 'HTTP-Referer': process.env.BASE_URL } : {}),
-      'X-Title': 'NiSeNews image pipeline',
-    },
-    body: JSON.stringify(body),
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload?.error?.message || `OpenRouter image request failed (${response.status})`);
-  const item = payload?.data?.[0];
-  if (item?.url) return item.url;
-  if (item?.b64_json) return `data:${item.media_type || 'image/png'};base64,${item.b64_json}`;
-  throw new Error('OpenRouter response did not contain an image payload');
-}
-
-// --- Google Gemini Image Generation ---
-/**
- * Generate an image using Google Gemini (Gemini 1.5 models).
- * Returns a data URI (base64) or a URL string.
- */
-async function generateGoogleImage(prompt) {
-  const apiKey = process.env.GOOGLE_API_KEY;
-  if (!apiKey) throw new Error('GOOGLE_API_KEY missing in .env');
-
-  const preferredModel = process.env.GOOGLE_MODEL || 'gemini-2.5-flash-image';
-  const modelsToTry = [
-    preferredModel,
-    'gemini-2.5-flash-image',
-    'gemini-2.0-flash-preview-image-generation',
-  ].filter((m, i, arr) => m && arr.indexOf(m) === i);
-
-  // 1. Prefer Gemini image models via generateContent (current working path)
-  for (const modelName of modelsToTry) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
-          }),
-        }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const parts = data?.candidates?.[0]?.content?.parts || [];
-        for (const part of parts) {
-          if (part?.inlineData?.data) {
-            const mime = part.inlineData.mimeType || 'image/png';
-            return `data:${mime};base64,${part.inlineData.data}`;
-          }
-        }
-        log(`  Google ${modelName}: response OK but no image part`);
-      } else {
-        const errText = await res.text();
-        log(`  Google ${modelName} returned ${res.status}: ${errText.slice(0, 150)}`);
-      }
-    } catch (err) {
-      log(`  Google ${modelName} fetch error: ${err.message}`);
-    }
-  }
-
-  // 2. Try Google Imagen predict endpoints (may be unavailable on some keys)
-  const imagenModels = ['imagen-3.0-generate-002', 'imagen-3.0-fast-generate-001'];
-  for (const modelName of imagenModels) {
-    try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:predict?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instances: [{ prompt }],
-          parameters: { sampleCount: 1, aspectRatio: '9:16' }
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const b64 = data?.predictions?.[0]?.bytesBase64Encoded;
-        if (b64) return `data:image/png;base64,${b64}`;
-      } else {
-        const errText = await res.text();
-        log(`  Google Imagen ${modelName} returned ${res.status}: ${errText.slice(0, 120)}`);
-      }
-    } catch (err) {
-      log(`  Google Imagen ${modelName} error: ${err.message}`);
-    }
-  }
-
-  throw new Error('Failed to obtain image from Google Gemini/Imagen');
 }
 
 // --- Step 1: Digest load + parse (shared production/lib/digest.js) ---
@@ -323,14 +188,6 @@ ${VISUAL_GROUNDING_RULES}
   return result;
 }
 
-function safeLogUrl(url) {
-  if (!url) return 'null';
-  if (url.startsWith('data:')) {
-    return `${url.slice(0, 40)}... [base64 data URI, length: ${url.length}]`;
-  }
-  return url.length > 80 ? `${url.slice(0, 80)}...` : url;
-}
-
 async function fetchImageBuffer(urlOrDataUri) {
   if (!urlOrDataUri) throw new Error('Image URL or data URI is empty');
   if (urlOrDataUri.startsWith('data:')) {
@@ -361,9 +218,7 @@ async function fetchImageBuffer(urlOrDataUri) {
 // --- Step 3: Generate background images via AI (DALL-E 3 or fal.ai) ---
 
 async function generateBackgroundImages(variants) {
-  // Normalize IMAGE_VENDOR (trim & lower) to avoid whitespace issues
-  const rawVendor = (process.env.IMAGE_VENDOR || '').trim().toLowerCase();
-  const vendor = rawVendor || (process.env.OPENAI_API_KEY ? 'dalle' : 'fal');
+  const vendor = resolveImageVendor();
   log(`Image vendor resolved to '${vendor}'`);
   log(`Generating ${variants.length} background images via ${vendor} (sequential mode)...`);
 
@@ -384,52 +239,15 @@ async function generateBackgroundImages(variants) {
     let lastErr = null;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        if (vendor === 'openrouter') {
-          imageUrl = await generateOpenRouterImage(promptWithStyle, process.env.DALLE_MODEL || 'qwen/qwen-image-3-pro');
-        } else if (vendor === 'dalle' || vendor === 'openai') {
-          if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY missing in .env');
-          
-          const model = resolveImageModel(process.env.DALLE_MODEL);
-          const size = imageSizeForModel(model);
-          
-          log(`  Requesting OpenAI Image Gen (${model})....`);
-          const response = await openai.images.generate({
-            model: model,
-            prompt: promptWithStyle,
-            n: 1,
-            size: size,
-            quality: (model === "dall-e-3" || model === "gpt-image-3") ? "standard" : undefined,
-          });
-          
-          if (response && response.data && response.data[0]) {
-            const item = response.data[0];
-            if (item.url) {
-              imageUrl = item.url;
-            } else if (item.b64_json) {
-              imageUrl = `data:image/png;base64,${item.b64_json}`;
-            }
-          }
-          if (!imageUrl) {
-            throw new Error(`Invalid response structure from OpenAI: missing url and b64_json`);
-          }
-          log(`  OpenAI response: received data payload (${safeLogUrl(imageUrl)})`);
-        } else if (vendor === 'google') {
-          // Generate image via Google Gemini
-          imageUrl = await generateGoogleImage(promptWithStyle);
-          if (!imageUrl) throw new Error('Google Gemini image generation failed');
-        } else {
-          // Fallback to Fal AI
-          if (!process.env.FAL_KEY) throw new Error('FAL_KEY missing in .env');
-          const result = await fal.subscribe('fal-ai/flux/dev', {
-            input: {
-              prompt: promptWithStyle,
-              image_size: { width: 1080, height: 1350 },
-              num_inference_steps: 28,
-              guidance_scale: 3.5,
-            },
-          });
-          imageUrl = result.data.images[0].url;
-        }
+        imageUrl = await generateImage(promptWithStyle, {
+          vendor,
+          aspect: '4:5',
+          openai,
+          fal,
+          genAI,
+          log,
+          title: 'NiSeNews image pipeline',
+        });
         break;
       } catch (err) {
         lastErr = err;

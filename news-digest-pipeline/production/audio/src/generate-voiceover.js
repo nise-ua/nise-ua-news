@@ -6,6 +6,9 @@
  * Reads digest text → summarizes/formats for audio voice-over (~500 chars for Reels or full digest for Podcast)
  * → Generates TTS MP3 via OpenAI TTS / ElevenLabs / Google Cloud TTS.
  *
+ * Per-shot reel TTS lives in production/lib/tts.js (edge-tts + Ukrainian ElevenLabs).
+ * This CLI keeps the OpenAI/ElevenLabs podcast-style single-file path.
+ *
  * Usage:
  *   node production/audio/src/generate-voiceover.js latest [--mode reel|podcast]
  *   node production/audio/src/generate-voiceover.js <digest-id>
@@ -14,16 +17,18 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { writeFileSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { config as dotenvConfig } from 'dotenv';
 import { getDigestContent } from '../../lib/digest.js';
-import ffprobeStatic from 'ffprobe-static';
-import { execSync } from 'child_process';
 import { prepareTtsText } from '../../lib/tts-pronunciation.js';
+import {
+  generatePerArticleAudio,
+  getAudioDuration,
+} from '../../lib/tts.js';
+import { log, projectRoot, scriptDir } from '../../lib/logging.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(__dirname, '..', '..', '..');
+const __dirname = scriptDir(import.meta.url);
+const ROOT = projectRoot(import.meta.url);
 dotenvConfig({ path: join(ROOT, '.env'), override: true });
 
 const OUTPUT_DIR = join(__dirname, '..', 'output');
@@ -36,42 +41,7 @@ const claude = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || 'dummy-key-for-init'
 });
 
-function log(msg) {
-  const ts = new Date().toISOString().slice(11, 19);
-  console.log(`[${ts}] ${msg}`);
-}
-
-export function getAudioDuration(audioPath) {
-  try {
-    const cmd = `"${ffprobeStatic.path}" -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audioPath}"`;
-    const out = execSync(cmd, { encoding: 'utf-8' }).trim();
-    const dur = parseFloat(out);
-    return isNaN(dur) ? 5 : dur;
-  } catch (err) {
-    return 5;
-  }
-}
-
-export async function generatePerArticleAudio(articles, tempDir) {
-  log(`Generating synchronized audio clips for ${articles.length} articles...`);
-  const audioResults = [];
-
-  for (let i = 0; i < articles.length; i++) {
-    const item = articles[i];
-    const rawScript = item.spokenText || item.headline;
-    const scriptText = prepareTtsText(rawScript);
-    if (scriptText !== rawScript) log(`  TTS pronunciation: "${rawScript.slice(0, 50)}..." → "${scriptText.slice(0, 50)}..."`);
-    log(`  Audio ${i + 1}/${articles.length}: "${scriptText.slice(0, 50)}..."`);
-    const audioBuffer = await generateTTS(scriptText);
-    const audioPath = join(tempDir, `audio_shot_${i + 1}.mp3`);
-    writeFileSync(audioPath, audioBuffer);
-    const duration = getAudioDuration(audioPath);
-    log(`  ✅ Audio ${i + 1} ready (${duration.toFixed(2)}s): ${audioPath}`);
-    audioResults.push({ audioPath, duration });
-  }
-
-  return audioResults;
-}
+export { getAudioDuration, generatePerArticleAudio };
 
 async function prepareAudioScript(digestText, mode = 'reel') {
   log(`Preparing audio script for ${mode} mode...`);
@@ -104,8 +74,11 @@ async function prepareAudioScript(digestText, mode = 'reel') {
 
 async function generateTTS(scriptText) {
   log(`Generating TTS audio (${scriptText.length} chars)...`);
+  const spoken = prepareTtsText(scriptText);
 
   // Option 1: ElevenLabs API (if ELEVENLABS_API_KEY provided)
+  // Note: podcast CLI uses ELEVENLABS_VOICE_ID (any voice); reel shared lib
+  // requires ELEVENLABS_UKRAINIAN_VOICE_ID.
   if (process.env.ELEVENLABS_API_KEY) {
     const voiceId = process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
     log('Using ElevenLabs TTS API...');
@@ -116,7 +89,7 @@ async function generateTTS(scriptText) {
         'xi-api-key': process.env.ELEVENLABS_API_KEY
       },
       body: JSON.stringify({
-        text: scriptText,
+        text: spoken,
         model_id: 'eleven_multilingual_v2',
         voice_settings: { stability: 0.5, similarity_boost: 0.75 }
       })
@@ -137,7 +110,7 @@ async function generateTTS(scriptText) {
   const mp3 = await openai.audio.speech.create({
     model: 'tts-1',
     voice: voice,
-    input: scriptText,
+    input: spoken,
   });
 
   return Buffer.from(await mp3.arrayBuffer());

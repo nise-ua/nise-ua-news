@@ -25,46 +25,43 @@
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync, statSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { execFileSync } from 'child_process';
+import { join, basename } from 'path';
 import { config as dotenvConfig } from 'dotenv';
 import { initDb, getDb, updateDigest } from '../../../src/db/index.js';
-import { createRequire } from 'module';
 
 import { generateStoryboard } from './storyboard.js';
 import { generateShotClip } from './generate-clips.js';
 import { stitchClips, mergeShotVideoAndAudio } from './stitch.js';
 import { groundVisualVariant, buildGroundedPrompt, inferNewsToneFromFact } from '../../lib/visual-grounding.js';
-import { prepareTtsText } from '../../lib/tts-pronunciation.js';
 import { getDigestContent, parseDigestItemTexts } from '../../lib/digest.js';
+import {
+  generateImage,
+  generateImageWithRetry,
+  resolveImageVendor,
+  safeLogUrl,
+  sleep,
+} from '../../lib/image-backends.js';
+import {
+  EDGE_VOICE,
+  completeClause,
+  generatePerArticleAudio,
+} from '../../lib/tts.js';
+import { log, projectRoot, scriptDir } from '../../lib/logging.js';
 
 import OpenAI from 'openai';
 import { fal } from '@fal-ai/client';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const require = createRequire(import.meta.url);
-const ffmpegStaticPkg = require('ffmpeg-static');
-const ffprobeStaticPkg = require('ffprobe-static');
-
 // Initialize Google Gemini client
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || 'dummy-key-for-init');
 
-const FFMPEG = ffmpegStaticPkg || 'ffmpeg';
-const FFPROBE = ffprobeStaticPkg.path;
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(__dirname, '..', '..', '..');
+const __dirname = scriptDir(import.meta.url);
+const ROOT = projectRoot(import.meta.url);
 dotenvConfig({ path: join(ROOT, '.env'), override: true });
 
 const SERVER = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 3000}`;
 const OUTPUT_DIR = join(__dirname, '..', 'output');
 const DB_PATH = join(ROOT, 'data', 'news-digest.db');
-
-const configuredEdgeVoice = process.env.EDGE_TTS_VOICE || '';
-const EDGE_VOICE = /^uk-UA-/i.test(configuredEdgeVoice)
-  ? configuredEdgeVoice
-  : 'uk-UA-PolinaNeural';
 
 function removeStaleTempRuns(maxAgeMs = 24 * 60 * 60 * 1000) {
   if (!existsSync(OUTPUT_DIR)) return;
@@ -86,131 +83,8 @@ function removeStaleTempRuns(maxAgeMs = 24 * 60 * 60 * 1000) {
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy-key-for-init' });
 if (process.env.FAL_KEY) fal.config({ credentials: process.env.FAL_KEY });
 
-function log(msg) {
-  const ts = new Date().toISOString().slice(11, 19);
-  console.log(`[${ts}] ${msg}`);
-}
-
-function safeLogUrl(url) {
-  if (!url) return 'null';
-  if (url.startsWith('data:')) {
-    return `${url.slice(0, 40)}... [base64 data URI, length: ${url.length}]`;
-  }
-  return url.length > 80 ? `${url.slice(0, 80)}...` : url;
-}
-
-/** Normalize model aliases used by the OpenAI Images API branch. */
-function resolveImageModel(configuredModel) {
-  let model = String(configuredModel || 'dall-e-3').trim();
-  if (model.includes('/')) model = model.split('/').pop();
-  if (model === 'gpt-image-1-mini') return 'gpt-image-1';
-  return model;
-}
-
-/** Generate an image using Google Gemini (gemini-2.5-flash-image). Returns a data URI or URL. */
-async function generateGoogleImage(prompt) {
-  const apiKey = process.env.GOOGLE_API_KEY;
-  if (!apiKey) throw new Error('GOOGLE_API_KEY missing in .env');
-
-  const modelName = process.env.GOOGLE_MODEL || 'gemini-2.5-flash-image';
-
-  // 1. Google Gemini multimodal image generation endpoint
-  try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseModalities: ['IMAGE'] }
-      })
-    });
-    if (res.ok) {
-      const data = await res.json();
-      for (const candidate of data?.candidates || []) {
-        for (const part of candidate?.content?.parts || []) {
-          if (part?.inlineData?.data) {
-            const mime = part.inlineData.mimeType || 'image/png';
-            return `data:${mime};base64,${part.inlineData.data}`;
-          }
-        }
-      }
-    } else {
-      const errText = await res.text();
-      log(`  Google Gemini image generation API returned ${res.status}: ${errText.slice(0, 150)}`);
-    }
-  } catch (err) {
-    log(`  Google Gemini image fetch error: ${err.message}`);
-  }
-
-  // 2. Fallback using Google AI SDK generateContent
-  try {
-    const model = genAI.getGenerativeModel({ model: modelName });
-    const result = await model.generateContent(prompt);
-    const candidates = result?.response?.candidates;
-    if (candidates && candidates.length) {
-      const part = candidates[0].content?.parts?.[0];
-      if (part?.inlineData?.data) {
-        const mime = part.inlineData.mimeType || 'image/png';
-        return `data:${mime};base64,${part.inlineData.data}`;
-      }
-      if (part?.blob?.data) {
-        return `data:image/png;base64,${part.blob.data}`;
-      }
-    }
-  } catch (err) {
-    log(`  Gemini SDK generateContent error: ${err.message}`);
-  }
-
-  // 3. Fallback to OpenRouter Google model if OPENROUTER_API_KEY is available
-  if (process.env.OPENROUTER_API_KEY) {
-    log('  Fallback: generating Google image via OpenRouter...');
-    const url = await generateImageWithRetry({ prompt }, 'google/gemini-2.5-flash-image', 0);
-    if (url) return url;
-  }
-
-  throw new Error('Failed to obtain image from Google Gemini');
-}
-
-function imageSizeForModel(model) {
-  if (model === 'dall-e-3') return '1024x1792';
-  if (model === 'gpt-image-1') return '1024x1792';
-  return '1024x1024';
-}
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 function firstSentence(text) {
   return String(text || '').split(/(?<=[.!?])\s+/)[0].trim();
-}
-
-function completeClause(text, maxWords = 20, maxChars = 140) {
-  const source = String(text || '').trim();
-  const sentences = source.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
-  if (sentences.length > 0) {
-    let combined = '';
-    for (const s of sentences) {
-      const candidate = `${combined} ${s}`.trim();
-      if (candidate.split(/\s+/).length <= maxWords || !combined) {
-        combined = candidate;
-      } else {
-        break;
-      }
-    }
-    if (combined) return /[.!?]$/.test(combined) ? combined : `${combined}.`;
-  }
-  const clauses = source.split(/(?<=[.!?;:])\s+|(?<=,\s)/).map(s => s.trim()).filter(Boolean);
-  let result = '';
-  for (const clause of clauses) {
-    const candidate = `${result} ${clause}`.trim();
-    if (candidate.split(/\s+/).length > maxWords || candidate.length > maxChars) break;
-    result = candidate;
-    if (/[.!?]$/.test(clause)) break;
-  }
-  if (result) return /[.!?]$/.test(result) ? result : `${result}.`;
-  const words = source.split(/\s+/).filter(Boolean).slice(0, maxWords);
-  return `${words.join(' ').replace(/[,:;—-]+$/, '')}.`;
 }
 
 function buildFallbackTitle(text) {
@@ -248,140 +122,34 @@ function buildFallbackDetail(text) {
   return completeClause(source, 22, 150);
 }
 
-function isRetryableImageError(error) {
-  const message = String(error?.message || error).toLowerCase();
-  return error?.status === 429 || /429|rate limit|too many requests|temporarily unavailable|try again later/.test(message);
-}
-
-async function generateOpenRouterImage(prompt, model) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error('OPENROUTER_API_KEY missing in .env');
-  const baseUrl = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
-  const response = await fetch(`${baseUrl}/images`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      ...(process.env.BASE_URL ? { 'HTTP-Referer': process.env.BASE_URL } : {}),
-      'X-Title': 'NiSeNews video pipeline',
-    },
-    body: JSON.stringify({
-      model,
-      prompt: `${prompt}\nPortrait 9:16 composition, native vertical image.`,
-      n: 1,
-      resolution: '2K',
-      aspect_ratio: '9:16',
-      output_format: 'png',
-    }),
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = payload?.error?.message || `OpenRouter image request failed (${response.status})`;
-    const error = new Error(message);
-    error.status = response.status;
-    throw error;
-  }
-  const item = payload?.data?.[0];
-  if (item?.url) return item.url;
-  if (item?.b64_json) return `data:${item.media_type || 'image/png'};base64,${item.b64_json}`;
-  throw new Error('OpenRouter response did not contain an image payload');
-}
-
-async function generateImageWithRetry(shot, model, index) {
-  const maxRetries = Math.max(0, Number(process.env.IMAGE_MAX_RETRIES || 3));
-  const baseDelayMs = Math.max(250, Number(process.env.IMAGE_RETRY_DELAY_MS || 4000));
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      return await generateOpenRouterImage(shot.prompt, model);
-    } catch (error) {
-      if (!isRetryableImageError(error) || attempt >= maxRetries) throw error;
-      const delayMs = baseDelayMs * (2 ** attempt);
-      log(`  Image ${index + 1}: rate limited; retry ${attempt + 1}/${maxRetries} in ${delayMs}ms...`);
-      await sleep(delayMs);
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Natural Ukrainian TTS (edge-tts neural voice — free, no API credits)
-// ---------------------------------------------------------------------------
-
-function getAudioDuration(audioPath) {
-  return Number(execFileSync(FFPROBE, [
-    '-v', 'error', '-show_entries', 'format=duration',
-    '-of', 'default=noprint_wrappers=1:nokey=1', audioPath,
-  ], { encoding: 'utf8' }).trim());
-}
-
-/**
- * Generate natural Ukrainian TTS per shot using Microsoft Edge neural voices
- * (uk-UA-PolinaNeural / uk-UA-OstapNeural) via `uvx edge-tts` — free and
- * human-quality.  If ELEVENLABS_API_KEY is configured the pipeline prefers
- * ElevenLabs; otherwise edge-tts is the default (no paid credits needed).
- * Returns [{ audioPath, duration }].
- */
-async function generatePerArticleAudio(shots, tempDir, format) {
-  const results = [];
-  for (let i = 0; i < shots.length; i++) {
-    const shot = shots[i];
-    const rawText = completeClause(shot.spokenText || shot.headline || '');
-    const text = prepareTtsText(rawText);
-    const mp3Path = join(tempDir, `audio_shot_${i + 1}.mp3`);
-    const tmpPath = join(tempDir, `tts_raw_${i + 1}.mp3`);
-    if (text !== rawText) log(`  TTS pronunciation: "${rawText.slice(0, 50)}..." → "${text.slice(0, 50)}..."`);
-    log(`  Audio ${i + 1}/${shots.length} (${EDGE_VOICE}): "${text.slice(0, 50)}..."`);
-
-    // Edge neural TTS (natural Ukrainian). Fallback to ElevenLabs if configured.
-    if (process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_UKRAINIAN_VOICE_ID) {
-      const voiceId = process.env.ELEVENLABS_UKRAINIAN_VOICE_ID;
-      log(`  Using ElevenLabs TTS (voice ${voiceId})...`);
-      const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'xi-api-key': process.env.ELEVENLABS_API_KEY,
-        },
-        body: JSON.stringify({
-          text,
-          model_id: 'eleven_multilingual_v2',
-          voice_settings: { stability: 0.5, similarity_boost: 0.75 },
-        }),
-      });
-      if (res.ok) {
-        writeFileSync(tmpPath, Buffer.from(await res.arrayBuffer()));
-      } else {
-        log(`ElevenLabs error (${res.status}), falling back to edge-tts...`);
-        execFileSync('uvx', [
-          'edge-tts',
-          `--text=${text}`,
-          `--voice=${EDGE_VOICE}`,
-          `--write-media=${tmpPath}`,
-        ], { stdio: 'pipe' });
-      }
-    } else {
-      // Default: free natural neural Ukrainian voice.
-      execFileSync('uvx', [
-        'edge-tts',
-        `--text=${text}`,
-        `--voice=${EDGE_VOICE}`,
-        `--write-media=${tmpPath}`,
-      ], { stdio: 'pipe' });
-    }
-
-    // Normalize to 48 kHz stereo for the reel mix.
-    execFileSync(FFMPEG, ['-y', '-i', tmpPath, '-ar', '48000', '-ac', '2', '-codec:a', 'libmp3lame', '-b:a', '192k', mp3Path], { stdio: 'pipe' });
-    results.push({ audioPath: mp3Path, duration: getAudioDuration(mp3Path) });
-  }
-  return results;
-}
-
 async function generateBackgroundImagesForShots(shots) {
-  const vendor = process.env.IMAGE_VENDOR || (process.env.OPENAI_API_KEY ? 'dalle' : 'fal');
+  const vendor = resolveImageVendor();
   log(`Generating ${shots.length} native 9:16 background images via ${vendor}...`);
   const failures = [];
 
   const results = [];
   const requestDelayMs = Math.max(0, Number(process.env.IMAGE_REQUEST_DELAY_MS || 1500));
+  const imageDeps = {
+    aspect: '9:16',
+    openai,
+    fal,
+    genAI,
+    log,
+    title: 'NiSeNews video pipeline',
+    openRouterFallback: process.env.OPENROUTER_API_KEY
+      ? (prompt) => generateImageWithRetry(
+        () => generateImage(prompt, {
+          vendor: 'openrouter',
+          aspect: '9:16',
+          model: 'google/gemini-2.5-flash-image',
+          title: 'NiSeNews video pipeline',
+          log,
+        }),
+        { log, label: `Image google-fallback` },
+      )
+      : null,
+  };
+
   for (let i = 0; i < shots.length; i += 1) {
     // Ground at the final image boundary as well as in storyboard generation.
     // This protects the reel path when a fallback storyboard or another caller
@@ -392,39 +160,16 @@ async function generateBackgroundImagesForShots(shots) {
     try {
       let imageUrl;
       if (vendor === 'openrouter') {
-        imageUrl = await generateImageWithRetry({ ...shot, prompt: imagePrompt }, process.env.DALLE_MODEL || 'qwen/qwen-image-3-pro', i);
-      } else if (vendor === 'dalle' || vendor === 'openai') {
-        if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY missing in .env');
-        const model = resolveImageModel(process.env.DALLE_MODEL);
-        const size = imageSizeForModel(model);
-        const response = await openai.images.generate({
-          model,
-          prompt: imagePrompt,
-          n: 1,
-          size,
-          quality: ["dall-e-3","gpt-image-3"].includes(model) ? 'standard' : undefined,
-        });
-        const item = response?.data?.[0];
-        if (item?.url) imageUrl = item.url;
-        else if (item?.b64_json) imageUrl = `data:image/png;base64,${item.b64_json}`;
-        if (!imageUrl) throw new Error('Invalid response structure from OpenAI');
-        log(`  OpenAI response: ${safeLogUrl(imageUrl)}`);
-      } else if (vendor === 'google') {
-        // Use Google Gemini for image generation
-        imageUrl = await generateGoogleImage(imagePrompt);
-        if (!imageUrl) throw new Error('Google Gemini image generation failed');
-        log(`  Google Gemini response: ${safeLogUrl(imageUrl)}`);
+        imageUrl = await generateImageWithRetry(
+          () => generateImage(imagePrompt, {
+            ...imageDeps,
+            vendor: 'openrouter',
+            model: process.env.DALLE_MODEL || 'qwen/qwen-image-3-pro',
+          }),
+          { log, label: `Image ${i + 1}` },
+        );
       } else {
-        if (!process.env.FAL_KEY) throw new Error('FAL_KEY missing in .env');
-        const result = await fal.subscribe('fal-ai/flux/dev', {
-          input: {
-            prompt: imagePrompt,
-            image_size: { width: 1080, height: 1920 },
-            num_inference_steps: 28,
-            guidance_scale: 3.5,
-          },
-        });
-        imageUrl = result.data.images[0].url;
+        imageUrl = await generateImage(imagePrompt, { ...imageDeps, vendor });
       }
       results.push({ ...shot, imageUrl });
       log(`  Image ${i + 1}: OK ${safeLogUrl(imageUrl)}`);
@@ -565,7 +310,7 @@ async function main() {
     }
 
     // Step 4: Generate natural Ukrainian TTS, one clip per shot, timed exactly.
-    const audioResults = await generatePerArticleAudio(storyboard.shots, tempDir, format);
+    const audioResults = await generatePerArticleAudio(storyboard.shots, tempDir, { log });
 
     // Step 5: Generate synchronized clips.
     log('Generating synchronized video clips for shots...');
@@ -615,7 +360,7 @@ async function main() {
     // maps it to /videos/<filename>.
     console.log(`Path: ${finalReelPath}`);
 
-    const fileName = require('path').basename(finalReelPath);
+    const fileName = basename(finalReelPath);
     const publicReelUrl = `${SERVER}/reels/${fileName}`;
     const publicVideoUrl = `${SERVER}/videos/${fileName}`;
     let digestToUpdateId = digestId !== 'latest' ? digestId : null;

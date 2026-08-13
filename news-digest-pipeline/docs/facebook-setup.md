@@ -1,6 +1,12 @@
 # Facebook Publishing: Full Setup Guide
 
-This document describes the entire process of setting up digest publication on Facebook — from creating a Meta App to browser automation. Two independent channels: **Facebook Page** (Graph API) and **personal profile** (Patchright).
+This document describes the entire process of setting up digest publication on Facebook — from creating a Meta App to browser automation.
+
+Channels:
+
+- **Facebook Page text** — Patchright composer as the Page (`scripts/fb-page-publish.js`). Graph `/feed` text posts from the Meta app are silently hidden from non-admins.
+- **Facebook Reels / Stories / token checks** — Graph API (Page access token).
+- **Personal profile** — separate Patchright script (`scripts/fb-publish.js`).
 
 ---
 
@@ -67,21 +73,28 @@ fb_exchange_token=SHORT_LIVED_TOKEN"
 
 **Note:** A Page Access Token obtained using a long-lived User Token becomes long-lived (indefinite until revoked) itself.
 
-### 1.4. Publication via Graph API
+### 1.4. Page text posts (composer, not Graph `/feed`)
+
+Graph `POST /{page-id}/feed` tags the post as the Meta app (`application: news`). Friends can follow the Page and still get **Couldn't Load Post** on those text dumps, while the same copy posted manually in the Page composer is visible.
+
+The dashboard **📘 FB** button now drives Patchright as **Nise-ua**:
 
 ```bash
-curl -X POST "https://graph.facebook.com/v19.0/PAGE_ID/feed" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "Post text...",
-    "access_token": "PAGE_ACCESS_TOKEN"
-  }'
+# First time: log in as the Page admin, then switch to Nise-ua
+cd news-digest-pipeline
+node scripts/fb-page-publish.js --login
+
+# Or publish a digest from the CLI
+node scripts/fb-page-publish.js latest
 ```
+
+Session cookies live in `.fb-page-profile/` (this Mac, headed Chromium). Graph is still used afterwards to resolve `facebook_post_id` and check `privacy` / `is_hidden`. Reels stay on Graph.
 
 ### 1.5. Limitations
 
 - Graph API only works for **Pages**, not personal profiles.
-- Rate limits: ~200 posts/hour per page.
+- Page **text** publish must run on a machine with the Patchright profile (local Mac). A VPS-only dashboard cannot open the composer.
+- Rate limits for Reels/Graph: ~200 posts/hour per page.
 
 ---
 
@@ -150,6 +163,7 @@ In your `.env` file:
 ```env
 # Facebook Page
 FACEBOOK_PAGE_ID=123456789012345
+FACEBOOK_PAGE_NAME=Nise-ua
 FACEBOOK_PAGE_ACCESS_TOKEN=EAAG...
 ```
 

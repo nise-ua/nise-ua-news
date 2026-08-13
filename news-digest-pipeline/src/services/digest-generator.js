@@ -13,7 +13,7 @@ import {
   getDb,
 } from '../db/index.js';
 import { priceFor } from '../data/model-catalog.js';
-import { buildDynamicHashtags, replaceHashtagFooter } from './hashtags.js';
+import { DEFAULT_OPENING_HASHTAG, normalizeDigestFormat } from './digest-format.js';
 
 const MAX_CONTENT_LENGTH = 3000;
 const RETRY_ATTEMPTS = 3;
@@ -233,14 +233,16 @@ export async function generateDigest(db, articles, config) {
     '---',
   ];
 
-  if (config.hashtag) {
-    assemblyUserMessageParts.push(`Головний хештег (на самому початку перед 1.): ${config.hashtag}`);
+  const openingHashtag = config.hashtag || DEFAULT_OPENING_HASHTAG;
+  assemblyUserMessageParts.push(`Головний хештег (окремий перший рядок): ${openingHashtag}`);
+  assemblyUserMessageParts.push('Перший блок починається з наступного рядка з "1." Не став хештег і 1. в один рядок.');
+  assemblyUserMessageParts.push('');
+
+  if (config.boundaryIntent) {
+    assemblyUserMessageParts.push(`Кордон / дисклеймер (у кінці, дослівно): ${config.boundaryIntent}`);
     assemblyUserMessageParts.push('');
   }
-
-  assemblyUserMessageParts.push(`Кордон / дисклеймер (у кінці): ${config.boundaryIntent}`);
-  assemblyUserMessageParts.push('');
-  assemblyUserMessageParts.push('Хештеги: не використовуй старі шаблонні хештеги. Наприкінці залиш місце для тематичних хештегів, які система додасть після складання з реальних тем статей.');
+  assemblyUserMessageParts.push('Не додавай хештеги в кінці поста і не копіюй ці інструкції у дайджест.');
 
   const assemblyUserMessage = assemblyUserMessageParts.join('\n');
 
@@ -271,33 +273,18 @@ export async function generateDigest(db, articles, config) {
   totalInputTokens += assemblyRes.inputTokens;
   totalOutputTokens += assemblyRes.outputTokens;
 
-  // Never publish the legacy config.md footer (currently #AI #News). Build
-  // topical hashtags from the actual source articles and append them after the
-  // disclaimer so every platform receives real, post-specific tags.
-  const dynamicHashtags = buildDynamicHashtags(articlesWithCommentary, digestContent, {
-    staticSuffix: config.hashtagsSuffix,
-  });
-  digestContent = replaceHashtagFooter(digestContent, dynamicHashtags, config.hashtagsSuffix);
-
-  // Post-processing: remove any preamble before the content starts
-  // LLM sometimes adds explanatory text before the actual digest
-  const activeHashtag = config.hashtag;
-  let digestStart = -1;
-
-  if (activeHashtag) {
-    digestStart = digestContent.indexOf(activeHashtag);
-    if (digestStart > 0) {
-      digestContent = digestContent.substring(digestStart);
-      log.push(`Removed ${digestStart} chars of preamble before ${activeHashtag}`);
-    }
-  } else {
-    // If no hashtag, try to find the start of the first item "1."
-    digestStart = digestContent.indexOf('\n1.');
-    if (digestStart > 0) {
-      digestContent = digestContent.substring(digestStart);
-      log.push(`Removed ${digestStart} chars of preamble before "1."`);
-    }
+  // Drop LLM preamble / leaked hashtag instructions, force `#новини` + `1.` opening,
+  // and never append auto-generated trailing tags.
+  const beforeNormalize = digestContent;
+  digestContent = normalizeDigestFormat(digestContent, openingHashtag);
+  if (config.boundaryIntent && !digestContent.includes(config.boundaryIntent)) {
+    digestContent = `${digestContent}\n\n${config.boundaryIntent}`;
   }
+  if (digestContent !== beforeNormalize) {
+    log.push('Normalized digest opening/footer');
+  }
+
+  const activeHashtag = openingHashtag;
 
   // Create digest record
   const digestId = createDigest({

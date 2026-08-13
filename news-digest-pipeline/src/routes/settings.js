@@ -128,6 +128,7 @@ function buildSettingsPayload() {
       },
       facebook: {
         pageId: maskSecret(config.facebookPageId),
+        pageName: config.facebookPageName || '',
         pageAccessToken: maskSecret(config.facebookPageAccessToken),
       },
        anthropicApiKey: maskSecret(config.anthropicApiKey),

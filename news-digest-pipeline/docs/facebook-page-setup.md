@@ -1,7 +1,8 @@
 # Facebook Page API — Quick Setup Guide
 
-> Quick reference for setting up publication on a Facebook **Page** via Graph API.
-> Full research history (including personal profile automation attempts) is in `facebook-setup.md`.
+> Quick reference for Facebook **Page** publishing.
+> Digest **text** uses the Page composer (Patchright). Graph API remains for Reels, Stories, token refresh, and post-id lookup.
+> Full research history is in `facebook-setup.md`.
 
 ---
 
@@ -63,13 +64,16 @@ The response contains a list of pages with an `access_token` and `id` for each:
 
 ---
 
-## 3. Publication via API
+## 3. Publication
+
+Do **not** publish digest text via Graph `/feed`. That path is silently hidden from followers.
 
 ```bash
-curl -X POST "https://graph.facebook.com/v19.0/{PAGE_ID}/feed" \
-  -d "message=Post text" \
-  -d "access_token=PAGE_ACCESS_TOKEN"
+node scripts/fb-page-publish.js --login
+node scripts/fb-page-publish.js latest
 ```
+
+Dashboard **📘 FB** uses the same composer publisher. Reels still use Graph.
 
 ---
 
@@ -129,11 +133,13 @@ In your `.env` file (or on the VPS):
 
 ```env
 FACEBOOK_PAGE_ID=YOUR_FACEBOOK_PAGE_ID
+FACEBOOK_PAGE_NAME=Nise-ua
 FACEBOOK_PAGE_ACCESS_TOKEN=EAAxxxxxx...
 ```
 
 - `FACEBOOK_PAGE_ID` — The ID of the page (not the profile!).
-- `FACEBOOK_PAGE_ACCESS_TOKEN` — Specifically the Page Access Token, **not** the User Token.
+- `FACEBOOK_PAGE_NAME` — Used to click the Page in the Facebook account switcher.
+- `FACEBOOK_PAGE_ACCESS_TOKEN` — Page token for Reels and to resolve the composer post id. Not used to create text posts.
 
 ---
 

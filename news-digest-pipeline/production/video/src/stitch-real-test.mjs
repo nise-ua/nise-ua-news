@@ -18,76 +18,17 @@
  */
 
 import { generateShotClip } from './generate-clips.js';
-import { prepareTtsText } from '../../lib/tts-pronunciation.js';
 import { stitchClips, mergeShotVideoAndAudio } from './stitch.js';
-import { readdirSync, writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { generatePerArticleAudio } from '../../lib/tts.js';
+import { log, projectRoot, scriptDir } from '../../lib/logging.js';
+import { readdirSync, mkdirSync, existsSync } from 'fs';
+import { join } from 'path';
 import { execFileSync } from 'child_process';
-import ffmpegStatic from 'ffmpeg-static';
-import ffprobeStatic from 'ffprobe-static';
-import { createRequire } from 'module';
 
-const require = createRequire(import.meta.url);
-const ffmpegStaticPkg = require('ffmpeg-static');
-const ffprobeStaticPkg = require('ffprobe-static');
-
-const FFMPEG = ffmpegStaticPkg || 'ffmpeg';
-const FFPROBE = ffprobeStaticPkg.path;
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const __dirname = scriptDir(import.meta.url);
 const IMAGE_DIR = join(__dirname, '..', '..', 'image', 'output');
 const OUTPUT_DIR = join(__dirname, '..', 'output');
-const DB_PATH = join(__dirname, '..', '..', '..', 'data', 'news-digest.db');
-
-const configuredEdgeVoice = process.env.EDGE_TTS_VOICE || '';
-const EDGE_VOICE = /^uk-UA-/i.test(configuredEdgeVoice)
-  ? configuredEdgeVoice
-  : 'uk-UA-PolinaNeural';
-
-function log(msg) {
-  const ts = new Date().toISOString().slice(11, 19);
-  console.log(`[${ts}] ${msg}`);
-}
-
-function getAudioDuration(audioPath) {
-  return Number(execFileSync(FFPROBE, [
-    '-v', 'error', '-show_entries', 'format=duration',
-    '-of', 'default=noprint_wrappers=1:nokey=1', audioPath,
-  ], { encoding: 'utf8' }).trim());
-}
-
-/**
- * Natural Ukrainian TTS via Microsoft Edge neural voices.
- * Uses uvx edge-tts (Python package, runs via `uvx` if uv is installed,
- * or via `pipx`/`python3 -m edge_tts`).  uk-UA-PolinaNeural sounds natural
- * and human — a major upgrade over the old synthetic Google Translate demo
- * voice.  Returns [{ audioPath, duration }].
- */
-function generateUkrainianTTS(shots, tempDir) {
-  const results = [];
-  for (let i = 0; i < shots.length; i++) {
-    const text = prepareTtsText(shots[i].spokenText || shots[i].headline || '');
-    const mp3Path = join(tempDir, `audio_shot_${i + 1}.mp3`);
-    const tmpPath = join(tempDir, `tts_raw_${i + 1}.mp3`);
-    log(`  TTS ${i + 1}/${shots.length} (${EDGE_VOICE}): "${text.slice(0, 60)}..."`);
-
-    // edge-tts CLI — pass text via --text= to avoid arg injection issues.
-    execFileSync('uvx', [
-      'edge-tts',
-      `--text=${text}`,
-      `--voice=${EDGE_VOICE}`,
-      `--write-media=${tmpPath}`,
-    ], { stdio: 'pipe' });
-
-    // edge-tts emits 24kHz mono MP3; upconvert + stereo for the reel mix.
-    execFileSync(FFMPEG, ['-y', '-i', tmpPath, '-ar', '48000', '-ac', '2', '-codec:a', 'libmp3lame', '-b:a', '192k', mp3Path], { stdio: 'pipe' });
-    const duration = getAudioDuration(mp3Path);
-    log(`  ✅ Ukrainian audio ${i + 1} ready (${duration.toFixed(2)}s)`);
-    results.push({ audioPath: mp3Path, duration });
-  }
-  return results;
-}
+const DB_PATH = join(projectRoot(import.meta.url), 'data', 'news-digest.db');
 
 /**
  * Load the newest digest by DATE from the pipeline SQLite database and
@@ -224,7 +165,7 @@ async function main() {
 
   // Generate natural neural Ukrainian TTS from the digest-derived text.
   log('Generating natural Ukrainian TTS voiceover from the latest digest...');
-  const audioResults = generateUkrainianTTS(shots, tempDir);
+  const audioResults = await generatePerArticleAudio(shots, tempDir, { log });
 
   log('Generating clips synchronized with voiceover...');
   const clipPaths = [];

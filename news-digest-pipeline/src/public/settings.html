@@ -666,7 +666,7 @@
         html = `
           <div class="card active">
             <h2>Контент</h2>
-            <p class="card-desc">Налаштування оформлення дайджесту: хештеги, кордон/дисклеймер (config.md).</p>
+            <p class="card-desc">Налаштування оформлення дайджесту: головний хештег, кордон/дисклеймер (config.md).</p>
             <div class="field">
               <textarea class="mono" id="ta-content">${esc(c.text)}</textarea>
             </div>
@@ -690,8 +690,12 @@
             ${secretRow('Publish Chat ID', pub.telegram.publishChatId)}
             ${secretRow('Webhook Secret', pub.telegram.webhookSecret)}
             <div class="group-subtitle">Facebook</div>
-            <div class="status-note"><span class="badge on">Лише Публічна сторінка (Page)</span> Безпечний шлях. Публікація в особистий профіль не підтримується.</div>
+            <div class="status-note"><span class="badge on">Лише Публічна сторінка (Page)</span> Текст іде через composer (браузер), Reels — через Graph API.</div>
             ${secretRow('Page ID', pub.facebook.pageId)}
+            <div class="secret-row">
+              <span class="secret-label">Page name</span>
+              <span class="secret-meta">${esc(pub.facebook.pageName || '—')}</span>
+            </div>
             ${secretRow('Page Access Token', pub.facebook.pageAccessToken)}
             <div class="group-subtitle">API-ключі</div>
             ${secretRow('Anthropic API Key', pub.anthropicApiKey)}
@@ -784,7 +788,7 @@
 
             <div class="group-subtitle">Спільний етап · для всіх сценаріїв</div>
             ${promptBlock('assembly', 'Складання дайджесту → assembly_prompt.md', d.assembly.text,
-              'системний промпт Фази B: механічне складання готових коментарів у фінальний дайджест (нумерація, кордон, хештеги). Застосовується в будь-якому сценарії.',
+              'системний промпт Фази B: механічне складання готових коментарів у фінальний дайджест (нумерація, кордон, головний хештег). Застосовується в будь-якому сценарії.',
               false)}
           </div>`;
       } else if (active === 'help') {
@@ -794,8 +798,8 @@
             <p class="card-desc">Що на що впливає.</p>
             <div class="help-block"><h3>Загальні</h3><p>Модель Claude задає, яка версія моделі використовується і для генерації коментарів, і для складання дайджесту.</p></div>
             <div class="help-block"><h3>Черга та генерація</h3><p>Поріг статей — скільки нових статей має накопичитися, щоб автоматично запустити генерацію. Макс. статей — верхня межа на один дайджест. Інтервал — як часто пайплайн перевіряє чергу.</p></div>
-            <div class="help-block"><h3>Сценарії</h3><p>Сценарій задає системний промпт Фази A (авторський коментар до статті). Взаємовиключні: «Сарказм» (prompt.md) і «Архітектор» (prompt_deep.md) — активний лише один. Спільний для обох — «Складання дайджесту» (assembly_prompt.md, Фаза B): нумерація, кордон і хештеги. Усі три промпти редагуються прямо в цьому розділі; кнопка «Зберегти вибір» перемикає активний сценарій.</p></div>
-            <div class="help-block"><h3>Контент</h3><p>Оформлення дайджесту: основний хештег, кордон/дисклеймер і хештеги в кінці поста (config.md). Застосовується в будь-якому сценарії.</p></div>
+            <div class="help-block"><h3>Сценарії</h3><p>Сценарій задає системний промпт Фази A (авторський коментар до статті). Взаємовиключні: «Сарказм» (prompt.md) і «Архітектор» (prompt_deep.md) — активний лише один. Спільний для обох — «Складання дайджесту» (assembly_prompt.md, Фаза B): нумерація, кордон і головний хештег. Усі три промпти редагуються прямо в цьому розділі; кнопка «Зберегти вибір» перемикає активний сценарій.</p></div>
+            <div class="help-block"><h3>Контент</h3><p>Оформлення дайджесту: основний хештег (#новини) і кордон/дисклеймер (config.md). Застосовується в будь-якому сценарії.</p></div>
             <div class="help-block"><h3>Публікація</h3><p>Токени Telegram, Facebook та API-ключі. Керують тим, куди і від чийого імені публікуються дайджести.</p></div>
             <div class="help-note">
               <b>Важливо.</b> Секрети (токени, ключі) редагуються лише у файлі <code>.env</code> на сервері — цей інтерфейс їх не змінює.
