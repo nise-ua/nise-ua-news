@@ -5,6 +5,7 @@ export default defineConfig({
     include: [
       'src/**/*.test.js',
       'production/lib/__tests__/**/*.test.js',
+      'production/html-reel/**/*.test.js',
     ],
     exclude: [
       'node_modules/**',

@@ -152,7 +152,11 @@ router.post('/:id/generate-video', async (req, res) => {
       return res.status(400).json({ error: 'Digest has no content to generate video' });
     }
 
-    res.status(202).json({ job: startVideoGeneration(digest.id) });
+    res.status(202).json({
+      job: startVideoGeneration(digest.id, {
+        format: req.body?.format === 'shorts' ? 'shorts' : 'facebook',
+      }),
+    });
   } catch (err) {
     console.error('[digests] POST /:id/generate-video error:', err);
     res.status(500).json({ error: err.message });

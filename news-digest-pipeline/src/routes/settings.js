@@ -22,9 +22,11 @@ const MAX_TEXT_BYTES = 100 * 1024; // ~100KB per text field
        checkIntervalMs: 'CHECK_INTERVAL_MS',
        activeScenario: 'ACTIVE_SCENARIO',
        youtubePrivacyStatus: 'YOUTUBE_PRIVACY_STATUS',
+       reelFrameMode: 'REEL_FRAME_MODE',
      };
   
      const LLM_VENDORS = ['anthropic', 'openai', 'openrouter', 'moonshot'];
+     const REEL_FRAME_MODES = ['ai', 'html'];
 
 // Suggested model ids per vendor come from the shared catalog
 // (src/data/model-catalog.js), which also carries pricing. The UI always
@@ -92,6 +94,14 @@ function buildSettingsPayload() {
       nodeEnv: { value: config.nodeEnv, editable: false },
       baseUrl: { value: config.baseUrl, editable: false },
       dbPath: { value: config.dbPath, editable: false },
+      reelFrameMode: {
+        value: config.reelFrameMode || 'ai',
+        editable: true,
+        options: [
+          { id: 'ai', label: 'AI фон + SVG overlay (класичний)' },
+          { id: 'html', label: 'HTML гібрид (AI сцена + HTML текст)' },
+        ],
+      },
     },
     queue: {
       articleThreshold: { value: config.articleThreshold, editable: true },
@@ -324,6 +334,15 @@ function validatePatch(body) {
       errors.push(`activeScenario: має бути одним із ${SCENARIO_IDS.join(', ')}`);
     } else {
       env[ENV_WRITABLE.activeScenario] = v;
+    }
+  }
+
+  if (body.reelFrameMode !== undefined) {
+    const v = body.reelFrameMode;
+    if (typeof v !== 'string' || !REEL_FRAME_MODES.includes(v)) {
+      errors.push(`reelFrameMode: має бути одним із ${REEL_FRAME_MODES.join(', ')}`);
+    } else {
+      env[ENV_WRITABLE.reelFrameMode] = v;
     }
   }
 

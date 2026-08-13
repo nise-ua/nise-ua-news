@@ -457,7 +457,6 @@
       <div class="header-right">
         <a class="btn-settings" href="articles.html">📚 Статті</a>
         <a class="btn-settings" href="settings.html">⚙️ Налаштування</a>
-        <button class="btn btn-publish-reel" onclick="publishReelUI()" style="margin-left:8px;">📽️ Publish Reel</button>
         <span class="version-badge">v2.0.4 &middot; 13.04.2026</span>
       </div>
     </div>
@@ -566,7 +565,11 @@
                 ? `<a class="plat-btn sent" href="${fbHref.replace(/"/g, '&quot;')}" target="_blank" title="${fbHref.replace(/"/g, '&quot;')}">✓ FB</a>`
                 : `<button class="plat-btn sent" disabled>✓ FB</button>`)
             : `<button class="plat-btn" onclick="publishFacebook('${d.id}',this)">📘 FB</button>`;
-          const fbUrlBtn = `<button class="plat-btn" onclick="setFacebookUrl('${d.id}', ${JSON.stringify(d.facebook_post_id || '')})" title="Вказати Facebook URL вручну">🔗</button>`;
+          // Escape JSON for a double-quoted HTML attribute ("" / URLs otherwise break onclick).
+          const fbUrlArg = JSON.stringify(d.facebook_post_id || '')
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;');
+          const fbUrlBtn = `<button class="plat-btn" onclick="setFacebookUrl('${d.id}', ${fbUrlArg})" title="Вказати Facebook URL вручну">🔗</button>`;
 
           const activeJob = activeVideoJobs.get(d.id);
           let videoBtn, shortsBtn;
@@ -575,12 +578,14 @@
           if (activeJob && activeJob.format !== 'shorts') {
             // If the job has completed, show a direct link instead of the progress UI.
             if (activeJob.status === 'completed' && activeJob.videoUrl) {
-              videoBtn = `<a class="plat-btn" href="${activeJob.videoUrl}" target="_blank">🎬 Video</a>`;
+              videoBtn = `<a class="plat-btn" href="${activeJob.videoUrl}" target="_blank">🎬 Video</a>`
+                + `<button class="plat-btn" onclick="generateVideo('${d.id}', this, 'facebook', true)" title="Перегенерувати відео">🔄</button>`;
             } else {
               videoBtn = `<span class="video-progress" data-video-job="${activeJob.jobId}"><span class="video-progress-label">⏳ ${activeJob.message || 'Створення відео…'} (${activeJob.progress || 0}%)</span><span class="video-progress-track"><span class="video-progress-bar" style="width:${activeJob.progress || 0}%"></span></span></span>`;
             }
           } else if (videoExists) {
-            videoBtn = `<a class="plat-btn" href="${d.video_url || d.reel_url}" target="_blank">🎬 Video</a>`;
+            videoBtn = `<a class="plat-btn" href="${d.video_url || d.reel_url}" target="_blank">🎬 Video</a>`
+              + `<button class="plat-btn" onclick="generateVideo('${d.id}', this, 'facebook', true)" title="Перегенерувати відео">🔄</button>`;
           } else {
             videoBtn = `<button class="plat-btn" onclick="generateVideo('${d.id}', this)">▶️ Video</button>`;
           }
@@ -589,7 +594,8 @@
           if (activeJob && activeJob.format === 'shorts') {
             shortsBtn = `<span class="video-progress" data-video-job="${activeJob.jobId}"><span class="video-progress-label">⏳ ${activeJob.message || 'Створення Shorts…'} (${activeJob.progress || 0}%)</span><span class="video-progress-track"><span class="video-progress-bar" style="width:${activeJob.progress || 0}%"></span></span></span>`;
           } else if (youtubeShortsExists) {
-            shortsBtn = `<a class="plat-btn" href="https://youtube.com/shorts/${d.youtube_post_id || ''}" target="_blank">▶️ Shorts</a>`; // Assuming youtube_post_id will be available if youtube_shorts_url is.
+            shortsBtn = `<a class="plat-btn" href="https://youtube.com/shorts/${d.youtube_post_id || ''}" target="_blank">▶️ Shorts</a>`
+              + `<button class="plat-btn" onclick="generateVideo('${d.id}', this, 'shorts', true)" title="Перегенерувати Shorts">🔄</button>`;
           } else {
             shortsBtn = `<button class="plat-btn" onclick="generateVideo('${d.id}', this, 'shorts')">▶️ Shorts</button>`;
           }
@@ -775,37 +781,6 @@
       }
     }
 
-    async function publishReelUI() {
-      const id = prompt('Enter Digest ID to publish its Reel:');
-      if (!id) return;
-      if (!confirm('Опублікувати Reel і Stories для дайджеста ' + id + '?')) return;
-      try {
-        const res = await fetch(`/api/digests/${id}/publish`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ platforms: ['facebook-reel'] }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Server error');
-        const result = data.published?.facebookReel;
-        const story = data.published?.facebookStory;
-        if (result?.reelId) {
-          const storyNote = story?.error
-            ? '\nStories не вдалося: ' + story.error
-            : (story?.storyId ? '\nStories: ' + story.storyId : '');
-          alert('Reel опубліковано. ID: ' + result.reelId + storyNote);
-        } else {
-          const errMsg = result?.error || 'Unknown error';
-          alert('Failed to publish Reel: ' + errMsg);
-        }
-        loadDigests();
-      } catch (e) {
-        console.error('Publish Reel UI error:', e);
-        alert('Error publishing Reel: ' + e.message);
-      }
-    }
-
-
     async function deleteDigest(id) {
       if (!confirm('Видалити цей дайджест? Статті повернуться в чергу.')) return;
       try {
@@ -818,8 +793,12 @@
     }
     
     // Generate video for a digest via backend endpoint
-    async function generateVideo(id, btn, format = 'facebook') {
-      if (!confirm(`Створити ${format === 'shorts' ? 'Shorts' : 'відео'} для цього дайджеста?`)) return;
+    async function generateVideo(id, btn, format = 'facebook', regenerate = false) {
+      const label = format === 'shorts' ? 'Shorts' : 'відео';
+      const prompt = regenerate
+        ? `Перегенерувати ${label} для цього дайджеста? Попередній файл буде замінено.`
+        : `Створити ${label} для цього дайджеста?`;
+      if (!confirm(prompt)) return;
       btn.disabled = true;
       btn.textContent = '⏳ Запуск…';
       const original = btn.outerHTML;
@@ -845,7 +824,7 @@
         activeVideoJobs.delete(id);
         alert('Не вдалося створити відео: ' + err.message);
         btn.disabled = false;
-        btn.textContent = `▶️ ${format === 'shorts' ? 'Shorts' : 'Video'}`;
+        btn.textContent = regenerate ? '🔄' : `▶️ ${format === 'shorts' ? 'Shorts' : 'Video'}`;
       }
     }
 
