@@ -6,6 +6,25 @@
 const CYRILLIC_RE = /[\u0400-\u04FF]/;
 const LATIN_WORD_RE = /[A-Za-z]{3,}/g;
 
+/**
+ * Keep common company/product names and technical abbreviations in their
+ * English display form. This is intentionally applied only to reel copy;
+ * TTS has its own pronunciation preparation.
+ */
+const ENGLISH_DISPLAY_TERMS = [
+  [/(?<!\p{L})ш[іi](?!\p{L})/giu, 'AI'],
+  [/(?<!\p{L})гугл(?!\p{L})/giu, 'Google'],
+  [/(?<!\p{L})(?:нвідіа|нвидіа|нвидиа)(?!\p{L})/giu, 'Nvidia'],
+];
+
+export function preserveEnglishDisplayTerms(text) {
+  let result = String(text || '');
+  for (const [pattern, replacement] of ENGLISH_DISPLAY_TERMS) {
+    result = result.replace(pattern, replacement);
+  }
+  return result;
+}
+
 /** True when the string contains at least one Cyrillic letter. */
 export function hasCyrillic(text) {
   return CYRILLIC_RE.test(String(text || ''));
@@ -44,9 +63,11 @@ function ensureTerminalPunctuation(text) {
  * @returns {object}
  */
 export function ensureUkrainianOnScreenCopy(shot = {}) {
-  const headline = String(shot.headline || '').trim();
+  const headline = preserveEnglishDisplayTerms(shot.headline).trim();
   let detailText = String(shot.detailText || '').trim();
-  const spokenText = String(shot.spokenText || '').trim();
+  let spokenText = String(shot.spokenText || '').trim();
+  detailText = preserveEnglishDisplayTerms(detailText);
+  spokenText = preserveEnglishDisplayTerms(spokenText);
 
   if (looksNonUkrainian(detailText)) {
     const fromSpoken = firstSentence(spokenText);
