@@ -9,39 +9,14 @@
  *   node production/audio/src/overlay-audio.js --video <video-path> --audio <audio-path> [--output <output-path>]
  */
 
-import { execSync } from 'child_process';
-import { existsSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import ffmpegStatic from 'ffmpeg-static';
-
-const FFMPEG = ffmpegStatic || 'ffmpeg';
+import { join, dirname } from 'path';
+import { mergeAudioWithVideo } from '../../lib/ffmpeg-helpers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUTPUT_DIR = join(__dirname, '..', 'output');
 
-function log(msg) {
-  const ts = new Date().toISOString().slice(11, 19);
-  console.log(`[${ts}] ${msg}`);
-}
-
-export function mergeAudioWithVideo(videoPath, audioPath, outputPath) {
-  if (!existsSync(videoPath)) throw new Error(`Video file not found: ${videoPath}`);
-  if (!existsSync(audioPath)) throw new Error(`Audio file not found: ${audioPath}`);
-
-  mkdirSync(dirname(outputPath), { recursive: true });
-
-  log(`Merging audio (${audioPath}) into video (${videoPath})...`);
-
-  // FFmpeg command to mix voice-over with video (or replace video audio)
-  const cmd = `"${FFMPEG}" -y -i "${videoPath}" -i "${audioPath}" -c:v copy -c:a aac -b:a 192k -map 0:v:0 -map 1:a:0 -shortest "${outputPath}"`;
-
-  log(`Executing FFmpeg: ${cmd}`);
-  execSync(cmd, { stdio: 'inherit' });
-  log(`✅ Final merged video saved: ${outputPath}`);
-
-  return outputPath;
-}
+export { mergeAudioWithVideo };
 
 async function main() {
   const args = process.argv.slice(2);
