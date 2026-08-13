@@ -621,6 +621,18 @@
               <div class="hint">Залиште порожнім для значення за замовчуванням. Використовується для моделей Kimi (Moonshot AI).</div>
             </div>
             <div class="field">
+              <label>Режим кадрів Reel (REEL_FRAME_MODE)</label>
+              <select id="f-reelFrameMode">
+                ${(g.reelFrameMode?.options || [
+                  { id: 'ai', label: 'AI фон + SVG overlay (класичний)' },
+                  { id: 'html', label: 'HTML гібрид (AI сцена + HTML текст)' },
+                ]).map((o) =>
+                  `<option value="${esc(o.id)}" ${(g.reelFrameMode?.value || 'ai') === o.id ? 'selected' : ''}>${esc(o.label)}</option>`
+                ).join('')}
+              </select>
+              <div class="hint">Кнопка Video / Shorts у дашборді запускає обраний пайплайн. <code>ai</code> — generate-reel.js; <code>html</code> — HTML-гібрид.</div>
+            </div>
+            <div class="field">
               <label>Середовище (NODE_ENV)</label>
               <input type="text" value="${esc(g.nodeEnv.value)}" readonly>
             </div>
@@ -872,6 +884,7 @@
           openaiBaseUrl: document.getElementById('f-openaiBaseUrl').value.trim(),
           openrouterBaseUrl: document.getElementById('f-openrouterBaseUrl').value.trim(),
           moonshotBaseUrl: document.getElementById('f-moonshotBaseUrl').value.trim(),
+          reelFrameMode: document.getElementById('f-reelFrameMode').value,
         };
       }
       if (id === 'queue') {

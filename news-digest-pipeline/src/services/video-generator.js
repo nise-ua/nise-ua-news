@@ -6,10 +6,32 @@ import { readdirSync, statSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
 import { updateDigest } from '../db/index.js';
+import config, { normalizeReelFrameMode } from '../config.js';
+
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const PIPELINE_ROOT = join(__dirname, '../..');
 // Directory where generated reels are placed
-const OUTPUT_DIR = join(__dirname, '../../production/video/output');
+const OUTPUT_DIR = join(PIPELINE_ROOT, 'production/video/output');
+
+/**
+ * Resolve which reel CLI to spawn for the configured frame mode.
+ * @param {string} [mode]
+ * @returns {{ mode: 'ai'|'html', scriptPath: string }}
+ */
+export function resolveReelScript(mode = config.reelFrameMode) {
+  const resolved = normalizeReelFrameMode(mode);
+  if (resolved === 'html') {
+    return {
+      mode: 'html',
+      scriptPath: join(PIPELINE_ROOT, 'production/html-reel/src/generate-reel-html.js'),
+    };
+  }
+  return {
+    mode: 'ai',
+    scriptPath: join(PIPELINE_ROOT, 'production/video/src/generate-reel.js'),
+  };
+}
 
 /**
  * Run the production video generation script for a given digest.
@@ -29,6 +51,8 @@ function publicJob(job) {
     message: job.message,
     videoUrl: job.videoUrl || null,
     error: job.error || null,
+    reelFrameMode: job.reelFrameMode || null,
+    format: job.format || 'facebook',
   };
 }
 
@@ -39,7 +63,9 @@ function updateJob(job, patch) {
 function stageFromOutput(line) {
   if (/Fetching digest|Loaded newest digest|Digest:/i.test(line)) return ['loading', 10];
   if (/Storyboard/i.test(line)) return ['storyboard', 20];
-  if (/background image|carousel images/i.test(line)) return ['images', 40];
+  if (/background image|carousel images|AI 9:16 scene|HTML template frames|HTML hybrid/i.test(line)) {
+    return ['images', 40];
+  }
   if (/Audio \d+\//i.test(line)) return ['voiceover', 60];
   if (/synchronized video clips|Generating clip|Motion clip/i.test(line)) return ['clips', 75];
   if (/Mixing background|Stitching|Final Synchronized/i.test(line)) return ['stitching', 90];
@@ -60,19 +86,44 @@ export function findActiveVideoJob(digestId) {
   return null;
 }
 
-export function startVideoGeneration(digestId) {
+function buildScriptArgs(digestId, { format = 'facebook' } = {}) {
+  const args = [digestId];
+  if (format === 'shorts') args.push('--format', 'shorts');
+  return args;
+}
+
+export function startVideoGeneration(digestId, { format = 'facebook' } = {}) {
   const active = findActiveVideoJob(digestId);
   if (active) return active;
 
+  const { mode, scriptPath } = resolveReelScript();
   const job = {
-    id: randomUUID(), digestId, status: 'queued', stage: 'queued', progress: 0,
-    message: 'Відео додано в чергу', createdAt: Date.now(), updatedAt: Date.now(),
+    id: randomUUID(),
+    digestId,
+    status: 'queued',
+    stage: 'queued',
+    progress: 0,
+    message: 'Відео додано в чергу',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    reelFrameMode: mode,
+    format: format === 'shorts' ? 'shorts' : 'facebook',
   };
   jobs.set(job.id, job);
 
-  const scriptPath = join(__dirname, '../../production/video/src/generate-reel.js');
-  const child = spawn(process.execPath, [scriptPath, digestId], { cwd: __dirname });
-  updateJob(job, { status: 'running', stage: 'starting', progress: 5, message: 'Запуск відеопайплайна' });
+  const child = spawn(
+    process.execPath,
+    [scriptPath, ...buildScriptArgs(digestId, { format: job.format })],
+    { cwd: PIPELINE_ROOT },
+  );
+  updateJob(job, {
+    status: 'running',
+    stage: 'starting',
+    progress: 5,
+    message: mode === 'html'
+      ? 'Запуск HTML-гібридного відеопайплайна'
+      : 'Запуск відеопайплайна',
+  });
 
   // Capture stdout/stderr for later processing
   let stdout = '';
@@ -147,10 +198,14 @@ function scheduleJobCleanup(jobId) {
   setTimeout(() => jobs.delete(jobId), JOB_RETENTION_MS).unref?.();
 }
 
-export async function generateVideoForDigest(digestId) {
+export async function generateVideoForDigest(digestId, { format = 'facebook' } = {}) {
   return new Promise((resolve, reject) => {
-    const scriptPath = join(__dirname, '../../production/video/src/generate-reel.js');
-    const child = spawn(process.execPath, [scriptPath, digestId], { cwd: __dirname });
+    const { scriptPath } = resolveReelScript();
+    const child = spawn(
+      process.execPath,
+      [scriptPath, ...buildScriptArgs(digestId, { format })],
+      { cwd: PIPELINE_ROOT },
+    );
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', chunk => { stdout += chunk.toString(); });

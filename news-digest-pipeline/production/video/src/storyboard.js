@@ -13,6 +13,7 @@ import { config as dotenvConfig } from 'dotenv';
 import { VISUAL_GROUNDING_RULES, groundVisualVariant } from '../../lib/visual-grounding.js';
 import { parseDigestItems } from '../../lib/digest.js';
 import { log, projectRoot } from '../../lib/logging.js';
+import { ensureUkrainianOnScreenCopy } from '../../lib/reel-ukrainian-copy.js';
 
 const ROOT = projectRoot(import.meta.url);
 dotenvConfig({ path: join(ROOT, '.env'), override: true });
@@ -39,9 +40,14 @@ export async function generateStoryboard(digestText, format = 'facebook') {
 5. visualSubject — 1 конкретна сцена англійською з цих сутностей і дії
 6. headline — змістовний headline ТІЛЬКИ УКРАЇНСЬКОЮ (6-10 слів), який самостійно пояснює головний факт новини. Не копіюй саркастичні зачини («Знову революція?», «Оце так історія»). Не використовуй розмиті фрази на кшталт «ШІ змінює все».
 7. spokenText — ${format === 'shorts' ? `ТІЛЬКИ УКРАЇНСЬКОЮ (18-30 слів), повне речення, 12-18 секунд. Обов\'язково закінчуй крапкою/знаком оклику. Це має бути ФАКТ, не сарказм. Назви брендів і продуктів можна лишати латиницею.` : `коротке ЗАВЕРШЕНЕ речення ТІЛЬКИ УКРАЇНСЬКОЮ для диктора (8-12 слів, приблизно 4-6 секунд). Обов\'язково закінчуй крапкою/знаком оклику. Це має бути ФАКТ, не сарказм. Назви брендів і продуктів можна лишати латиницею.`}
-8. detailText — РІВНО 1 КОРОТКЕ ПОВНЕ РЕЧЕННЯ УКРАЇНСЬКОЮ (8-12 слів). Головна конкретна деталь новини. Обов'язково закінчуй крапкою. КРИТИЧНО: РІВНО ОДНЕ РЕЧЕННЯ, ніколи не більше, і ніколи не незавершене!
+8. detailText — РІВНО 1 КОРОТКЕ ПОВНЕ РЕЧЕННЯ ТІЛЬКИ УКРАЇНСЬКОЮ (8-12 слів). Головна конкретна деталь новини. Обов'язково закінчуй крапкою. КРИТИЧНО: РІВНО ОДНЕ РЕЧЕННЯ; НІКОЛИ англійською; НІКОЛИ не копіюй coreFact / visualSubject / prompt у detailText.
 9. textPosition — завжди "upper": текст розміщується у верхніх 25% кадру, нижче брендингу.
 10. prompt — англійський промпт фону, ОБОВ'ЯЗКОВО з visualSubject. Додавай: "professional news photography, cinematic lighting, 9:16 vertical composition"
+
+МОВИ (жорстко):
+- Українською: headline, spokenText, detailText (бренди/продукти латиницею дозволені всередині українського речення).
+- Англійською: coreFact, visualSubject, prompt, entities.
+- Якщо detailText англійською — це ПОМИЛКА. Перепиши detailText українською перед відповіддю.
 
 ${VISUAL_GROUNDING_RULES}
 
@@ -129,10 +135,15 @@ ${VISUAL_GROUNDING_RULES}
     if (grounded.prompt !== shot.prompt) {
       log(`  Shot ${i + 1}: rebuilt prompt from coreFact/entities (sarcasm/abstract rejected)`);
     }
-    log(`  Shot ${i + 1} fact: ${(grounded.coreFact || '').slice(0, 80)}`);
-    log(`  Shot ${i + 1} tone: ${grounded.newsTone || 'neutral'}`);
-    log(`  Shot ${i + 1} prompt: ${(grounded.prompt || '').slice(0, 100)}`);
-    return grounded;
+    const localized = ensureUkrainianOnScreenCopy(grounded);
+    if (localized.detailText !== String(shot.detailText || '').trim()) {
+      log(`  Shot ${i + 1}: detailText localized to Ukrainian (was non-UA or empty)`);
+    }
+    log(`  Shot ${i + 1} fact: ${(localized.coreFact || '').slice(0, 80)}`);
+    log(`  Shot ${i + 1} tone: ${localized.newsTone || 'neutral'}`);
+    log(`  Shot ${i + 1} detail: ${(localized.detailText || '').slice(0, 80)}`);
+    log(`  Shot ${i + 1} prompt: ${(localized.prompt || '').slice(0, 100)}`);
+    return localized;
   });
   log(`Generated ${storyboard.shots.length} shots storyboard.`);
   return storyboard;

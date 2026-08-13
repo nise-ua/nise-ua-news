@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { parseConfigMd } from './config.js';
+import { normalizeReelFrameMode, parseConfigMd } from './config.js';
+
+describe('normalizeReelFrameMode', () => {
+  it('defaults to ai', () => {
+    expect(normalizeReelFrameMode()).toBe('ai');
+    expect(normalizeReelFrameMode('')).toBe('ai');
+    expect(normalizeReelFrameMode('nope')).toBe('ai');
+  });
+
+  it('accepts ai and html case-insensitively', () => {
+    expect(normalizeReelFrameMode('ai')).toBe('ai');
+    expect(normalizeReelFrameMode('HTML')).toBe('html');
+  });
+});
 
 describe('parseConfigMd', () => {
   it('reads #новини from the Ukrainian opening section and ignores Hashtags', () => {
