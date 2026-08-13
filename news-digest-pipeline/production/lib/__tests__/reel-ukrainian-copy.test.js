@@ -3,6 +3,7 @@ import {
   ensureUkrainianOnScreenCopy,
   hasCyrillic,
   looksNonUkrainian,
+  preserveEnglishDisplayTerms,
 } from '../reel-ukrainian-copy.js';
 
 describe('hasCyrillic / looksNonUkrainian', () => {
@@ -22,6 +23,21 @@ describe('hasCyrillic / looksNonUkrainian', () => {
 });
 
 describe('ensureUkrainianOnScreenCopy', () => {
+  it('keeps common brands and abbreviations in English display form', () => {
+    expect(preserveEnglishDisplayTerms('ШІ від Гугл та Нвідіа')).toBe(
+      'AI від Google та Nvidia',
+    );
+
+    const shot = ensureUkrainianOnScreenCopy({
+      headline: 'ШІ від Нвідіа виходить на ринок.',
+      detailText: 'Гугл представив нову модель AI.',
+      spokenText: 'Нвідіа та Гугл розширюють AI-інструменти.',
+    });
+    expect(shot.headline).toBe('AI від Nvidia виходить на ринок.');
+    expect(shot.detailText).toBe('Google представив нову модель AI.');
+    expect(shot.spokenText).toBe('Nvidia та Google розширюють AI-інструменти.');
+  });
+
   it('keeps Ukrainian detailText', () => {
     const shot = ensureUkrainianOnScreenCopy({
       headline: 'ШІ прискорює перевірку коду.',
