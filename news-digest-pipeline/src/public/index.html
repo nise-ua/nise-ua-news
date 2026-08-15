@@ -456,6 +456,7 @@
       <h1>Панель керування дайджестом новин</h1>
       <div class="header-right">
         <a class="btn-settings" href="articles.html">📚 Статті</a>
+        <a class="btn-settings" href="postiz.html">Postiz</a>
         <a class="btn-settings" href="settings.html">⚙️ Налаштування</a>
         <span class="version-badge">v2.0.4 &middot; 13.04.2026</span>
       </div>
@@ -469,6 +470,7 @@
           <th>Опубліковано</th>
           <th>Статей</th>
           <th>Вартість</th>
+          <th>Відео</th>
           <th>Статус</th>
           <th>Дії</th>
         </tr>
@@ -524,7 +526,7 @@
       const subtitle = document.getElementById('subtitle');
 
       if (digests.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty">Дайджестів поки немає</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">Дайджестів поки немає</td></tr>';
         subtitle.textContent = 'Немає дайджестів';
         return;
       }
@@ -633,12 +635,19 @@
           costHtml = '<span class="no-pub">—</span>';
         }
 
+        // Current video generation uses local FFmpeg and free edge-tts.
+        const videoCost = d.video_cost_usd ?? ((d.video_url || d.reel_url) ? 0 : null);
+        const videoCostHtml = videoCost !== null
+          ? `<span class="cost-val" title="Локальна збірка відео, FFmpeg і edge-tts">$${Number(videoCost).toFixed(4)}</span>`
+          : '<span class="no-pub">—</span>';
+
         return `<tr>
           <td><span class="row-num">${d.seq_number || (i + 1)}</span></td>
           <td>${createdHtml}</td>
           <td>${pubHtml}</td>
           <td><span class="articles-count">${d.articles_count || 0}</span></td>
           <td>${costHtml}</td>
+          <td>${videoCostHtml}</td>
           <td>${statusSelect}</td>
           <td>${actionBtn}</td>
         </tr>`;

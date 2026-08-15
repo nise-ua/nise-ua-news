@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeReelFrameMode, parseConfigMd } from './config.js';
+import { normalizeReelFrameMode, normalizePublishBackend, parseConfigMd, parsePostizChannelIds } from './config.js';
 
 describe('normalizeReelFrameMode', () => {
   it('defaults to ai', () => {
@@ -11,6 +11,19 @@ describe('normalizeReelFrameMode', () => {
   it('accepts ai and html case-insensitively', () => {
     expect(normalizeReelFrameMode('ai')).toBe('ai');
     expect(normalizeReelFrameMode('HTML')).toBe('html');
+  });
+});
+
+describe('Postiz configuration normalizers', () => {
+  it('defaults to the legacy publisher backend', () => {
+    expect(normalizePublishBackend()).toBe('legacy');
+    expect(normalizePublishBackend('unknown')).toBe('legacy');
+    expect(normalizePublishBackend('POSTIZ')).toBe('postiz');
+  });
+
+  it('splits channel IDs and ignores blanks', () => {
+    expect(parsePostizChannelIds(' first, ,second ,, ')).toEqual(['first', 'second']);
+    expect(parsePostizChannelIds([' a ', '', 'b'])).toEqual(['a', 'b']);
   });
 });
 

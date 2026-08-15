@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Postiz · Дайджести</title>
+  <style>
+    *{box-sizing:border-box}body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f3ef;color:#2d2a26;padding:24px}
+    .wrap{max-width:1100px;margin:auto}.head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
+    h1{font-size:30px;margin:0 0 6px}.muted{color:#8a8580;font-size:13px}.btn{border:1px solid #ddd8d0;border-radius:8px;background:#fff;padding:7px 12px;cursor:pointer;color:#5f5a55;font:inherit}.btn:hover{border-color:#7c3aed}.btn:disabled{opacity:.5;cursor:not-allowed}.primary{background:#7c3aed;color:#fff;border-color:#7c3aed}
+    .banner,.row{background:#fff;border:1px solid #e8e4df;border-radius:12px;padding:14px;margin-top:14px}.banner{color:#8a8580}.banner.warn{border-color:#f0c36d;background:#fffaf0;color:#8a5a00}.banner.error{border-color:#ef9a9a;background:#fff5f5;color:#a22}
+    .row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;min-width:0}.row>div:first-child{min-width:0}.date{font-weight:600}.content-preview{margin-top:7px;color:#5f5a55;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;line-height:1.45;max-height:120px;overflow:auto;border:1px solid #eee9e3;border-radius:8px;padding:8px;background:#fcfbf9}
+    .actions{display:flex;gap:5px;flex-wrap:nowrap;align-items:center;justify-content:flex-end;align-content:center;white-space:nowrap}.actions .btn{font-size:12px;padding:6px 9px}.status{grid-column:1/-1;min-height:18px;font-size:13px;color:#7c3aed}.status.error{color:#b42318}.video-inline{display:inline-flex;align-items:center;color:#7c3aed;font-size:12px}.video-inline .progress{min-width:150px}.progress{display:flex;align-items:center;gap:9px;color:#7c3aed}.track{height:6px;flex:1;max-width:360px;background:#eeeaf8;border-radius:4px;overflow:hidden}.bar{height:100%;background:linear-gradient(90deg,#7c3aed,#3b82f6);transition:width .3s}
+    .stats{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;border-top:1px solid #eee9e3;padding-top:10px}.metric{min-width:150px;padding:7px 9px;border:1px solid #eee9e3;border-radius:8px;background:#fcfbf9}.metric b{font-size:11px;color:#8a8580;display:block}.metric svg{width:125px;height:28px;display:block}.empty{color:#b0aaa4;padding:32px;text-align:center}
+    .modal-overlay{display:none;position:fixed;inset:0;background:rgba(45,42,38,.45);z-index:10;align-items:center;justify-content:center;padding:18px}.modal-overlay.open{display:flex}.modal{width:min(900px,calc(100vw - 36px));height:min(88vh,760px);min-width:0;min-height:0;background:#fff;border-radius:12px;box-shadow:0 16px 50px rgba(45,42,38,.25);display:flex;flex-direction:column}.modal-header{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;padding:16px 18px;border-bottom:1px solid #eee9e3}.modal-header h2{margin:0;font-size:20px;min-width:0}.modal-close{border:0;background:transparent;color:#8a8580;font-size:28px;cursor:pointer;line-height:1;flex:0 0 auto}.modal-body{padding:18px;min-width:0;min-height:0;flex:1;overflow-x:hidden;overflow-y:auto}.digest-textarea{display:block;width:100%;height:100%;max-width:100%;min-height:0;box-sizing:border-box;border:1px solid #e8e4df;border-radius:8px;padding:12px;font:inherit;font-size:15px;line-height:1.6;resize:vertical;outline:none;color:#2d2a26;background:#fafafa;overflow-wrap:anywhere;word-break:break-word}.digest-textarea:focus{border-color:#7c3aed;background:#fff}.modal-loading{color:#8a8580}.modal-save{background:#7c3aed;color:#fff;border:0;border-radius:8px;padding:8px 13px;cursor:pointer;flex:0 0 auto}.modal-save:disabled{opacity:.6}
+    @media(max-width:700px){body{padding:14px}.head{align-items:flex-start;flex-direction:column}.row{grid-template-columns:1fr}.actions{justify-content:flex-start}.status,.stats{grid-column:1}.modal{height:82vh}}
+    @media(max-width:520px){.actions{flex-wrap:wrap;white-space:normal}}
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <div class="head">
+    <div><h1>Postiz</h1><div class="muted">Перегляд, редагування, відео, публікація та аналітика в одному місці</div></div>
+    <div><a class="btn" href="index.html">← Панель</a> <a class="btn" href="settings.html">⚙️ Налаштування</a></div>
+  </div>
+  <div id="banner" class="banner">Завантаження статусу…</div>
+  <section id="rows"><div class="empty">Завантаження дайджестів…</div></section>
+</main>
+<script>
+  const jobs = new Map();
+  let status = null;
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const htmlAttr = (s) => esc(s).replace(/`/g, '&#96;');
+
+  function spark(points) {
+    if (!points?.length) return '<span class="muted">немає даних</span>';
+    const max=Math.max(...points.map(p=>Number(p.total)||0),1), w=125, h=26;
+    const poly=points.map((p,i)=>`${(i/Math.max(points.length-1,1)*w).toFixed(1)},${(h-((Number(p.total)||0)/max)*22-2).toFixed(1)}`).join(' ');
+    return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="графік"><polyline points="${poly}" fill="none" stroke="#7c3aed" stroke-width="2"/></svg>`;
+  }
+  function videoState(d) {
+    const active = jobs.get(d.id);
+    if (active) {
+      if (active.status === 'completed' && active.videoUrl) return `<a href="${htmlAttr(active.videoUrl)}" target="_blank">🎬 Відкрити готове відео</a>`;
+      if (active.status === 'failed') return `<span class="status error">❌ ${esc(active.error || 'Генерація завершилася з помилкою')}</span>`;
+      return `<div class="progress"><span>⏳ ${esc(active.message || 'Створення відео…')} (${active.progress || 0}%)</span><span class="track"><span class="bar" style="width:${active.progress || 0}%"></span></span></div>`;
+    }
+    const url = d.video_url || d.reel_url;
+    return url ? `<a href="${htmlAttr(url)}" target="_blank">🎬 Відкрити готове відео</a>` : '<span class="muted">Відео ще не створено</span>';
+  }
+  function row(d) {
+    const video = !!(d.video_url || d.reel_url || jobs.has(d.id));
+    return `<article class="row" id="digest-${htmlAttr(d.id)}">
+      <div><div class="date">#${esc(d.seq_number || '')} · ${esc(d.date || d.created_at || '')}</div><div class="content-preview">${esc(d.content || 'немає контенту')}</div></div>
+      <div class="actions">
+        <button class="btn" title="Переглянути та редагувати текст" aria-label="Перегляд" onclick="previewDigest('${htmlAttr(d.id)}')">👁</button>
+        <button class="btn" title="${video ? 'Перегенерувати відео' : 'Створити відео'}" aria-label="${video ? 'Перегенерувати відео' : 'Створити відео'}" onclick="generateVideo('${htmlAttr(d.id)}',this)" ${d.content ? '' : 'disabled'}>${video ? '🔄' : '🎬'}</button>
+        <button class="btn primary" onclick="publish('${htmlAttr(d.id)}','text')" ${d.content ? '' : 'disabled'}>Text</button>
+        <button class="btn" onclick="publish('${htmlAttr(d.id)}','reel')" ${video ? '' : 'disabled'}>Reel</button>
+        <button class="btn" onclick="publish('${htmlAttr(d.id)}','story')" ${video ? '' : 'disabled'}>Story</button>
+        <div class="video-inline" id="video-${htmlAttr(d.id)}">${videoState(d)}</div>
+      </div>
+      <div class="status" id="status-${htmlAttr(d.id)}"></div>
+      <div class="stats" id="stats-${htmlAttr(d.id)}"><span class="muted">Завантаження статистики…</span></div>
+    </article>`;
+  }
+  async function json(res) {
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Помилка сервера (${res.status})`);
+    return data;
+  }
+  async function load() {
+    const [sr, dr] = await Promise.all([fetch('/api/postiz/status'), fetch('/api/digests')]);
+    status = await json(sr); const digests = await json(dr);
+    const selected = (status.integrations || []).filter(i => (status.selectedChannelIds || []).includes(String(i.id))).map(i => i.name || i.identifier || i.id);
+    const banner = document.getElementById('banner');
+    banner.className = 'banner' + (status.backend !== 'postiz' || !status.apiKey?.configured || !selected.length ? ' warn' : '');
+    banner.textContent = status.backend === 'postiz' && status.apiKey?.configured && selected.length
+      ? `Postiz активний · канали: ${selected.join(', ')}`
+      : `Публікація недоступна: перевірте backend, API key і вибрані канали в Налаштуваннях.`;
+    document.getElementById('rows').innerHTML = digests.length ? digests.map(row).join('') : '<div class="empty">Дайджестів поки немає</div>';
+    digests.forEach(d => loadStats(d.id));
+    jobs.forEach((job, id) => { if (job.status === 'queued' || job.status === 'running') pollJob(id, job.id); });
+  }
+  let currentEditingDigestId = null;
+  async function previewDigest(id) {
+    currentEditingDigestId = id;
+    const modal = document.getElementById('modal');
+    const body = document.getElementById('modal-body');
+    const saveButton = document.getElementById('modal-save');
+    modal.classList.add('open');
+    body.innerHTML = '<div class="modal-loading">Завантаження…</div>';
+    saveButton.style.display = 'none';
+    try {
+      const response = await fetch(`/api/digests/${id}/text`);
+      if (!response.ok) throw new Error((await response.text()) || `Помилка сервера (${response.status})`);
+      const text = await response.text();
+      body.innerHTML = `<textarea id="digest-edit-content" class="digest-textarea" aria-label="Текст дайджесту"></textarea>`;
+      document.getElementById('digest-edit-content').value = text;
+      saveButton.style.display = 'inline-block';
+    } catch (err) {
+      body.innerHTML = `<div class="status error">Не вдалося завантажити текст: ${esc(err.message)}</div>`;
+    }
+  }
+  function closeModal() {
+    currentEditingDigestId = null;
+    document.getElementById('modal').classList.remove('open');
+  }
+  async function saveDigest() {
+    if (!currentEditingDigestId) return;
+    const text = document.getElementById('digest-edit-content')?.value;
+    if (text === undefined) return;
+    const button = document.getElementById('modal-save');
+    const original = button.textContent; button.disabled = true; button.textContent = 'Збереження…';
+    try {
+      await json(await fetch(`/api/digests/${currentEditingDigestId}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:text}) }));
+      const preview = document.querySelector(`#digest-${currentEditingDigestId} .content-preview`);
+      if (preview) preview.textContent = text;
+      setStatus(currentEditingDigestId, 'Текст збережено.', false);
+      button.textContent = 'Збережено!';
+    } catch (err) {
+      setStatus(currentEditingDigestId, err.message, true);
+      button.textContent = original;
+    } finally {
+      button.disabled = false;
+      if (button.textContent === 'Збережено!') setTimeout(() => { button.textContent = original; }, 1500);
+    }
+  }
+  async function generateVideo(id, button) {
+    const active = jobs.get(id);
+    if (active && (active.status === 'queued' || active.status === 'running')) return;
+    button.disabled = true; button.textContent = '⏳ Запуск…';
+    try {
+      const data = await json(await fetch(`/api/digests/${id}/generate-video`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({format:'facebook'}) }));
+      jobs.set(id, data.job); renderVideo(id); pollJob(id, data.job.id);
+    } catch (err) { setStatus(id, `Не вдалося створити відео: ${err.message}`, true); button.disabled = false; button.textContent = '🎬'; }
+  }
+  async function pollJob(id, jobId) {
+    const current = jobs.get(id); if (current?.polling) return; if (current) current.polling = true;
+    try {
+      for (;;) {
+        const data = await json(await fetch(`/api/digests/video-jobs/${jobId}`)); jobs.set(id, {...jobs.get(id), ...data.job}); renderVideo(id);
+        if (data.job.status === 'completed' || data.job.status === 'failed') break;
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+      if (jobs.get(id)?.status === 'failed') setStatus(id, `Не вдалося створити відео: ${jobs.get(id).error || 'невідома помилка'}`, true);
+      else setStatus(id, 'Відео готове. Його можна опублікувати як Reel або Story.', false);
+    } catch (err) { setStatus(id, `Помилка статусу відео: ${err.message}`, true); }
+    finally { if (jobs.has(id)) jobs.get(id).polling = false; renderVideo(id); }
+  }
+  function renderVideo(id) { const el=document.getElementById(`video-${id}`); if (el) el.innerHTML=videoState({id, video_url:null, reel_url:null}); }
+  function setStatus(id, message, error) { const el=document.getElementById(`status-${id}`); if(el){el.className='status'+(error?' error':'');el.textContent=message;} }
+  async function publish(id, kind) {
+    const button = [...document.querySelectorAll(`#digest-${id} .actions button`)].find(b => b.textContent.toLowerCase().includes(kind));
+    if (button) { button.disabled=true; button.textContent='⏳ Публікація…'; }
+    try {
+      const data=await json(await fetch(`/api/postiz/digests/${id}/publish`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind})}));
+      setStatus(id, `${kind} опубліковано на вибраних каналах.`, false);
+      if (data.visibility && !data.visibility.ok) setStatus(id, 'Текст опубліковано, але Facebook може приховувати його: ' + (data.visibility.reasons || []).join('; '), true);
+      loadStats(id);
+    } catch (err) { setStatus(id, `Не вдалося опублікувати ${kind}: ${err.message}`, true); }
+    finally { if (button) { button.disabled=false; button.textContent=kind === 'text' ? 'Text' : kind[0].toUpperCase()+kind.slice(1); } }
+  }
+  async function loadStats(id) {
+    const el=document.getElementById(`stats-${id}`); if(!el)return;
+    try { const data=await json(await fetch(`/api/postiz/digests/${id}/stats?days=7`)); el.innerHTML=data.channels?.length ? data.channels.flatMap(ch=>(ch.metrics||[]).slice(0,3).map(m=>`<div class="metric"><b>${esc(ch.integrationId)} · ${esc(m.label)}</b>${spark(m.data)}</div>`)).join('') : '<span class="muted">Статистика з’явиться після публікації</span>'; }
+    catch (err) { el.innerHTML=`<span class="muted">Статистика недоступна: ${esc(err.message)}</span>`; }
+  }
+  load().catch(err => { const banner=document.getElementById('banner'); banner.className='banner error'; banner.textContent='Не вдалося завантажити: '+err.message; });
+</script>
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-header">
+      <h2 id="modal-title">Прев’ю дайджесту</h2>
+      <div>
+        <button class="modal-save" id="modal-save" style="display:none" onclick="saveDigest()">Зберегти зміни</button>
+        <button class="modal-close" aria-label="Закрити" onclick="closeModal()">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="modal-body"><div class="modal-loading">Завантаження…</div></div>
+  </div>
+</div>
+</body>
+</html>

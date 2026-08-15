@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, renameSync, existsSync } from 'fs';
 import { randomBytes } from 'crypto';
 import config, { paths, reloadConfig } from '../config.js';
 import { MODEL_CATALOG } from '../data/model-catalog.js';
+import { PUBLISH_BACKENDS, parsePostizChannelIds } from '../config.js';
 
 const router = Router();
 
@@ -23,6 +24,9 @@ const MAX_TEXT_BYTES = 100 * 1024; // ~100KB per text field
        activeScenario: 'ACTIVE_SCENARIO',
        youtubePrivacyStatus: 'YOUTUBE_PRIVACY_STATUS',
        reelFrameMode: 'REEL_FRAME_MODE',
+       publishBackend: 'PUBLISH_BACKEND',
+       postizApiUrl: 'POSTIZ_API_URL',
+       postizChannelIds: 'POSTIZ_CHANNEL_IDS',
      };
   
      const LLM_VENDORS = ['anthropic', 'openai', 'openrouter', 'moonshot'];
@@ -102,6 +106,12 @@ function buildSettingsPayload() {
           { id: 'html', label: 'HTML гібрид (AI сцена + HTML текст)' },
         ],
       },
+      publishBackend: {
+        value: config.publishBackend || 'legacy',
+        editable: true,
+        options: PUBLISH_BACKENDS.map((id) => ({ id, label: id === 'postiz' ? 'Postiz' : 'Legacy' })),
+      },
+      postizApiUrl: { value: config.postizApiUrl, editable: true },
     },
     queue: {
       articleThreshold: { value: config.articleThreshold, editable: true },
@@ -140,6 +150,11 @@ function buildSettingsPayload() {
         pageId: maskSecret(config.facebookPageId),
         pageName: config.facebookPageName || '',
         pageAccessToken: maskSecret(config.facebookPageAccessToken),
+      },
+      postiz: {
+        apiUrl: { value: config.postizApiUrl, editable: true },
+        apiKey: maskSecret(config.postizApiKey),
+        channelIds: config.postizChannelIds,
       },
        anthropicApiKey: maskSecret(config.anthropicApiKey),
        openaiApiKey: maskSecret(config.openaiApiKey),
@@ -343,6 +358,25 @@ function validatePatch(body) {
       errors.push(`reelFrameMode: має бути одним із ${REEL_FRAME_MODES.join(', ')}`);
     } else {
       env[ENV_WRITABLE.reelFrameMode] = v;
+    }
+  }
+
+  if (body.publishBackend !== undefined) {
+    if (typeof body.publishBackend !== 'string' || !PUBLISH_BACKENDS.includes(body.publishBackend)) {
+      errors.push(`publishBackend: має бути одним із ${PUBLISH_BACKENDS.join(', ')}`);
+    } else env[ENV_WRITABLE.publishBackend] = body.publishBackend;
+  }
+
+  baseUrlField('postizApiUrl', ENV_WRITABLE.postizApiUrl);
+
+  if (body.postizChannelIds !== undefined) {
+    if (!Array.isArray(body.postizChannelIds) && typeof body.postizChannelIds !== 'string') {
+      errors.push('postizChannelIds: має бути масивом або рядком');
+    } else {
+      const ids = parsePostizChannelIds(body.postizChannelIds);
+      if (ids.some((id) => /[\r\n=]/.test(id) || id.length > 200)) {
+        errors.push('postizChannelIds: містить недійсний ID');
+      } else env[ENV_WRITABLE.postizChannelIds] = ids.join(',');
     }
   }
 

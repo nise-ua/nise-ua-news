@@ -48,6 +48,19 @@ export function initDb(dbPath) {
   if (!digestCols.has('cost_usd')) {
     db.exec('ALTER TABLE digests ADD COLUMN cost_usd REAL');
   }
+  if (!digestCols.has('video_cost_usd')) {
+    db.exec('ALTER TABLE digests ADD COLUMN video_cost_usd REAL');
+  }
+  if (!digestCols.has('video_url')) {
+    db.exec('ALTER TABLE digests ADD COLUMN video_url TEXT');
+  }
+  // Backfill videos generated before video-cost tracking was added.
+  db.exec(`
+    UPDATE digests
+    SET video_cost_usd = 0
+    WHERE video_cost_usd IS NULL
+      AND (video_url IS NOT NULL OR reel_url IS NOT NULL)
+  `);
   if (!digestCols.has('reel_url')) {
     db.exec('ALTER TABLE digests ADD COLUMN reel_url TEXT');
   }
@@ -56,6 +69,9 @@ export function initDb(dbPath) {
   }
   if (!digestCols.has('facebook_story_id')) {
     db.exec('ALTER TABLE digests ADD COLUMN facebook_story_id TEXT');
+  }
+  if (!digestCols.has('postiz_posts')) {
+    db.exec('ALTER TABLE digests ADD COLUMN postiz_posts TEXT');
   }
 
   return db;
@@ -132,7 +148,7 @@ export function updateDigest(id, fields) {
   const allowed = ['content', 'status', 'generation_log', 'published_at',
     'facebook_post_id', 'facebook_reel_id', 'facebook_story_id',
     'telegram_message_id', 'youtube_post_id', 'articles_count',
-    'model', 'input_tokens', 'output_tokens', 'cost_usd', 'video_url', 'reel_url'];
+    'model', 'input_tokens', 'output_tokens', 'cost_usd', 'video_cost_usd', 'video_url', 'reel_url', 'postiz_posts'];
   const updates = [];
   const values = [];
 

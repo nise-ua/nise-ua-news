@@ -428,7 +428,10 @@
   <div class="container">
     <div class="header">
       <h1>Налаштування</h1>
-      <a class="btn btn-ghost" href="index.html">← До панелі керування</a>
+      <div>
+        <a class="btn btn-ghost" href="postiz.html">Postiz</a>
+        <a class="btn btn-ghost" href="index.html">← До панелі керування</a>
+      </div>
     </div>
     <p class="subtitle" id="subtitle">Конфігурація пайплайна та промптів</p>
 
@@ -452,6 +455,7 @@
     ];
 
     let DATA = null;
+    let POSTIZ_STATUS = { integrations: [] };
     let active = 'general';
     let selectedScenario = null;
 
@@ -465,6 +469,10 @@
       const res = await fetch('/api/settings');
       if (!res.ok) throw new Error('HTTP ' + res.status);
       DATA = await res.json();
+      try {
+        const statusRes = await fetch('/api/postiz/status');
+        if (statusRes.ok) POSTIZ_STATUS = await statusRes.json();
+      } catch {}
       document.getElementById('loading').style.display = 'none';
       document.getElementById('layout').style.display = 'grid';
       renderNav();
@@ -692,6 +700,17 @@
           </div>`;
       } else if (active === 'publishing') {
         const pub = d.publishing;
+        const pz = pub.postiz || {};
+        const selected = new Set(pz.channelIds || []);
+        const integrations = POSTIZ_STATUS.integrations || [];
+        const connectedIds = new Set(integrations.map((item) => String(item.id)));
+        const channelRows = integrations.length
+          ? integrations.map((item) => {
+            const id = String(item.id);
+            return `<label class="secret-row" style="cursor:pointer"><span class="secret-label"><input type="checkbox" class="postiz-channel" value="${esc(id)}" ${selected.has(id) ? 'checked' : ''}> ${esc(item.name || item.identifier || id)} <span class="status-note">${esc(item.platform || '')}</span></span><span class="secret-hint">${esc(id)}</span></label>`;
+          }).join('')
+          : '<div class="status-note">Не вдалося отримати підключені канали. Перевірте URL і API-ключ у .env.</div>';
+        const stale = (pz.channelIds || []).filter((id) => !connectedIds.has(String(id)));
         html = `
           <div class="card active">
             <h2>Публікація</h2>
@@ -715,6 +734,20 @@
             ${secretRow('OpenRouter API Key', pub.openrouterApiKey)}
             ${secretRow('Moonshot API Key', pub.moonshotApiKey)}
             ${secretRow('Fal Key', pub.falKey)}
+            <div class="group-subtitle">Postiz</div>
+            <div class="field">
+              <label>Backend (PUBLISH_BACKEND)</label>
+              <select id="f-publishBackend">${(gOptions(d.general.publishBackend)).map((o) => `<option value="${esc(o.id)}" ${o.id === (d.general.publishBackend?.value || 'legacy') ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select>
+            </div>
+            <div class="field">
+              <label>Postiz URL (POSTIZ_API_URL)</label>
+              <input type="text" id="f-postizApiUrl" value="${esc(pz.apiUrl?.value || '')}">
+            </div>
+            ${secretRow('Postiz API Key (тільки .env)', pz.apiKey)}
+            <div class="status-note">Виберіть точні інтеграції, куди дозволено публікувати.</div>
+            ${stale.length ? `<div class="help-note">Збережені канали більше не підключені: ${esc(stale.join(', '))}</div>` : ''}
+            <div id="postiz-channels">${channelRows}</div>
+            ${saveBar('publishing')}
             ${plannedSection(pub.planned)}
           </div>`;
       } else if (active === 'youtube') {
@@ -826,6 +859,10 @@
       if (active === 'general') bindGeneralControls();
     }
 
+    function gOptions(field) {
+      return field?.options || [{ id: 'legacy', label: 'Legacy' }, { id: 'postiz', label: 'Postiz' }];
+    }
+
     function bindGeneralControls() {
       const vendorSel = document.getElementById('f-llmVendor');
       const modelSel = document.getElementById('f-model');
@@ -902,6 +939,13 @@
       if (id === 'youtube') {
         return {
           youtubePrivacyStatus: document.getElementById('f-youtubePrivacyStatus').value,
+        };
+      }
+      if (id === 'publishing') {
+        return {
+          publishBackend: document.getElementById('f-publishBackend').value,
+          postizApiUrl: document.getElementById('f-postizApiUrl').value.trim(),
+          postizChannelIds: [...document.querySelectorAll('.postiz-channel:checked')].map((el) => el.value),
         };
       }
       return {};

@@ -12,6 +12,7 @@ import articlesRouter from './routes/articles.js';
 import digestsRouter from './routes/digests.js';
 import telegramRouter from './routes/telegram.js';
 import settingsRouter from './routes/settings.js';
+import postizRouter from './routes/postiz.js';
 import { startQueueManager } from './services/queue-manager.js';
 import { setupTelegramBot } from './services/telegram-bot.js';
 
@@ -95,6 +96,8 @@ app.use('/api', apiAuth, apiLimiter);
 
 // API routes with specific rate limits
 app.use('/api/settings', settingsRouter);
+app.use('/api/postiz/digests/:id/publish', publishLimiter);
+app.use('/api/postiz', postizRouter);
 app.use('/api/articles', articlesRouter);
 app.use('/api/digests/generate', generateLimiter);
 app.use('/api/digests/:id/publish', publishLimiter);

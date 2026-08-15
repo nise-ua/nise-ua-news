@@ -10,12 +10,19 @@ vi.mock('./facebook-reel.js', () => ({ publishReelToFacebook: vi.fn() }));
 vi.mock('./facebook-story.js', () => ({ publishStoryToFacebook: vi.fn() }));
 vi.mock('./telegram.js', () => ({ publishToTelegram: vi.fn() }));
 vi.mock('./youtube.js', () => ({ publishToYouTube: vi.fn() }));
+vi.mock('./postiz.js', () => ({ publishPostizDigest: vi.fn() }));
+vi.mock('./facebook-video-file.js', () => ({
+  digestVideoUrl: vi.fn((digest) => digest?.video_url || digest?.reel_url || null),
+  localVideoPathFromUrl: vi.fn((url) => url?.includes('shorts_1.mp4') ? './path/to/shorts_1.mp4' : null),
+}));
 
 import { updateDigest } from '../../db/index.js';
 import { publishToFacebook } from './facebook.js';
 import { publishReelToFacebook } from './facebook-reel.js';
 import { publishStoryToFacebook } from './facebook-story.js';
 import { publishDigest } from './index.js';
+import { publishPostizDigest } from './postiz.js';
+import { publishToYouTube } from './youtube.js';
 
 const config = {
   facebookPageAccessToken: 'token',
@@ -55,6 +62,20 @@ describe('publishDigest facebook text', () => {
       facebook_post_id: '111_999',
       status: 'published',
     }));
+  });
+});
+
+describe('publishDigest legacy isolation', () => {
+  it('never calls Postiz or writes postiz_posts when platforms are omitted', async () => {
+    await publishDigest(digest, {
+      ...config,
+      publishBackend: 'postiz',
+      postizApiUrl: 'http://postiz',
+      postizApiKey: 'secret',
+      postizChannelIds: ['integration-1'],
+    });
+    expect(publishPostizDigest).not.toHaveBeenCalled();
+    expect(updateDigest).not.toHaveBeenCalledWith('digest-1', expect.objectContaining({ postiz_posts: expect.anything() }));
   });
 });
 
@@ -134,6 +155,7 @@ describe('publishDigest youtube', () => {
 
   const shortsDigest = {
     id: 'digest-2',
+    date: '1970-01-01',
     content: 'YouTube Shorts content',
     youtube_shorts_url: 'https://example.com/shorts/shorts_1.mp4',
     facebook_post_id: 'fb_post_123',
@@ -141,15 +163,13 @@ describe('publishDigest youtube', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mock('../youtube.js', () => ({ publishToYouTube: vi.fn(() => ({ videoId: 'yt-video-1', url: 'https://youtube.com/shorts/yt-video-1' })) }));
-    vi.mock('../facebook-video-file.js', () => ({
-      digestVideoUrl: vi.fn(),
-      localVideoPathFromUrl: vi.fn((url) => url.includes('shorts_1.mp4') ? './path/to/shorts_1.mp4' : null),
-    }));
+    publishToYouTube.mockResolvedValue({
+      videoId: 'yt-video-1',
+      url: 'https://youtube.com/shorts/yt-video-1',
+    });
   });
 
   it('publishes YouTube Shorts with correct metadata', async () => {
-    const { publishToYouTube } = await import('../youtube.js');
     const results = await publishDigest(shortsDigest, youtubeConfig, ['youtube']);
 
     expect(publishToYouTube).toHaveBeenCalledWith(
@@ -166,7 +186,6 @@ describe('publishDigest youtube', () => {
   });
 
   it('publishes YouTube Shorts without Facebook permalink if facebook_post_id is missing', async () => {
-    const { publishToYouTube } = await import('../youtube.js');
     const digestWithoutFbPost = { ...shortsDigest, facebook_post_id: null };
     const results = await publishDigest(digestWithoutFbPost, youtubeConfig, ['youtube']);
 
@@ -180,7 +199,6 @@ describe('publishDigest youtube', () => {
   });
 
   it('guards against missing YouTube Shorts video', async () => {
-    const { publishToYouTube } = await import('../youtube.js');
     const digestWithoutShorts = { ...shortsDigest, youtube_shorts_url: null };
     const results = await publishDigest(digestWithoutShorts, youtubeConfig, ['youtube']);
 
@@ -190,7 +208,6 @@ describe('publishDigest youtube', () => {
   });
 
   it('guards against missing YouTube OAuth2 credentials', async () => {
-    const { publishToYouTube } = await import('../youtube.js');
     const configWithoutYtCreds = { ...youtubeConfig, youtubeClientId: null };
     const results = await publishDigest(shortsDigest, configWithoutYtCreds, ['youtube']);
 
