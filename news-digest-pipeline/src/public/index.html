@@ -122,6 +122,25 @@
 
     .date-main { font-weight: 500; color: #2d2a26; }
     .date-sub { color: #b0aaa4; font-size: 13px; }
+    .digest-identity {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      min-width: 0;
+    }
+    .digest-name {
+      font-weight: 600;
+      color: #2d2a26;
+      font-size: 14px;
+      letter-spacing: -0.2px;
+      line-height: 1.3;
+    }
+    .digest-meta {
+      color: #b0aaa4;
+      font-size: 12px;
+      line-height: 1.3;
+    }
     .pub-date { color: #22c55e; font-size: 14px; font-weight: 500; }
     .no-pub { color: #ccc; font-size: 13px; }
 
@@ -163,7 +182,7 @@
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2322c55e' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
     }
 
-    /* Buttons base */
+    /* Buttons base (modal / shared) */
     .btn {
       border: none;
       padding: 6px 14px;
@@ -175,47 +194,20 @@
       transition: all 0.2s ease;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 4px;
+      line-height: 1.2;
+      white-space: nowrap;
+      text-decoration: none;
+      box-sizing: border-box;
     }
 
-    /* Preview button */
-    .btn-preview {
-      background: transparent;
-      color: #8a8580;
-      border: 1px solid #ddd8d0;
-      margin-right: 6px;
-    }
-    .btn-preview:hover {
-      border-color: #7c3aed;
-      color: #7c3aed;
-      box-shadow: 0 0 10px rgba(124,58,237,0.1);
-    }
-
-    /* Copy button — glass effect */
-    .btn-copy {
-      background: rgba(0,0,0,0.02);
-      color: #8a8580;
-      border: 1px solid #ddd8d0;
-      backdrop-filter: blur(8px);
-    }
-    .btn-copy:hover {
-      background: rgba(0,0,0,0.05);
-      color: #2d2a26;
-      border-color: #b0aaa4;
-    }
-    .btn-copied {
-      background: rgba(34,197,94,0.15);
-      color: #22c55e;
-      border: 1px solid rgba(34,197,94,0.3);
-    }
-
-    /* Publish button */
+    /* Publish button (modal save) */
     .btn-publish {
       background: linear-gradient(135deg, #7c3aed, #3b82f6);
       color: #fff;
-      margin-right: 4px;
       font-size: 13px;
-      padding: 4px 10px;
+      padding: 6px 12px;
       border: none;
     }
     .btn-publish:hover {
@@ -225,50 +217,98 @@
     .btn-published {
       background: rgba(34,197,94,0.1);
       color: #16a34a;
-      margin-right: 4px;
       font-size: 13px;
-      padding: 4px 10px;
+      padding: 6px 12px;
       border: 1px solid rgba(34,197,94,0.2);
     }
 
-    /* Platform buttons */
-    .platform-row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
-    .plat-btn {
-      font-size: 13px;
-      padding: 4px 10px;
-      border-radius: 6px;
+    /* Action toolbar — one consistent button row */
+    .platform-row {
+      display: inline-flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 6px;
+      max-width: 100%;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+    }
+    .platform-row::-webkit-scrollbar { height: 4px; }
+    .platform-row::-webkit-scrollbar-thumb { background: #ddd8d0; border-radius: 4px; }
+
+    .plat-btn,
+    .btn-preview,
+    .btn-copy,
+    .btn-delete {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      height: 32px;
+      min-height: 32px;
+      padding: 0 10px;
+      border-radius: 8px;
       border: 1px solid #ddd8d0;
       background: #ffffff;
-      color: #8a8580;
+      color: #5c574f;
       cursor: pointer;
       font-family: 'Inter', sans-serif;
-      transition: all 0.2s ease;
+      font-size: 13px;
       font-weight: 500;
+      line-height: 1;
+      white-space: nowrap;
+      text-decoration: none;
+      box-sizing: border-box;
+      transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+      flex: 0 0 auto;
     }
-    .plat-btn:hover {
+    .plat-btn:hover,
+    .btn-preview:hover,
+    .btn-copy:hover {
       border-color: #b0aaa4;
       color: #2d2a26;
       background: #f5f3ef;
     }
-    /* TG button */
+    .btn-preview:hover {
+      border-color: #7c3aed;
+      color: #7c3aed;
+      box-shadow: 0 0 0 2px rgba(124,58,237,0.08);
+    }
+    .btn-copied {
+      background: rgba(34,197,94,0.12);
+      color: #16a34a;
+      border-color: rgba(34,197,94,0.3);
+    }
+    .btn-delete {
+      color: #8a8580;
+      min-width: 32px;
+      padding: 0 8px;
+    }
+    .btn-delete:hover {
+      color: #ef4444;
+      border-color: rgba(239,68,68,0.35);
+      background: rgba(239,68,68,0.08);
+    }
     .plat-btn[onclick*="telegram"] {
       border-color: rgba(0,136,204,0.3);
       color: #0088cc;
     }
     .plat-btn[onclick*="telegram"]:hover {
-      background: rgba(0,136,204,0.1);
+      background: rgba(0,136,204,0.08);
       border-color: rgba(0,136,204,0.5);
-      box-shadow: 0 0 10px rgba(0,136,204,0.15);
+      box-shadow: 0 0 0 2px rgba(0,136,204,0.08);
     }
-    /* FB button */
-    .plat-btn[onclick*="facebook"] {
+    .plat-btn[onclick*="facebook"],
+    .plat-btn[onclick*="Facebook"] {
       border-color: rgba(24,119,242,0.3);
       color: #1877f2;
     }
-    .plat-btn[onclick*="facebook"]:hover {
-      background: rgba(24,119,242,0.1);
+    .plat-btn[onclick*="facebook"]:hover,
+    .plat-btn[onclick*="Facebook"]:hover {
+      background: rgba(24,119,242,0.08);
       border-color: rgba(24,119,242,0.5);
-      box-shadow: 0 0 10px rgba(24,119,242,0.15);
+      box-shadow: 0 0 0 2px rgba(24,119,242,0.08);
     }
     .plat-btn.sent {
       background: rgba(34,197,94,0.08);
@@ -277,27 +317,15 @@
       cursor: default;
       box-shadow: none;
     }
+    .plat-btn.busy {
+      border-color: rgba(124,58,237,0.35);
+      color: #7c3aed;
+      background: rgba(124,58,237,0.06);
+      cursor: wait;
+    }
     .plat-btn:disabled:not(.sent) {
-      opacity: 0.55;
+      opacity: 0.7;
       cursor: not-allowed;
-    }
-
-    /* Delete button */
-    .btn-delete {
-      background: transparent;
-      color: #b0aaa4;
-      border: 1px solid transparent;
-      font-size: 11px;
-      padding: 3px 7px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      font-family: 'Inter', sans-serif;
-    }
-    .btn-delete:hover {
-      color: #ef4444;
-      border-color: rgba(239,68,68,0.3);
-      background: rgba(239,68,68,0.08);
     }
 
     .empty { text-align: center; padding: 48px; color: #b0aaa4; font-size: 14px; }
@@ -308,17 +336,45 @@
       margin-top: 14px;
       letter-spacing: 0.2px;
     }
-    .video-progress {
-      display: inline-flex;
+
+    /* Video status lives under digest name, not in the action row */
+    .video-status {
+      display: flex;
       flex-direction: column;
-      gap: 3px;
-      min-width: 150px;
-      color: #7c3aed;
+      gap: 4px;
+      margin-top: 6px;
+      width: 100%;
+      max-width: 220px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: rgba(124,58,237,0.06);
+      border: 1px solid rgba(124,58,237,0.14);
+      box-sizing: border-box;
+    }
+    .video-status.is-failed {
+      background: rgba(239,68,68,0.06);
+      border-color: rgba(239,68,68,0.18);
+    }
+    .video-status.is-failed .video-progress-label { color: #dc2626; }
+    .video-progress-label {
+      color: #6d28d9;
       font-size: 11px;
       font-weight: 500;
+      line-height: 1.35;
     }
-    .video-progress-track { height: 5px; background: #eeeaf8; border-radius: 4px; overflow: hidden; }
-    .video-progress-bar { height: 100%; background: linear-gradient(90deg, #7c3aed, #3b82f6); transition: width .3s ease; }
+    .video-progress-track {
+      height: 4px;
+      background: #eeeaf8;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .video-progress-bar {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, #7c3aed, #3b82f6);
+      transition: width .3s ease;
+      border-radius: 4px;
+    }
 
     /* Row number */
     .row-num {
@@ -420,10 +476,18 @@
       table { border-spacing: 0 4px; }
       td { padding: 10px 10px; font-size: 12px; }
       thead th { padding: 6px 10px; font-size: 9px; }
-      .platform-row { gap: 3px; }
-      .plat-btn { padding: 3px 6px; font-size: 10px; }
-      .btn { padding: 5px 10px; font-size: 12px; }
-      .btn-preview { margin-right: 3px; }
+      .platform-row { gap: 4px; }
+      .plat-btn,
+      .btn-preview,
+      .btn-copy,
+      .btn-delete {
+        height: 28px;
+        min-height: 28px;
+        padding: 0 8px;
+        font-size: 11px;
+      }
+      .btn-delete { min-width: 28px; padding: 0 6px; }
+      .video-status { max-width: 100%; }
       .modal { width: 96%; max-height: 80vh; border-radius: 12px; }
     }
 
@@ -434,6 +498,18 @@
       td { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; }
       td:first-child { border-radius: 10px 10px 0 0; }
       td:last-child { border-radius: 0 0 10px 10px; }
+      td.digest-cell {
+        display: block;
+        align-items: stretch;
+      }
+      td.digest-cell .digest-identity { width: 100%; }
+      td.actions-cell {
+        display: block;
+      }
+      td.actions-cell .platform-row {
+        width: 100%;
+        justify-content: flex-start;
+      }
       td::before {
         font-size: 10px;
         font-weight: 600;
@@ -465,7 +541,7 @@
       <thead>
         <tr>
           <th>#</th>
-          <th>Створено</th>
+          <th>Дайджест</th>
           <th>Опубліковано</th>
           <th>Статей</th>
           <th>Вартість</th>
@@ -536,11 +612,32 @@
         const selectClass = status === 'published' ? 'is-published' : 'is-draft';
         const hasContent = !!d.content;
 
-        // Created datetime
+        // Created datetime / digest identity
         const created = fmtDatetime(d.created_at);
-        const createdHtml = created
-          ? `<span class="date-main">${created.date}</span><br><span class="date-sub">${created.time}</span>`
-          : '---';
+        const digestLabel = d.date
+          ? `Дайджест ${d.date}${d.part ? ` · ч.${d.part}` : ''}`
+          : (created ? `Дайджест ${created.date}` : `Дайджест #${d.seq_number || (i + 1)}`);
+        const digestMeta = created
+          ? `Створено ${created.date} · ${created.time}`
+          : 'Дата створення невідома';
+
+        const activeJob = activeVideoJobs.get(d.id);
+        const videoStatusBusy = activeJob && !(activeJob.status === 'completed' && activeJob.videoUrl);
+        let videoStatusHtml = '';
+        if (videoStatusBusy) {
+          const isFailed = activeJob.status === 'failed';
+          const defaultMsg = activeJob.format === 'shorts' ? 'Створення Shorts…' : 'Створення відео…';
+          videoStatusHtml = `<div class="video-status${isFailed ? ' is-failed' : ''}" data-video-job="${activeJob.jobId}" data-digest-id="${d.id}">
+            <span class="video-progress-label">${isFailed ? '❌' : '⏳'} ${activeJob.message || defaultMsg} (${activeJob.progress || 0}%)</span>
+            <span class="video-progress-track"><span class="video-progress-bar" style="width:${activeJob.progress || 0}%"></span></span>
+          </div>`;
+        }
+
+        const createdHtml = `<div class="digest-identity">
+          <span class="digest-name">${digestLabel}</span>
+          <span class="digest-meta">${digestMeta}</span>
+          ${videoStatusHtml}
+        </div>`;
 
         // Published datetime
         const pub = fmtDatetime(d.published_at);
@@ -571,28 +668,24 @@
             .replace(/"/g, '&quot;');
           const fbUrlBtn = `<button class="plat-btn" onclick="setFacebookUrl('${d.id}', ${fbUrlArg})" title="Вказати Facebook URL вручну">🔗</button>`;
 
-          const activeJob = activeVideoJobs.get(d.id);
           let videoBtn, shortsBtn;
 
-          // Facebook Video Button
-          if (activeJob && activeJob.format !== 'shorts') {
-            // If the job has completed, show a direct link instead of the progress UI.
-            if (activeJob.status === 'completed' && activeJob.videoUrl) {
-              videoBtn = `<a class="plat-btn" href="${activeJob.videoUrl}" target="_blank">🎬 Video</a>`
-                + `<button class="plat-btn" onclick="generateVideo('${d.id}', this, 'facebook', true)" title="Перегенерувати відео">🔄</button>`;
-            } else {
-              videoBtn = `<span class="video-progress" data-video-job="${activeJob.jobId}"><span class="video-progress-label">⏳ ${activeJob.message || 'Створення відео…'} (${activeJob.progress || 0}%)</span><span class="video-progress-track"><span class="video-progress-bar" style="width:${activeJob.progress || 0}%"></span></span></span>`;
-            }
-          } else if (videoExists) {
-            videoBtn = `<a class="plat-btn" href="${d.video_url || d.reel_url}" target="_blank">🎬 Video</a>`
+          // Facebook Video Button — keep button in the row; progress lives under digest name
+          const videoJobActive = activeJob && activeJob.format !== 'shorts' && videoStatusBusy;
+          if (videoJobActive) {
+            videoBtn = `<button class="plat-btn busy" disabled title="Генерується відео">⏳ Video</button>`;
+          } else if ((activeJob && activeJob.format !== 'shorts' && activeJob.status === 'completed' && activeJob.videoUrl) || videoExists) {
+            const href = (activeJob && activeJob.videoUrl) || d.video_url || d.reel_url;
+            videoBtn = `<a class="plat-btn" href="${href}" target="_blank">🎬 Video</a>`
               + `<button class="plat-btn" onclick="generateVideo('${d.id}', this, 'facebook', true)" title="Перегенерувати відео">🔄</button>`;
           } else {
             videoBtn = `<button class="plat-btn" onclick="generateVideo('${d.id}', this)">▶️ Video</button>`;
           }
 
           // YouTube Shorts Button
-          if (activeJob && activeJob.format === 'shorts') {
-            shortsBtn = `<span class="video-progress" data-video-job="${activeJob.jobId}"><span class="video-progress-label">⏳ ${activeJob.message || 'Створення Shorts…'} (${activeJob.progress || 0}%)</span><span class="video-progress-track"><span class="video-progress-bar" style="width:${activeJob.progress || 0}%"></span></span></span>`;
+          const shortsJobActive = activeJob && activeJob.format === 'shorts' && videoStatusBusy;
+          if (shortsJobActive) {
+            shortsBtn = `<button class="plat-btn busy" disabled title="Генеруються Shorts">⏳ Shorts</button>`;
           } else if (youtubeShortsExists) {
             shortsBtn = `<a class="plat-btn" href="https://youtube.com/shorts/${d.youtube_post_id || ''}" target="_blank">▶️ Shorts</a>`
               + `<button class="plat-btn" onclick="generateVideo('${d.id}', this, 'shorts', true)" title="Перегенерувати Shorts">🔄</button>`;
@@ -612,8 +705,8 @@
               ? `<button class="plat-btn sent" disabled>✓ YT</button>`
               : `<button class="plat-btn" onclick="publishYouTube('${d.id}', this)">▶️ YouTube</button>`;
 
-          const delBtn = `<button class="btn-delete" onclick="deleteDigest('${d.id}')">✕</button>`;
-          actionBtn = `<div class="platform-row"><button class="btn btn-preview" onclick="previewDigest('${d.id}')">&#128065;</button>${fbBtn}${fbUrlBtn}${videoBtn}${shortsBtn}${reelBtn}${youtubePublishBtn}<button class="btn btn-copy" onclick="copyDigest('${d.id}', this)">&#128203;</button>${delBtn}</div>`;
+          const delBtn = `<button class="btn-delete" onclick="deleteDigest('${d.id}')" title="Видалити">✕</button>`;
+          actionBtn = `<div class="platform-row"><button class="btn-preview" onclick="previewDigest('${d.id}')" title="Превʼю">&#128065;</button>${fbBtn}${fbUrlBtn}${videoBtn}${shortsBtn}${reelBtn}${youtubePublishBtn}<button class="btn-copy" onclick="copyDigest('${d.id}', this)" title="Копіювати">&#128203;</button>${delBtn}</div>`;
         }
 
         // Status dropdown
@@ -635,12 +728,12 @@
 
         return `<tr>
           <td><span class="row-num">${d.seq_number || (i + 1)}</span></td>
-          <td>${createdHtml}</td>
+          <td class="digest-cell">${createdHtml}</td>
           <td>${pubHtml}</td>
           <td><span class="articles-count">${d.articles_count || 0}</span></td>
           <td>${costHtml}</td>
           <td>${statusSelect}</td>
-          <td>${actionBtn}</td>
+          <td class="actions-cell">${actionBtn}</td>
         </tr>`;
       }).join('');
       for (const [jobId, job] of activeVideoJobs) {
@@ -659,8 +752,9 @@
         const res = await fetch(`/api/digests/${id}/text`);
         const text = await res.text();
         await navigator.clipboard.writeText(text);
-        btn.className = 'btn btn-copied';
-        btn.innerHTML = '&#10003; Скопійовано';
+        btn.className = 'btn-copy btn-copied';
+        btn.innerHTML = '&#10003;';
+        btn.title = 'Скопійовано';
         btn.disabled = true;
         btn.onclick = null;
       } catch (err) {
@@ -815,7 +909,7 @@
           throw new Error((data.error || 'Помилка сервера') + suffix);
         }
         const job = data.job;
-        activeVideoJobs.set(id, { jobId: job.id, progress: job.progress, message: job.message, polling: false, original, digestId: id, format });
+        activeVideoJobs.set(id, { jobId: job.id, progress: job.progress, message: job.message, status: job.status || 'running', polling: false, original, digestId: id, format });
         await loadDigests();
         const progress = document.querySelector(`[data-video-job="${job.id}"]`);
         if (progress) await pollVideoJob(job.id, progress, original);
@@ -878,7 +972,7 @@
           throw new Error(data.error || 'Не вдалося отримати статус відео');
         }
         const job = data.job;
-        if (active) Object.assign(active, { progress: job.progress, message: job.message, videoUrl: job.videoUrl });
+        if (active) Object.assign(active, { progress: job.progress, message: job.message, videoUrl: job.videoUrl, status: job.status });
         const currentProgress = document.querySelector(`[data-video-job="${jobId}"]`);
         if (!currentProgress) {
           await new Promise(resolve => setTimeout(resolve, 1500));
@@ -886,23 +980,20 @@
         }
         const label = currentProgress.querySelector('.video-progress-label');
         const bar = currentProgress.querySelector('.video-progress-bar');
-        label.textContent = `${job.status === 'failed' ? '❌' : '⏳'} ${job.message} (${job.progress}%)`;
-        bar.style.width = `${job.progress}%`;
+        if (label) {
+          label.textContent = `${job.status === 'failed' ? '❌' : '⏳'} ${job.message} (${job.progress}%)`;
+        }
+        if (bar) bar.style.width = `${job.progress}%`;
+        currentProgress.classList.toggle('is-failed', job.status === 'failed');
         if (job.status === 'completed') {
-          const link = document.createElement('a');
-          link.href = active.videoUrl;
-          link.target = '_blank';
-          link.className = 'plat-btn';
-          link.innerHTML = active.format === 'shorts' ? '▶️ Shorts' : '🎬 Video';
-          currentProgress.replaceWith(link);
           activeVideoJobs.delete(active.digestId);
           setTimeout(loadDigests, 300);
           return;
         }
         if (job.status === 'failed') {
-          activeVideoJobs.delete(job.digestId);
-          if (currentProgress.isConnected && originalButtonHtml) currentProgress.replaceWith(document.createRange().createContextualFragment(originalButtonHtml));
+          activeVideoJobs.delete(job.digestId || active?.digestId);
           alert('Не вдалося створити відео: ' + (job.error || 'Невідома помилка'));
+          setTimeout(loadDigests, 300);
           return;
         }
         await new Promise(resolve => setTimeout(resolve, 1500));
