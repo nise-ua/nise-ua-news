@@ -152,8 +152,12 @@ export function startVideoGeneration(digestId, { format = 'facebook' } = {}) {
   child.on('error', (error) => finishVideoJob(job, error));
   child.on('close', (code) => {
     if (code !== 0) {
-      const detail = stderr.trim().split(/\r?\n/).filter(Boolean).at(-1) || stdout.trim().split(/\r?\n/).filter(Boolean).at(-1);
-      finishVideoJob(job, new Error(detail || `Відеопайплайн завершився з кодом ${code}`));
+      const signal = child.signalCode ? ` (сигнал ${child.signalCode})` : '';
+      const stderrLines = stderr.trim().split(/\r?\n/).filter(Boolean);
+      const stdoutLines = stdout.trim().split(/\r?\n/).filter(Boolean);
+      const detail = stderrLines.at(-1) || stdoutLines.at(-1);
+      const suffix = detail ? `: ${detail}` : '';
+      finishVideoJob(job, new Error(`Відеопайплайн завершився з кодом ${code}${signal}${suffix}`));
       return;
     }
     // Try to extract the explicit path printed by the script.

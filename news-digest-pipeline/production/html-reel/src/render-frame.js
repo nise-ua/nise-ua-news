@@ -78,13 +78,19 @@ export function fillTemplate(html, data = {}) {
 
 async function launchChromium() {
   const { chromium } = await import('patchright');
+  const launchOptions = {
+    headless: true,
+    // HTML reels can contain several large data-URI backgrounds. These flags
+    // keep Chromium's renderer from exhausting shared memory on local hosts.
+    args: ['--disable-dev-shm-usage', '--disable-gpu'],
+  };
   try {
-    return await chromium.launch({ headless: true });
+    return await chromium.launch(launchOptions);
   } catch (err) {
     const msg = String(err?.message || err);
     if (!/Executable doesn't exist|browserType\.launch/i.test(msg)) throw err;
     // Prefer system Chrome when Patchright's bundled Chromium is not installed.
-    return chromium.launch({ headless: true, channel: 'chrome' });
+    return chromium.launch({ ...launchOptions, channel: 'chrome' });
   }
 }
 
