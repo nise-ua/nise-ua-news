@@ -601,6 +601,9 @@
     }
 
     const activeVideoJobs = new Map();
+    // Expose for UI debugging / browser validation of in-progress video status.
+    window.activeVideoJobs = activeVideoJobs;
+    window.loadDigests = loadDigests;
 
     function render(digests) {
       const tbody = document.getElementById('tbody');
