@@ -3,25 +3,81 @@
 /**
  * Video Pipeline — Storyboard Generator
  *
- * Takes digest text → generates a structured JSON video storyboard (shots, prompts, durations) via Claude/OpenAI.
+ * Takes digest text → generates a structured JSON video storyboard (shots, prompts, durations) via configured LLM vendor.
  */
 
-import OpenAI from 'openai';
-import Anthropic from '@anthropic-ai/sdk';
 import { join } from 'path';
 import { config as dotenvConfig } from 'dotenv';
 import { VISUAL_GROUNDING_RULES, groundVisualVariant } from '../../lib/visual-grounding.js';
 import { parseDigestItems } from '../../lib/digest.js';
 import { log, projectRoot } from '../../lib/logging.js';
-import { ensureUkrainianOnScreenCopy } from '../../lib/reel-ukrainian-copy.js';
+import { ensureUkrainianOnScreenCopy, normalizeHeadline } from '../../lib/reel-ukrainian-copy.js';
+import { callLlmJson } from '../../lib/llm-backends.js';
 
 const ROOT = projectRoot(import.meta.url);
 dotenvConfig({ path: join(ROOT, '.env'), override: true });
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy-key-for-init' });
-const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || 'dummy-key-for-init' });
+const HEADLINE_MAX_CHARS = 44;
 
-export async function generateStoryboard(digestText, format = 'facebook') {
+/**
+ * Ask the configured language model to compress every headline after the
+ * storyboard is built. This also repairs fallback storyboards without
+ * embedding story-specific phrases in code.
+ */
+export async function refineStoryboardHeadlines(storyboard, format = 'facebook', { fetchFn } = {}) {
+  const shots = Array.isArray(storyboard?.shots) ? storyboard.shots : [];
+  if (!shots.length) return storyboard;
+
+  const systemPrompt = `Ти — редактор коротких заголовків для ${format === 'shorts' ? 'YouTube Shorts' : 'Facebook Reels'}.
+Створи рівно один headline для кожного shot у тому самому порядку.
+Кожен headline:
+- ТІЛЬКИ УКРАЇНСЬКОЮ, але бренди й абревіатури залишай латиницею.
+- РІВНО 3-6 слів і максимум ${HEADLINE_MAX_CHARS} символів.
+- Є ПОВНІСТЮ ЗАВЕРШЕНОЮ самостійною фактичною фразою з підметом і присудком або цілісним словосполученням.
+- Повністю поміщається максимум у ДВА рядки великого тексту.
+- КАТЕГОРИЧНО ЗАБОРОНЕНО закінчувати заголовок займенником («своєї», «її», «його»), прийменником («для», «про», «в»), сполучником («що», «і») або незавершеним дієсловом.
+- Не містить авторського сарказму, цитат, вступів «Ось», «О,», «Отже», «Ну от» чи оцінок.
+НІКОЛИ не обрізай речення на півслові. Якщо не поміщається, ПЕРЕФРАЗУЙ коротко сам факт (наприклад: «Google оновила модель Gemini»).
+Відповідай лише JSON: {"headlines":["..."]}`;
+
+  const userPrompt = JSON.stringify(shots.map((shot, index) => ({
+    shot: index + 1,
+    coreFact: shot.coreFact || '',
+    entities: shot.entities || [],
+    sourceText: shot.sourceText || '',
+    spokenText: shot.spokenText || '',
+    currentHeadline: shot.headline || '',
+  })));
+
+  const parsed = await callLlmJson({
+    system: systemPrompt,
+    user: userPrompt,
+    title: 'NiSeNews headline refinement',
+    maxTokens: 4096,
+    fetchFn,
+  }, 'headline refinement');
+
+  const refined = parsed?.headlines;
+  if (!Array.isArray(refined) || refined.length !== shots.length) {
+    throw new Error(`Headline refinement returned ${refined?.length || 0}/${shots.length} headlines`);
+  }
+
+  const headlines = refined.map((headline, index) => {
+    const value = normalizeHeadline(headline);
+    const wordCount = value.split(/\s+/).filter(Boolean).length;
+    if (!value || value.length > HEADLINE_MAX_CHARS || wordCount < 3 || wordCount > 6) {
+      throw new Error(`Headline ${index + 1} violates the two-row limit: "${value}"`);
+    }
+    return value;
+  });
+
+  return {
+    ...storyboard,
+    shots: shots.map((shot, index) => ({ ...shot, headline: headlines[index] })),
+  };
+}
+
+export async function generateStoryboard(digestText, format = 'facebook', { fetchFn } = {}) {
   log('Generating video storyboard from digest text...');
 
   const articles = parseDigestItems(digestText);
@@ -38,8 +94,8 @@ export async function generateStoryboard(digestText, format = 'facebook') {
 3. entities — масив конкретних назв (компанії, продукти, технології, місця)
 4. newsTone — "positive" | "neutral" | "negative" (лише з coreFact, не з сарказму автора)
 5. visualSubject — 1 конкретна сцена англійською з цих сутностей і дії
-6. headline — змістовний headline ТІЛЬКИ УКРАЇНСЬКОЮ (6-10 слів), який самостійно пояснює головний факт новини. Не копіюй саркастичні зачини («Знову революція?», «Оце так історія»). Не використовуй розмиті фрази на кшталт «ШІ змінює все».
-7. spokenText — ${format === 'shorts' ? `ТІЛЬКИ УКРАЇНСЬКОЮ (18-30 слів), повне речення, 12-18 секунд. Обов\'язково закінчуй крапкою/знаком оклику. Це має бути ФАКТ, не сарказм. Назви брендів, продуктів і абревіатури ЗАВЖДИ залишай англійськими: Nvidia, Google, AI, GPT, не перекладай і не транслітеруй їх кирилицею.` : `коротке ЗАВЕРШЕНЕ речення ТІЛЬКИ УКРАЇНСЬКОЮ для диктора (8-12 слів, приблизно 4-6 секунд). Обов\'язково закінчуй крапкою/знаком оклику. Це має бути ФАКТ, не сарказм. Назви брендів, продуктів і абревіатури ЗАВЖДИ залишай англійськими: Nvidia, Google, AI, GPT, не перекладай і не транслітеруй їх кирилицею.`}
+6. headline — змістовний headline ТІЛЬКИ УКРАЇНСЬКОЮ (3-6 коротких слів, максимум 44 символи), ПОВНІСТЮ ЗАВЕРШЕНА самостійна фактична фраза максимум у два рядки. КАТЕГОРИЧНО ЗАБОРОНЕНО обривати фразу на півслові або закінчувати заголовок займенником («своєї», «її», «його»), прийменником, сполучником чи комою. Не продовжуй думку в detailText. Не копіюй саркастичні зачини («Знову революція?», «Оце так історія», «О, Google»). Не використовуй розмиті фрази на кшталт «ШІ змінює все». Якщо не поміщається, перефразуй факт стисло (наприклад: «Google оновила модель Gemini»).
+7. spokenText — ${format === 'shorts' ? `ТІЛЬКИ УКРАЇНСЬКОЮ (18-30 слів), одне плавне повне речення для природної дикторської подачі, 12-18 секунд. Починай одразу з факту, без «це новина» та повтору headline. Обов\'язково закінчуй крапкою/знаком оклику. Це має бути ФАКТ, не сарказм. Назви брендів, продуктів і абревіатури ЗАВЖДИ залишай англійськими: Nvidia, Google, AI, GPT, не перекладай і не транслітеруй їх кирилицею.` : `ТІЛЬКИ УКРАЇНСЬКОЮ, одне плавне завершене речення для природної дикторської подачі (10-16 слів, приблизно 5-7 секунд). Починай одразу з факту, без «це новина» та повтору headline. Використовуй простий порядок слів і одну головну деталь, щоб фраза легко слухалася. Обов\'язково закінчуй крапкою/знаком оклику. Це має бути ФАКТ, не сарказм. Назви брендів, продуктів і абревіатури ЗАВЖДИ залишай англійськими: Nvidia, Google, AI, GPT, не перекладай і не транслітеруй їх кирилицею.`}
 8. detailText — РІВНО 1 КОРОТКЕ ПОВНЕ РЕЧЕННЯ ТІЛЬКИ УКРАЇНСЬКОЮ (8-12 слів). Головна конкретна деталь новини. Обов'язково закінчуй крапкою. КРИТИЧНО: РІВНО ОДНЕ РЕЧЕННЯ; НІКОЛИ англійською; НІКОЛИ не копіюй coreFact / visualSubject / prompt у detailText. Англійські назви й абревіатури всередині речення не перекладай і не транслітеруй: пиши Nvidia, Google, AI, GPT саме латиницею.
 9. textPosition — завжди "upper": текст розміщується у верхніх 25% кадру, нижче брендингу.
 10. prompt — англійський промпт фону, ОБОВ'ЯЗКОВО з visualSubject. Додавай: "professional news photography, cinematic lighting, 9:16 vertical composition"
@@ -75,61 +131,14 @@ ${VISUAL_GROUNDING_RULES}
     : digestText.slice(0, 3000);
   const userPrompt = `Опрацюй КОЖЕН блок окремо. Ігноруй авторський сарказм; візуал і spokenText = факт новини.\n\n${articleBlocks}`;
 
-  let text;
-  const llmVendor = String(process.env.LLM_VENDOR || '').trim().toLowerCase();
-  if (llmVendor === 'openrouter') {
-    if (!process.env.OPENROUTER_API_KEY) {
-      throw new Error('OPENROUTER_API_KEY missing in .env');
-    }
-    const baseUrl = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        ...(process.env.BASE_URL ? { 'HTTP-Referer': process.env.BASE_URL } : {}),
-        'X-Title': 'NiSeNews reel storyboard',
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        response_format: { type: 'json_object' },
-      }),
-    });
-    const payload = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(payload?.error?.message || `OpenRouter storyboard request failed (${res.status})`);
-    }
-    text = payload?.choices?.[0]?.message?.content;
-    if (!text) throw new Error('OpenRouter storyboard response did not contain text content');
-  } else if (process.env.OPENAI_API_KEY) {
-    const res = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4o',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      response_format: { type: 'json_object' }
-    });
-    text = res.choices[0].message.content;
-  } else if (process.env.ANTHROPIC_API_KEY) {
-    const res = await claude.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 2048,
-      messages: [{ role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }]
-    });
-    text = res.content[0].text;
-  } else {
-    throw new Error('No API key found for storyboard generation (OPENAI_API_KEY or ANTHROPIC_API_KEY)');
-  }
+  const storyboard = await callLlmJson({
+    system: systemPrompt,
+    user: userPrompt,
+    title: 'NiSeNews reel storyboard',
+    maxTokens: 16384,
+    fetchFn,
+  }, 'storyboard');
 
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('Failed to parse storyboard JSON');
-
-  const storyboard = JSON.parse(jsonMatch[0]);
   storyboard.shots = (storyboard.shots || []).map((shot, i) => {
     const grounded = groundVisualVariant(shot, i);
     if (grounded.prompt !== shot.prompt) {
@@ -147,4 +156,22 @@ ${VISUAL_GROUNDING_RULES}
   });
   log(`Generated ${storyboard.shots.length} shots storyboard.`);
   return storyboard;
+}
+
+// Direct execution
+if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
+  const digestArg = process.argv[2] || 'latest';
+  const formatArg = process.argv[3] || 'facebook';
+
+  const { getDigestContent } = await import('../../lib/digest.js');
+  const digestText = await getDigestContent(digestArg);
+  generateStoryboard(digestText, formatArg)
+    .then(async (sb) => {
+      const refined = await refineStoryboardHeadlines(sb, formatArg);
+      console.log(JSON.stringify(refined, null, 2));
+    })
+    .catch((err) => {
+      console.error('Fatal error:', err.message);
+      process.exit(1);
+    });
 }

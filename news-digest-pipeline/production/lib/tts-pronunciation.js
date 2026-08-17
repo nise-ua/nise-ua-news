@@ -5,16 +5,16 @@
  *
  * Strategy:
  * - Known brands → Ukrainian phonetic Cyrillic (Клоудфлейр, not mangled Latin).
- * - Short acronyms → keep in Latin when they already sound fine (GPT, AI, LLM).
+ * - English names and acronyms → Ukrainian phonetics that preserve the English
+ *   pronunciation (AI → Ей-Ай, Google → Ґуґл).
  * - Remaining Latin tokens → English-style phonetic transliteration.
  */
 
 /** Terms that sound acceptable when read as Latin by Ukrainian neural TTS. */
 const KEEP_LATIN = new Set([
-  'ai', 'api', 'ar', 'cpu', 'css', 'gpu', 'html', 'http', 'https', 'ios',
-  'it', 'json', 'llm', 'ml', 'npm', 'pdf', 'ram', 'sql', 'ssd', 'ui', 'url',
-  'usb', 'ux', 'vr', 'wifi', 'wi-fi', '5g', '4k', '3d', '2d', 'ceo', 'cto',
-  'gpt', 'llms', 'apis', 'gpus', 'cpus',
+  'ar', 'css', 'html', 'http', 'https', 'ios', 'it', 'json', 'ml', 'npm',
+  'pdf', 'ram', 'sql', 'ssd', 'ui', 'url', 'usb', 'ux', 'vr', 'wifi',
+  'wi-fi', '5g', '4k', '3d', '2d', 'ceo', 'cto',
 ]);
 
 /**
@@ -22,13 +22,19 @@ const KEEP_LATIN = new Set([
  * Keys are lowercase; values are phonetic Ukrainian Cyrillic.
  */
 const PRONUNCIATION_MAP = new Map([
+  ['ai', 'Ей-Ай'],
+  ['api', 'Ей-Пі-Ай'],
+  ['cpu', 'Сі-Пі-Ю'],
+  ['gpu', 'Джі-Пі-Ю'],
+  ['gpt', 'Джі-Пі-Ті'],
+  ['llm', 'Ел-Ел-Ем'],
+  ['openai', 'Оупен Ей-Ай'],
   ['cloudflare', 'Клоудфлейр'],
   ['bytedance', 'Байтденс'],
-  ['openai', 'Оупен Ей-Ай'],
   ['chatgpt', 'Чат Джі-Пі-Ті'],
   ['hugging face', 'Хагінг Фейс'],
   ['huggingface', 'Хагінг Фейс'],
-  ['google', 'Гугл'],
+  ['google', 'Ґуґл'],
   ['gemini', 'Джеміні'],
   ['claude', 'Клод'],
   ['microsoft', 'Майкрософт'],

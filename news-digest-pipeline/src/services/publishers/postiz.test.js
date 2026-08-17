@@ -34,8 +34,8 @@ describe('Postiz publisher', () => {
 
   it('uploads video before creating a story and uses the story setting', async () => {
     const client = {
-      integrations: vi.fn().mockResolvedValue([{ id: 'fb-1', platform: 'facebook' }]),
-      upload: vi.fn().mockResolvedValue({ url: 'http://postiz/upload.mp4' }),
+      integrations: vi.fn().mockResolvedValue([{ id: 'fb-1', identifier: 'facebook' }]),
+      upload: vi.fn().mockResolvedValue({ id: 'upload-1', path: 'http://postiz/upload.mp4' }),
       createPost: vi.fn().mockResolvedValue({ posts: [{ id: 'story-1' }] }),
     };
     const trimStory = vi.fn().mockResolvedValue(Buffer.from('trimmed'));
@@ -43,6 +43,8 @@ describe('Postiz publisher', () => {
     expect(trimStory).toHaveBeenCalledWith('/video.mp4');
     expect(client.upload).toHaveBeenCalledWith(Buffer.from('trimmed'), 'd1-story.mp4');
     expect(client.createPost.mock.calls[0][0][0].settings).toEqual({ __type: 'facebook', post_type: 'story' });
+    expect(client.createPost.mock.calls[0][0][0].value[0].image)
+      .toEqual([{ id: 'upload-1', path: 'http://postiz/upload.mp4' }]);
   });
 
   it('refuses a selected channel that is not connected', async () => {

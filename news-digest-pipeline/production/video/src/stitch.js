@@ -169,12 +169,11 @@ export async function stitchClips({ clipPaths, audioPath, outputPath, background
       : { path: null, fresh: false };
     const musicPath = musicSelection.path;
     if (musicSelection.config) musicMeta = musicSelection.config;
-    // Default post-mix music level is 0.35: keeps the voiceover dominant while
-    // the music bed is still clearly audible underneath.
-    // Use BACKGROUND_MUSIC_VOLUME env var to tune.
+    // Default post-mix music level is 0.48: voice stays on top, bed still
+    // reads as a driving news bumper instead of a distant pad.
     const musicVolume = process.env.BACKGROUND_MUSIC_VOLUME != null
       ? Number(process.env.BACKGROUND_MUSIC_VOLUME)
-      : 0.35;
+      : 0.48;
     let cmd;
 
     if (audioPath && existsSync(audioPath)) {

@@ -11,25 +11,30 @@ test('Cloudflare is phoneticized for Ukrainian TTS', () => {
   assert.doesNotMatch(output, /Cloudflare/u);
 });
 
-test('keeps short acronyms in Latin', () => {
+test('uses English pronunciation for short acronyms', () => {
   const input = 'OpenAI оновив GPT і ChatGPT для LLM-задач.';
   const output = prepareTtsText(input);
-  assert.match(output, /\bGPT\b/u);
-  assert.match(output, /\bLLM\b/u);
+  assert.match(output, /Джі-Пі-Ті/u);
+  assert.match(output, /Ел-Ел-Ем/u);
   assert.match(output, /Чат Джі-Пі-Ті/u);
   assert.match(output, /Оупен Ей-Ай/u);
+});
+
+test('pronounces English AI and Google names naturally', () => {
+  const output = prepareTtsText('AI від Google допомагає користувачам.');
+  assert.equal(output, 'Ей-Ай від Ґуґл допомагає користувачам.');
 });
 
 test('handles multi-word brands', () => {
   assert.equal(
     prepareTtsText('Hugging Face зазнав атаки AI-агента.'),
-    'Хагінг Фейс зазнав атаки AI-агента.'
+    'Хагінг Фейс зазнав атаки Ей-Ай-агента.'
   );
 });
 
 test('GPT-5.6 is spoken as five point six, not fifty-six', () => {
   const output = prepareTtsText('OpenAI представив GPT-5.6 Sol з новим слайдером.');
-  assert.match(output, /GPT\s+п'ять крапка шість/u);
+  assert.match(output, /Джі-Пі-Ті\s+п'ять крапка шість/u);
   assert.doesNotMatch(output, /\b56\b/u);
   assert.doesNotMatch(output, /п'ятдесят шість/u);
 });
@@ -47,5 +52,5 @@ test('standalone decimal versions use крапка', () => {
 
 test('pure Ukrainian text is unchanged', () => {
   const input = 'Google швидко прибрав функцію з карти.';
-  assert.equal(prepareTtsText(input), 'Гугл швидко прибрав функцію з карти.');
+  assert.equal(prepareTtsText(input), 'Ґуґл швидко прибрав функцію з карти.');
 });

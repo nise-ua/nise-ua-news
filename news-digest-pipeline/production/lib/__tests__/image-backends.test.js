@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   falImageSize,
+  generateGoogleImage,
   generateImage,
   generateOpenRouterImage,
   imageSizeForModel,
@@ -191,6 +192,46 @@ describe('generateOpenRouterImage', () => {
   });
 });
 
+describe('generateGoogleImage', () => {
+  it('reads GOOGLE_API_KEY from process.env when no apiKey is passed in options', async () => {
+    const fetchFn = mockFetchResponses({
+      urlIncludes: '/models/gemini-2.5-flash-image:generateContent',
+      status: 200,
+      json: {
+        candidates: [
+          {
+            content: {
+              parts: [{ inlineData: { mimeType: 'image/png', data: 'envkey123' } }],
+            },
+          },
+        ],
+      },
+    });
+
+    await withEnv({ GOOGLE_API_KEY: 'env-google-key' }, async () => {
+      const url = await generateGoogleImage('test prompt', {
+        fetchFn,
+        log: () => {},
+      });
+      expect(url).toBe('data:image/png;base64,envkey123');
+      expect(fetchFn).toHaveBeenCalledOnce();
+      const [calledUrl] = fetchFn.mock.calls[0];
+      expect(calledUrl).toContain('key=env-google-key');
+    });
+  });
+
+  it('throws descriptive error if GOOGLE_API_KEY is missing from both options and env', async () => {
+    await withEnv({ GOOGLE_API_KEY: undefined }, async () => {
+      await expect(
+        generateGoogleImage('test prompt', {
+          apiKey: undefined,
+          log: () => {},
+        }),
+      ).rejects.toThrow('GOOGLE_API_KEY missing in .env');
+    });
+  });
+});
+
 describe('generateImage', () => {
   it('dispatches to openrouter with mocked fetch', async () => {
     const fetchFn = mockFetchResponses({
@@ -212,5 +253,31 @@ describe('generateImage', () => {
     const body = JSON.parse(fetchFn.mock.calls[0][1].body);
     expect(body.aspect_ratio).toBe('9:16');
     expect(body.prompt).toMatch(/Portrait 9:16/i);
+  });
+
+  it('dispatches to google when vendor is google', async () => {
+    const fetchFn = mockFetchResponses({
+      urlIncludes: '/models/gemini-2.5-flash-image:generateContent',
+      status: 200,
+      json: {
+        candidates: [
+          {
+            content: {
+              parts: [{ inlineData: { mimeType: 'image/png', data: 'googleimagexyz' } }],
+            },
+          },
+        ],
+      },
+    });
+
+    const url = await generateImage('a scenic prompt', {
+      vendor: 'google',
+      apiKey: 'test-google-key',
+      model: 'gemini-2.5-flash-image',
+      fetchFn,
+      log: () => {},
+    });
+
+    expect(url).toBe('data:image/png;base64,googleimagexyz');
   });
 });

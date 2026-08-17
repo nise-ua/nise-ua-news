@@ -17,10 +17,12 @@ import { basename, join } from 'path';
 import { config as dotenvConfig } from 'dotenv';
 import { initDb, getDb, updateDigest } from '../../../src/db/index.js';
 
-import { generateStoryboard } from '../../video/src/storyboard.js';
+import { generateStoryboard, refineStoryboardHeadlines } from '../../video/src/storyboard.js';
 import { generateShotClip } from '../../video/src/generate-clips.js';
 import { stitchClips, mergeShotVideoAndAudio } from '../../video/src/stitch.js';
+import { musicSeedFor } from '../../video/src/background-music.js';
 import { getDigestContent, parseDigestItemTexts } from '../../lib/digest.js';
+import { normalizeHeadline } from '../../lib/reel-ukrainian-copy.js';
 import { buildGroundedPrompt, inferNewsToneFromFact } from '../../lib/visual-grounding.js';
 import { EDGE_VOICE, completeClause, generatePerArticleAudio } from '../../lib/tts.js';
 import { log, projectRoot, scriptDir } from '../../lib/logging.js';
@@ -75,7 +77,17 @@ function buildFallbackTitle(text) {
   const sentence = firstSentence(text).replace(/^[-–—:]+|[-–—:]+$/g, '').trim();
   const colon = sentence.search(/\s[:—-]\s/);
   const candidate = colon > 0 ? sentence.slice(0, colon) : sentence;
-  return candidate.split(/\s+/).filter(Boolean).slice(0, 8).join(' ');
+  if (candidate && candidate.length <= 55) {
+    return normalizeHeadline(candidate);
+  }
+  const words = candidate.split(/\s+/).filter(Boolean);
+  let title = '';
+  for (const word of words) {
+    const next = title ? `${title} ${word}` : word;
+    if (next.length > 55) break;
+    title = next;
+  }
+  return normalizeHeadline(title) || normalizeHeadline(words[0]) || 'Новини';
 }
 
 function buildFallbackDetail(text) {
@@ -97,6 +109,7 @@ function fallbackStoryboard(digestText) {
       return {
         shot: i + 1,
         coreFact,
+        sourceText: factual,
         entities: [],
         newsTone,
         visualSubject: coreFact,
@@ -144,6 +157,12 @@ async function main() {
     } catch (err) {
       log(`Storyboard AI unavailable (${err.message}); using fallback parser.`);
       storyboard = fallbackStoryboard(digestText);
+    }
+    try {
+      storyboard = await refineStoryboardHeadlines(storyboard, format);
+      log(`Headlines refined by AI for ${storyboard.shots.length} shots.`);
+    } catch (err) {
+      log(`Headline refinement skipped (${err.message}); keeping original headlines.`);
     }
 
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
@@ -209,7 +228,7 @@ async function main() {
       clipPaths: syncedShotPaths,
       outputPath: finalReelPath,
       backgroundMusic: true,
-      musicSeed: Date.now(),
+      musicSeed: musicSeedFor(digestId),
       format,
       firstFrameImage: shotsWithImages[0]?.imageUrl,
       lastFrameImage: shotsWithImages[shotsWithImages.length - 1]?.imageUrl,

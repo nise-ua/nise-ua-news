@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   DETAIL_MAX,
-  HEADLINE_MAX,
   TEMPLATE_IDS,
   prepareShotCopy,
   selectTemplateId,
@@ -52,13 +51,13 @@ describe('truncateField', () => {
 });
 
 describe('prepareShotCopy', () => {
-  it('caps both fields and keeps the shot number', () => {
+  it('preserves headlines, caps detail text, and keeps the shot number', () => {
     const copy = prepareShotCopy({
       shot: 3,
       headline: 'а'.repeat(200),
       detailText: 'б'.repeat(300),
     });
-    expect(copy.headline.length).toBeLessThanOrEqual(HEADLINE_MAX);
+    expect(copy.headline).toBe('а'.repeat(200));
     expect(copy.detailText.length).toBeLessThanOrEqual(DETAIL_MAX);
     expect(copy.shotNumber).toBe(3);
     expect(validatePreparedCopy(copy).ok).toBe(true);

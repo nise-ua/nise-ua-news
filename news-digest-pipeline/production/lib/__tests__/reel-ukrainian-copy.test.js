@@ -3,6 +3,7 @@ import {
   ensureUkrainianOnScreenCopy,
   hasCyrillic,
   looksNonUkrainian,
+  normalizeHeadline,
   preserveEnglishDisplayTerms,
 } from '../reel-ukrainian-copy.js';
 
@@ -23,6 +24,13 @@ describe('hasCyrillic / looksNonUkrainian', () => {
 });
 
 describe('ensureUkrainianOnScreenCopy', () => {
+  it('removes unmistakably unfinished headline endings without hard-cutting facts', () => {
+    expect(normalizeHeadline('Google запустив нову модель,')).toBe('Google запустив нову модель');
+    expect(normalizeHeadline('Нова модель доступна для')).toBe('Нова модель доступна');
+    expect(normalizeHeadline('Google випустила нову версію своєї')).toBe('Google випустила нову версію');
+    expect(normalizeHeadline('Україна запустила AI-платформу')).toBe('Україна запустила AI-платформу');
+  });
+
   it('keeps common brands and abbreviations in English display form', () => {
     expect(preserveEnglishDisplayTerms('ШІ від Гугл та Нвідіа')).toBe(
       'AI від Google та Nvidia',

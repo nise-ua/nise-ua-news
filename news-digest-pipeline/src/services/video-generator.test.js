@@ -99,6 +99,7 @@ describe('startVideoGeneration', () => {
     expect(updateDigestMock).toHaveBeenCalledWith('digest-abc', {
       video_url: 'http://localhost:3000/videos/reel_test.mp4',
       reel_url: 'http://localhost:3000/reels/reel_test.mp4',
+      video_cost_usd: 0,
     });
   });
 

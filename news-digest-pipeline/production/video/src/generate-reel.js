@@ -29,10 +29,12 @@ import { join, basename } from 'path';
 import { config as dotenvConfig } from 'dotenv';
 import { initDb, getDb, updateDigest } from '../../../src/db/index.js';
 
-import { generateStoryboard } from './storyboard.js';
+import { generateStoryboard, refineStoryboardHeadlines } from './storyboard.js';
 import { generateShotClip } from './generate-clips.js';
 import { stitchClips, mergeShotVideoAndAudio } from './stitch.js';
+import { musicSeedFor } from './background-music.js';
 import { groundVisualVariant, buildGroundedPrompt, inferNewsToneFromFact } from '../../lib/visual-grounding.js';
+import { normalizeHeadline } from '../../lib/reel-ukrainian-copy.js';
 import { getDigestContent, parseDigestItemTexts } from '../../lib/digest.js';
 import {
   generateImage,
@@ -52,12 +54,12 @@ import OpenAI from 'openai';
 import { fal } from '@fal-ai/client';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize Google Gemini client
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || 'dummy-key-for-init');
-
 const __dirname = scriptDir(import.meta.url);
 const ROOT = projectRoot(import.meta.url);
 dotenvConfig({ path: join(ROOT, '.env'), override: true });
+
+// Initialize Google Gemini client
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || 'dummy-key-for-init');
 
 const SERVER = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 3000}`;
 const OUTPUT_DIR = join(__dirname, '..', 'output');
@@ -89,24 +91,22 @@ function firstSentence(text) {
 
 function buildFallbackTitle(text) {
   const sentence = firstSentence(text).replace(/^[-–—:]+|[-–—:]+$/g, '').trim();
-  const lower = text.toLowerCase();
-  if (lower.includes('esp32') || lower.includes('мікроконтролер')) return 'Українець запустив LLM на мікроконтролері';
-  if (lower.includes('амодеї') || lower.includes('лояль') || lower.includes('місі')) return 'Фахівці більше не тримаються за одну компанію';
-  if (lower.includes('математик')) return 'ШІ наближається до рівня професійних математиків';
-  if (lower.includes('falcon 9') || lower.includes('місяц')) return 'Стара ракета Falcon 9 вріжеться в Місяць';
-  if (lower.includes('hugging face') || lower.includes('кібербезп')) return 'Автономний AI-агент атакував Hugging Face';
   const colon = sentence.search(/\s[:—-]\s/);
   const candidate = colon > 0 ? sentence.slice(0, colon) : sentence;
-  return candidate.split(/\s+/).filter(Boolean).slice(0, 8).join(' ');
+  if (candidate && candidate.length <= 55) {
+    return normalizeHeadline(candidate);
+  }
+  const words = candidate.split(/\s+/).filter(Boolean);
+  let title = '';
+  for (const word of words) {
+    const next = title ? `${title} ${word}` : word;
+    if (next.length > 55) break;
+    title = next;
+  }
+  return normalizeHeadline(title) || normalizeHeadline(words[0]) || 'Новини';
 }
 
 function buildFallbackHook(text) {
-  const lower = text.toLowerCase();
-  if (lower.includes('esp32') || lower.includes('мікроконтролер')) return 'Український розробник запустив повноцінну LLM на чипі за десять доларів.';
-  if (lower.includes('амодеї') || lower.includes('лояль') || lower.includes('місі')) return 'Працівники приходять у компанію за грошима, а не за лояльністю.';
-  if (lower.includes('математик')) return 'ШІ вже наближається до рівня професійних математиків.';
-  if (lower.includes('falcon 9') || lower.includes('місяц')) return 'Стара ракета Falcon 9 незабаром вріжеться в Місяць.';
-  if (lower.includes('hugging face') || lower.includes('кібербезп')) return 'Hugging Face атакував автономний AI-агент без оператора.';
   return completeClause(text, 16, 110);
 }
 
@@ -229,6 +229,7 @@ function fallbackStoryboard(digestText) {
       return {
         shot: i + 1,
         coreFact,
+        sourceText: factual,
         entities: [],
         newsTone,
         visualSubject: coreFact,
@@ -277,6 +278,12 @@ async function main() {
     } catch (err) {
       log(`Storyboard AI unavailable (${err.message}); using fallback parser.`);
       storyboard = fallbackStoryboard(digestText);
+    }
+    try {
+      storyboard = await refineStoryboardHeadlines(storyboard, format);
+      log(`Headlines refined by AI for ${storyboard.shots.length} shots.`);
+    } catch (err) {
+      log(`Headline refinement skipped (${err.message}); keeping original headlines.`);
     }
 
     // Step 3: Background images. Never use a shared/older carousel fallback:
@@ -344,7 +351,7 @@ async function main() {
       clipPaths: syncedShotPaths,
       outputPath: finalReelPath,
       backgroundMusic: true,
-      musicSeed: Date.now(),
+      musicSeed: musicSeedFor(digestId),
       format,
       firstFrameImage: shotsWithImages[0]?.imageUrl,
       lastFrameImage: shotsWithImages[shotsWithImages.length - 1]?.imageUrl,

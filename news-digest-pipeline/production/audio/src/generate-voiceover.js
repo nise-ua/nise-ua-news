@@ -25,6 +25,7 @@ import {
   generatePerArticleAudio,
   getAudioDuration,
 } from '../../lib/tts.js';
+import { callLlmText } from '../../lib/llm-backends.js';
 import { log, projectRoot, scriptDir } from '../../lib/logging.js';
 
 const __dirname = scriptDir(import.meta.url);
@@ -53,19 +54,15 @@ async function prepareAudioScript(digestText, mode = 'reel') {
 Текст має бути максимально живим, захоплюючим, з короткими реченнями та чіткими акцентами.
 Поверни ТІЛЬКИ текст диктора, без приміток чи маркерів.`;
 
-    if (process.env.OPENAI_API_KEY) {
-      const res = await openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'gpt-4o',
-        messages: [{ role: 'user', content: `${prompt}\n\nДайджест:\n${digestText.slice(0, 3000)}` }]
+    try {
+      const text = await callLlmText({
+        system: prompt,
+        user: `Дайджест:\n${digestText.slice(0, 3000)}`,
+        title: 'NiSeNews audio voiceover',
       });
-      return res.choices[0].message.content.trim();
-    } else if (process.env.ANTHROPIC_API_KEY) {
-      const res = await claude.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: `${prompt}\n\nДайджест:\n${digestText.slice(0, 3000)}` }]
-      });
-      return res.content[0].text.trim();
+      return text.trim();
+    } catch (err) {
+      log(`AI script generation failed (${err.message}), using raw digest text.`);
     }
   }
 

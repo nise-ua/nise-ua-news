@@ -55,6 +55,30 @@ function ensureTerminalPunctuation(text) {
   return /[.!?…]$/.test(s) ? s : `${s}.`;
 }
 
+const DANGLING_HEADLINE_WORDS = new Set([
+  'і', 'й', 'та', 'але', 'або', 'що', 'який', 'яка', 'яке', 'які',
+  'для', 'про', 'у', 'в', 'на', 'з', 'із', 'до', 'як', 'це', 'від',
+  'свій', 'своя', 'своє', 'свої', 'свого', 'своєї', 'свою', 'своєю',
+  'його', 'її', 'їх', 'їхній', 'їхня', 'їхнє', 'їхні',
+  'цей', 'ця', 'це', 'ці', 'цього', 'цієї', 'цих',
+  'той', 'та', 'те', 'ті', 'того', 'тієї', 'тих',
+]);
+
+/**
+ * Keep a generated headline as a complete standalone phrase.
+ * This is intentionally conservative: it only removes an unmistakably
+ * unfinished ending and never hard-cuts the middle of the fact.
+ */
+export function normalizeHeadline(text) {
+  let result = preserveEnglishDisplayTerms(String(text || '').replace(/\s+/g, ' ').trim());
+  result = result.replace(/[,:;—–-]+\s*$/, '').trim();
+  const words = result.split(/\s+/);
+  while (words.length > 1 && DANGLING_HEADLINE_WORDS.has(words.at(-1).toLowerCase().replace(/[.!?]$/, ''))) {
+    words.pop();
+  }
+  return words.join(' ').trim();
+}
+
 /**
  * Prefer a Ukrainian detail line. If detailText is English/empty, fall back to
  * spokenText (Ukrainian voice line), then clear rather than show English.
@@ -63,7 +87,7 @@ function ensureTerminalPunctuation(text) {
  * @returns {object}
  */
 export function ensureUkrainianOnScreenCopy(shot = {}) {
-  const headline = preserveEnglishDisplayTerms(shot.headline).trim();
+  const headline = normalizeHeadline(shot.headline);
   let detailText = String(shot.detailText || '').trim();
   let spokenText = String(shot.spokenText || '').trim();
   detailText = preserveEnglishDisplayTerms(detailText);

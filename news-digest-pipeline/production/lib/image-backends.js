@@ -3,6 +3,13 @@
  * Callers keep orchestration (loops, delays); this module owns vendor adapters.
  */
 
+import { join } from 'path';
+import { config as dotenvConfig } from 'dotenv';
+import { projectRoot } from './logging.js';
+
+const ROOT = projectRoot(import.meta.url, 2);
+dotenvConfig({ path: join(ROOT, '.env'), override: false });
+
 const DEFAULT_OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 const PORTRAIT_NOTE = 'Portrait 9:16 composition, native vertical image.';
 
@@ -139,8 +146,9 @@ export async function generateGoogleImage(prompt, {
 } = {}) {
   if (!apiKey) throw new Error('GOOGLE_API_KEY missing in .env');
 
+  const cleanModel = model ? String(model).replace(/^google\//i, '') : '';
   const modelsToTry = [
-    model,
+    cleanModel,
     'gemini-2.5-flash-image',
     'gemini-2.0-flash-preview-image-generation',
   ].filter((m, i, arr) => m && arr.indexOf(m) === i);

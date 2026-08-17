@@ -17,9 +17,10 @@
       padding: 24px;
       min-height: 100vh;
       font-size: 15px;
+      overflow-x: hidden;
     }
 
-    .container { max-width: 1060px; margin: 0 auto; }
+    .container { width: 100%; max-width: 1060px; margin: 0 auto; }
 
     /* Header */
     .header {
@@ -76,9 +77,16 @@
     /* Table */
     table {
       width: 100%;
+      max-width: 100%;
+      table-layout: fixed;
       border-collapse: separate;
       border-spacing: 0 6px;
     }
+    th:first-child, td:first-child { width: 46%; }
+    th:nth-child(2), td:nth-child(2) { width: 16%; }
+    th:nth-child(3), td:nth-child(3) { width: 14%; }
+    th:nth-child(4), td:nth-child(4) { width: 17%; }
+    th:last-child, td:last-child { width: 7%; }
     thead th {
       text-align: left;
       padding: 8px 16px;
@@ -95,6 +103,7 @@
     td {
       padding: 12px 16px;
       font-size: 14px;
+      overflow-wrap: anywhere;
       border-top: 1px solid #e8e4df;
       border-bottom: 1px solid #e8e4df;
     }
@@ -103,7 +112,13 @@
 
     .article-title { font-weight: 600; color: #2d2a26; text-decoration: none; }
     .article-title:hover { color: #7c3aed; }
-    .article-url { color: #8a8580; font-size: 12px; display: block; margin-top: 2px; }
+    .article-url {
+      color: #8a8580;
+      font-size: 12px;
+      display: block;
+      margin-top: 2px;
+      overflow-wrap: anywhere;
+    }
     .status-badge {
       font-size: 11px;
       font-weight: 600;
@@ -142,6 +157,26 @@
       color: #0284c7;
       border-color: rgba(3,105,161,0.3);
       background: rgba(3,105,161,0.08);
+    }
+
+    @media (max-width: 700px) {
+      body { padding: 16px 10px; }
+      .header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .header-right { flex-wrap: wrap; }
+      h1 { font-size: 26px; }
+      thead th, td { padding-left: 8px; padding-right: 8px; }
+      thead th { font-size: 10px; letter-spacing: 0.4px; }
+      td { font-size: 12px; }
+      .article-url { font-size: 10px; }
+      th:first-child, td:first-child { width: 40%; }
+      th:nth-child(2), td:nth-child(2) { width: 15%; }
+      th:nth-child(3), td:nth-child(3) { width: 17%; }
+      th:nth-child(4), td:nth-child(4) { width: 19%; }
+      th:last-child, td:last-child { width: 9%; }
     }
   </style>
 </head>

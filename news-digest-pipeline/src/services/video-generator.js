@@ -181,7 +181,10 @@ export function startVideoGeneration(digestId, { format = 'facebook' } = {}) {
     const baseUrl = process.env.BASE_URL || 'https://your-public-domain.com';
     const videoUrl = `${baseUrl}/videos/${encodeURIComponent(fileName)}`;
     const reelUrl = `${baseUrl}/reels/${encodeURIComponent(fileName)}`;
-    updateDigest(digestId, { video_url: videoUrl, reel_url: reelUrl });
+    // The current pipeline assembles the video locally (FFmpeg + free edge-tts).
+    // Keep a separate field so the dashboard can distinguish video costs from
+    // the LLM cost stored in cost_usd.
+    updateDigest(digestId, { video_url: videoUrl, reel_url: reelUrl, video_cost_usd: 0 });
     updateJob(job, { status: 'completed', stage: 'completed', progress: 100, message: 'Відео готове', videoUrl });
     scheduleJobCleanup(job.id);
   });
@@ -230,7 +233,7 @@ export async function generateVideoForDigest(digestId, { format = 'facebook' } =
       const baseUrl = process.env.BASE_URL || 'https://your-public-domain.com';
       const videoUrl = `${baseUrl}/videos/${encodeURIComponent(fileName)}`;
       const reelUrl = `${baseUrl}/reels/${encodeURIComponent(fileName)}`;
-      updateDigest(digestId, { video_url: videoUrl, reel_url: reelUrl });
+      updateDigest(digestId, { video_url: videoUrl, reel_url: reelUrl, video_cost_usd: 0 });
       resolve(videoUrl);
     });
   });

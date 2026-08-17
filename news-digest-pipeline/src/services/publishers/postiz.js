@@ -37,11 +37,17 @@ export function createPostizClient({ apiUrl, apiKey, fetchImpl = globalThis.fetc
       });
       return readJson(response);
     },
-    async createPost(posts) {
+    async createPost(posts, { date = new Date().toISOString(), shortLink = false, tags = [] } = {}) {
       const response = await fetchImpl(`${apiBase(apiUrl)}/posts`, {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'now', posts }),
+        body: JSON.stringify({
+          type: 'now',
+          date,
+          shortLink,
+          tags,
+          posts,
+        }),
       });
       return readJson(response);
     },
@@ -82,12 +88,12 @@ export function normalizeAnalytics(body) {
   }));
 }
 
-function mediaValue(content, mediaUrl, mediaKind) {
-  const value = { content: content || '' };
-  if (mediaUrl) {
-    value[mediaKind === 'image' ? 'image' : 'video'] = [{ url: mediaUrl }];
-  }
-  return value;
+function mediaValue(content, mediaUpload) {
+  const mediaObj = mediaUpload ? [{ id: String(mediaUpload.id || ''), path: String(mediaUpload.path || mediaUpload.url || '') }] : [];
+  return {
+    content: content || '',
+    image: mediaObj,
+  };
 }
 
 function providerSettings(platform, kind) {
@@ -126,19 +132,19 @@ export async function publishPostizDigest(digest, config, kind, {
   const videoUrl = digestVideoUrl(digest);
   if (kind !== 'text' && !videoUrl) throw new Error(`No digest video for ${kind}`);
 
-  let mediaUrl = null;
+  let mediaUpload = null;
   if (kind !== 'text') {
     const buffer = kind === 'story'
       ? await trimStory(videoUrl)
       : (await loadVideoBuffer(videoUrl)).buffer;
-    mediaUrl = uploadUrl(await client.upload(buffer, `${digest.id}-${kind}.mp4`));
-    if (!mediaUrl) throw new Error('Postiz upload did not return a media URL');
+    mediaUpload = await client.upload(buffer, `${digest.id}-${kind}.mp4`);
+    if (!uploadUrl(mediaUpload)) throw new Error('Postiz upload did not return a media URL');
   }
 
   const posts = selected.map((integration) => ({
     integration: { id: String(integration.id) },
-    value: [mediaValue(captionFor(digest, kind, config), mediaUrl, 'video')],
-    settings: providerSettings(integration.platform, kind),
+    value: [mediaValue(captionFor(digest, kind, config), mediaUpload)],
+    settings: providerSettings(integration.platform || integration.identifier, kind),
   }));
   const response = await client.createPost(posts);
   const results = selected.map((integration, index) => {
@@ -148,7 +154,7 @@ export async function publishPostizDigest(digest, config, kind, {
       integrationId: String(integration.id),
       postId: postIdOf(result),
       releaseURL: releaseUrlOf(result),
-      platform: integration.platform,
+      platform: integration.platform || integration.identifier,
     };
   });
   return { kind, posts: results, response };

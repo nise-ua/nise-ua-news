@@ -28,6 +28,7 @@ import {
   safeLogUrl,
   sleep,
 } from '../../lib/image-backends.js';
+import { callLlmJson } from '../../lib/llm-backends.js';
 import { log, projectRoot, scriptDir } from '../../lib/logging.js';
 
 const __dirname = scriptDir(import.meta.url);
@@ -101,70 +102,11 @@ ${VISUAL_GROUNDING_RULES}
     : digestText.slice(0, 4000);
   const userPrompt = `Опрацюй КОЖЕН блок окремо. Ігноруй авторський сарказм; візуал = факт новини.\n\n${articleBlocks}`;
 
-  let text;
-  if (vendor === 'openai') {
-    if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY missing in .env');
-    const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4o',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      response_format: { type: 'json_object' }
-    });
-    text = response.choices[0].message.content;
-  } else if (vendor === 'openrouter') {
-    if (!process.env.OPENROUTER_API_KEY) throw new Error('OPENROUTER_API_KEY missing in .env');
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    const baseUrl = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        ...(process.env.BASE_URL ? { 'HTTP-Referer': process.env.BASE_URL } : {}),
-        'X-Title': 'NiSeNews image pipeline',
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        response_format: { type: 'json_object' }
-      }),
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload?.error?.message || `OpenRouter chat request failed (${response.status})`);
-    text = payload?.choices?.[0]?.message?.content;
-    if (!text) throw new Error('OpenRouter response did not contain text content');
-  } else if (vendor === 'google') {
-    if (!process.env.GOOGLE_API_KEY) throw new Error('GOOGLE_API_KEY missing in .env');
-    const textModel = (process.env.GOOGLE_MODEL && !process.env.GOOGLE_MODEL.includes('image'))
-      ? process.env.GOOGLE_MODEL
-      : 'gemini-2.5-flash';
-    const model = genAI.getGenerativeModel({ 
-      model: textModel,
-      generationConfig: { responseMimeType: "application/json" }
-    });
-    const response = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
-    text = response.response.text();
-  } else {
-    if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY missing in .env');
-    const response = await claude.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 3000,
-      messages: [{
-        role: 'user',
-        content: `${systemPrompt}\n\n${userPrompt}`,
-      }],
-    });
-    text = response.content[0].text;
-  }
-  // Extract JSON from response
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('Failed to parse AI response as JSON');
-  const result = JSON.parse(jsonMatch[0]);
+  const result = await callLlmJson({
+    system: systemPrompt,
+    user: userPrompt,
+    title: 'NiSeNews image pipeline',
+  }, 'headlines and prompts');
   
   // Merge URLs from parsed articles if AI didn't include them, then ground prompts
   if (result.variants && articles.length > 0) {

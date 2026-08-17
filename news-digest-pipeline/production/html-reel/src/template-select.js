@@ -1,15 +1,16 @@
+import { normalizeHeadline } from '../../lib/reel-ukrainian-copy.js';
+
 /**
  * Template selection + copy preparation for the HTML-template reel path.
  *
  * Pure helpers: no filesystem, no browser, no side effects. The renderer picks
  * a template per shot index and feeds it validated, length-capped copy so the
- * fixed 1080x1920 layout never overflows its safe zone.
+ * fixed 1080x1920 layout never overflows its safe zone. Detail copy is capped,
+ * but headlines are preserved because cutting a headline changes the fact.
  */
 
 export const TEMPLATE_IDS = ['editorial-dark', 'editorial-light', 'accent-number'];
 
-/** Max characters for the headline line block. */
-export const HEADLINE_MAX = 70;
 /** Max characters for the detail sentence. */
 export const DETAIL_MAX = 120;
 
@@ -40,7 +41,9 @@ export function truncateField(text, max) {
  * @returns {{ headline: string, detailText: string, shotNumber: number }}
  */
 export function prepareShotCopy(shot = {}) {
-  const headline = truncateField(shot.headline, HEADLINE_MAX) || DEFAULT_HEADLINE;
+  // Never silently cut a headline. The renderer wraps it and uses a slightly
+  // smaller headline size, while truncation can remove the end of the fact.
+  const headline = normalizeHeadline(shot.headline) || DEFAULT_HEADLINE;
   const detailText = truncateField(shot.detailText, DETAIL_MAX);
   const rawNumber = Number(shot.shot);
   const shotNumber = Number.isFinite(rawNumber) && rawNumber > 0 ? Math.floor(rawNumber) : 1;
@@ -55,8 +58,6 @@ export function validatePreparedCopy({ headline, detailText } = {}) {
   const errors = [];
   if (typeof headline !== 'string' || headline.trim().length === 0) {
     errors.push('headline is empty');
-  } else if (headline.length > HEADLINE_MAX) {
-    errors.push(`headline exceeds ${HEADLINE_MAX} chars`);
   }
   if (typeof detailText !== 'string') {
     errors.push('detailText must be a string');

@@ -101,7 +101,7 @@ function sanitizeDetailText(text) {
   return s;
 }
 
-function wrapText(text, maxChars = 40, maxLines = 3) {
+function wrapText(text, maxChars = 40, maxLines = Infinity) {
   const words = String(text || '').split(/\s+/).filter(Boolean);
   const lines = [];
   let current = '';
@@ -114,7 +114,9 @@ function wrapText(text, maxChars = 40, maxLines = 3) {
     }
   }
   if (current) lines.push(current.trim());
-  return lines.slice(0, maxLines);
+  // Never discard words from editorial copy. A hard line-count cap made the
+  // end of longer headlines disappear from the rendered reel.
+  return Number.isFinite(maxLines) ? lines.slice(0, maxLines) : lines;
 }
 
 async function fetchImageBuffer(urlOrDataUri) {
@@ -149,12 +151,14 @@ function createReelsOverlay(headline, detailText = '', textPosition = 'lower', w
   const colors = getOverlayThemeColors(safeTextPosition === 'upper' ? 'light' : overlayTheme);
 
   const hx = margin;
-  const lines = wrapText(headline, 24, 4);
+  const lines = wrapText(headline, 24);
   const cleanDetail = sanitizeDetailText(detailText);
   const detailLines = wrapText(cleanDetail, 40, 3);
 
-  const headlineFontSize = 56;
-  const headlineLineHeight = 70;
+  // Long Ukrainian words can require five or more lines. Reduce the type
+  // slightly in that case instead of truncating the headline.
+  const headlineFontSize = lines.length > 4 ? 48 : 56;
+  const headlineLineHeight = lines.length > 4 ? 60 : 70;
   const detailFontSize = 36;
   const detailLineHeight = 46;
   const detailFontWeight = colors.detailFontWeight || 800;
