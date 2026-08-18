@@ -31,10 +31,21 @@ export function resolveImageVendor(env = process.env) {
   return env.OPENAI_API_KEY ? 'dalle' : 'fal';
 }
 
+export function isHardImageQuotaError(status, message) {
+  const text = String(message || '').toLowerCase();
+  if (status === 402) return true;
+  if (/spend(?:ing)? cap|insufficient credits|no credits remaining|resource_exhausted/.test(text)) {
+    return true;
+  }
+  return status === 429 && /spend(?:ing)? cap|credits|billing|quota/.test(text);
+}
+
 export function isRetryableImageError(error) {
-  const message = String(error?.message || error).toLowerCase();
+  const message = String(error?.message || error);
+  if (isHardImageQuotaError(error?.status, message)) return false;
+  const lower = message.toLowerCase();
   return error?.status === 429
-    || /429|rate limit|too many requests|temporarily unavailable|try again later/.test(message);
+    || /429|rate limit|too many requests|temporarily unavailable|try again later/.test(lower);
 }
 
 export function openRouterImageRequestBody(prompt, model, aspect = '4:5') {
@@ -135,6 +146,7 @@ export async function generateGoogleImage(prompt, {
   fetchFn = globalThis.fetch,
   genAI = null,
   openRouterFallback = null,
+  openaiFallback = null,
   log = defaultLog,
 } = {}) {
   if (!apiKey) throw new Error('GOOGLE_API_KEY missing in .env');
@@ -145,7 +157,11 @@ export async function generateGoogleImage(prompt, {
     'gemini-2.0-flash-preview-image-generation',
   ].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
+  let lastError = null;
+  let skipGoogleNetwork = false;
+
   for (const modelName of modelsToTry) {
+    if (skipGoogleNetwork) break;
     try {
       const res = await fetchFn(
         `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
@@ -167,18 +183,23 @@ export async function generateGoogleImage(prompt, {
             return `data:${mime};base64,${part.inlineData.data}`;
           }
         }
-        log(`  Google ${modelName}: response OK but no image part`);
+        lastError = `Google ${modelName}: response OK but no image part`;
+        log(`  ${lastError}`);
       } else {
         const errText = await res.text();
-        log(`  Google ${modelName} returned ${res.status}: ${errText.slice(0, 150)}`);
+        lastError = `Google ${modelName} ${res.status}: ${errText.slice(0, 180)}`;
+        log(`  ${lastError}`);
+        if (isHardImageQuotaError(res.status, errText)) skipGoogleNetwork = true;
       }
     } catch (err) {
-      log(`  Google ${modelName} fetch error: ${err.message}`);
+      lastError = `Google ${modelName} fetch error: ${err.message}`;
+      log(`  ${lastError}`);
     }
   }
 
   const imagenModels = ['imagen-3.0-generate-002', 'imagen-3.0-fast-generate-001'];
   for (const modelName of imagenModels) {
+    if (skipGoogleNetwork) break;
     try {
       const res = await fetchFn(
         `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:predict?key=${apiKey}`,
@@ -195,16 +216,20 @@ export async function generateGoogleImage(prompt, {
         const data = await res.json();
         const b64 = data?.predictions?.[0]?.bytesBase64Encoded;
         if (b64) return `data:image/png;base64,${b64}`;
+        lastError = `Google Imagen ${modelName}: OK but no image bytes`;
       } else {
         const errText = await res.text();
-        log(`  Google Imagen ${modelName} returned ${res.status}: ${errText.slice(0, 120)}`);
+        lastError = `Google Imagen ${modelName} ${res.status}: ${errText.slice(0, 120)}`;
+        log(`  ${lastError}`);
+        if (isHardImageQuotaError(res.status, errText)) skipGoogleNetwork = true;
       }
     } catch (err) {
-      log(`  Google Imagen ${modelName} error: ${err.message}`);
+      lastError = `Google Imagen ${modelName} error: ${err.message}`;
+      log(`  ${lastError}`);
     }
   }
 
-  if (genAI) {
+  if (genAI && !skipGoogleNetwork) {
     try {
       const sdkModel = genAI.getGenerativeModel({ model: modelsToTry[0] });
       const result = await sdkModel.generateContent(prompt);
@@ -220,17 +245,34 @@ export async function generateGoogleImage(prompt, {
         }
       }
     } catch (err) {
-      log(`  Gemini SDK generateContent error: ${err.message}`);
+      lastError = `Gemini SDK generateContent error: ${err.message}`;
+      log(`  ${lastError}`);
     }
   }
 
   if (typeof openRouterFallback === 'function') {
     log('  Fallback: generating Google image via OpenRouter...');
-    const url = await openRouterFallback(prompt);
-    if (url) return url;
+    try {
+      const url = await openRouterFallback(prompt);
+      if (url) return url;
+    } catch (err) {
+      lastError = `OpenRouter fallback: ${err.message}`;
+      log(`  ${lastError}`);
+    }
   }
 
-  throw new Error('Failed to obtain image from Google Gemini/Imagen');
+  if (typeof openaiFallback === 'function') {
+    log('  Fallback: generating Google image via OpenAI...');
+    try {
+      const url = await openaiFallback(prompt);
+      if (url) return url;
+    } catch (err) {
+      lastError = `OpenAI fallback: ${err.message}`;
+      log(`  ${lastError}`);
+    }
+  }
+
+  throw new Error(lastError || 'Failed to obtain image from Google Gemini/Imagen');
 }
 
 export async function generateOpenAIImage(prompt, {
@@ -297,6 +339,7 @@ export async function generateImage(prompt, {
   referer,
   title,
   openRouterFallback,
+  openaiFallback,
   log = defaultLog,
 } = {}) {
   const resolvedVendor = (vendor || resolveImageVendor()).trim().toLowerCase();
@@ -329,6 +372,7 @@ export async function generateImage(prompt, {
       fetchFn,
       genAI,
       openRouterFallback,
+      openaiFallback,
       log,
     });
   }

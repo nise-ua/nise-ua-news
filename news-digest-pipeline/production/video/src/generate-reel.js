@@ -149,6 +149,18 @@ async function generateBackgroundImagesForShots(shots) {
         { log, label: `Image google-fallback` },
       )
       : null,
+    openaiFallback: process.env.OPENAI_API_KEY
+      ? (prompt) => generateImageWithRetry(
+        () => generateImage(prompt, {
+          vendor: 'openai',
+          aspect: '9:16',
+          openai,
+          model: 'gpt-image-1',
+          log,
+        }),
+        { log, label: 'Image openai-fallback' },
+      )
+      : null,
   };
 
   for (let i = 0; i < shots.length; i += 1) {
@@ -189,9 +201,12 @@ async function generateBackgroundImagesForShots(shots) {
   if (failures.length > 0) {
     log(`Image provider failures: ${failures.slice(0, 3).join(' | ')}${failures.length > 3 ? ' | ...' : ''}`);
   }
-  // A partial set is unsafe: it would shift audio/article indexes and produce
-  // a reel that does not represent the selected digest completely.
-  return ok.length === shots.length ? ok : [];
+  if (ok.length !== shots.length) {
+    throw new Error(
+      `No fresh background images were generated (${ok.length}/${shots.length}). ${failures[0] || 'Check IMAGE_VENDOR key/quota.'}`,
+    );
+  }
+  return ok;
 }
 
 async function saveGeneratedImage(imageUrl, filepath) {
@@ -286,8 +301,7 @@ async function main() {
     try {
       shotsWithImages = await generateBackgroundImagesForShots(storyboard.shots);
     } catch (err) {
-      log(`Background AI unavailable (${err.message}); no fallback images will be used.`);
-      shotsWithImages = [];
+      throw new Error(`${err.message} Older or synthetic fallback images are not allowed.`);
     }
 
     if (!shotsWithImages || shotsWithImages.length === 0) {
