@@ -4,6 +4,7 @@ import {
   isBrowserComposerPost,
   messagesMatch,
   pickLatestMatchingBrowserPost,
+  pickLatestMatchingFeedPost,
   resolveLatestBrowserPost,
 } from './facebook-page-match.js';
 
@@ -61,6 +62,21 @@ describe('facebook-page-match', () => {
     ], { content, pageId, now });
 
     expect(match?.id).toBe('manual');
+  });
+
+  it('picks a Postiz/Graph app post by matching message', () => {
+    const now = Date.parse('2026-08-12T02:30:00.000Z');
+    const match = pickLatestMatchingFeedPost([
+      {
+        id: 'app-post',
+        created_time: '2026-08-12T02:29:00+0000',
+        from: { id: pageId },
+        application: { name: 'Postiz' },
+        permalink_url: 'https://www.facebook.com/page/posts/99',
+        message: content,
+      },
+    ], { content, pageId, now });
+    expect(match?.permalink_url).toContain('/posts/99');
   });
 
   it('does not match unrelated text', () => {

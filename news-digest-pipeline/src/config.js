@@ -42,11 +42,22 @@ function readFileOrWarn(filePath, label) {
 }
 
 export const REEL_FRAME_MODES = ['ai', 'html'];
+export const PUBLISH_BACKENDS = ['legacy', 'postiz'];
 
 /** Normalize REEL_FRAME_MODE to 'ai' | 'html' (default ai). */
 export function normalizeReelFrameMode(value) {
   const mode = String(value || 'ai').trim().toLowerCase();
   return REEL_FRAME_MODES.includes(mode) ? mode : 'ai';
+}
+
+export function normalizePublishBackend(value) {
+  const backend = String(value || 'legacy').trim().toLowerCase();
+  return PUBLISH_BACKENDS.includes(backend) ? backend : 'legacy';
+}
+
+export function parsePostizChannelIds(value) {
+  if (Array.isArray(value)) return value.map(String).map((id) => id.trim()).filter(Boolean);
+  return String(value || '').split(',').map((id) => id.trim()).filter(Boolean);
 }
 
 export function parseConfigMd(text) {
@@ -162,6 +173,11 @@ function buildConfig() {
     // Reel frame pipeline: 'ai' = generate-reel.js (SVG overlay),
     // 'html' = generate-reel-html.js (HTML hybrid templates).
     reelFrameMode: normalizeReelFrameMode(process.env.REEL_FRAME_MODE),
+
+    publishBackend: normalizePublishBackend(process.env.PUBLISH_BACKEND),
+    postizApiUrl: process.env.POSTIZ_API_URL || 'http://localhost:4007',
+    postizApiKey: process.env.POSTIZ_API_KEY || '',
+    postizChannelIds: parsePostizChannelIds(process.env.POSTIZ_CHANNEL_IDS),
 
     // Planned integrations (placeholders for status display only — pipelines
     // are not implemented yet).

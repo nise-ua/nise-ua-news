@@ -22,6 +22,10 @@ When delegating to a subagent:
 
 Goal: maximum parallelism and minimal user waiting time.
 
+### Dashboard UI
+
+All pages in `news-digest-pipeline/src/public/` must fit the screen width. No horizontal page overflow: constrain the viewport, wrap long URLs and titles, and keep tables/toolbars inside the screen.
+
 ### Reel / Image Generation Instructions
 
 When working on reel or image generation, read

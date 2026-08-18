@@ -1,4 +1,4 @@
-import { publishToFacebook } from './facebook.js';
+import { firstFacebookRelease, publishPostizDigest } from './postiz.js';
 import { publishImageToFacebook } from './facebook-image.js';
 import { publishVideoToFacebook } from './facebook-video.js';
 import { publishReelToFacebook } from './facebook-reel.js';
@@ -46,27 +46,19 @@ export async function publishDigest(digest, config, platforms) {
 
   const videoCaption = formatCaption(digest.content);
 
-  // Facebook text: Page composer (Patchright), not Graph /feed.
-  if (shouldPublish('facebook') && config.facebookPageId) {
-    results.facebook = await publishToFacebook(
-      config.facebookPageAccessToken,
-      config.facebookPageId,
-      digest.content,
-      {
-        pageName: config.facebookPageName,
-        profileDir: config.facebookBrowserProfileDir,
-        timezoneId: config.facebookBrowserTimezone,
-      },
-    );
-    if (results.facebook?.postId) {
-      updateFields.facebook_post_id = results.facebook.postId;
-      // visibility is attached by publishToFacebook; surface a soft warning only
-      if (results.facebook.visibility && results.facebook.visibility.ok === false) {
-        console.warn(
-          '[publish] Facebook post may be invisible to other users:',
-          results.facebook.visibility.reasons?.join('; ') || results.facebook.visibility.error,
-        );
+  // Facebook text: Postiz (not Patchright / Graph /feed).
+  if (shouldPublish('facebook')) {
+    try {
+      const published = await publishPostizDigest(digest, config, 'text');
+      const postId = firstFacebookRelease(published.posts);
+      if (!postId) {
+        results.facebook = { error: '[facebook] Postiz returned no Facebook URL', via: 'postiz', posts: published.posts };
+      } else {
+        results.facebook = { postId, via: 'postiz', posts: published.posts };
+        updateFields.facebook_post_id = postId;
       }
+    } catch (err) {
+      results.facebook = { error: `[facebook] ${err.message}`, via: 'postiz' };
     }
   }
 

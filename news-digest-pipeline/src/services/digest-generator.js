@@ -16,27 +16,70 @@ import { priceFor } from '../data/model-catalog.js';
 import { DEFAULT_OPENING_HASHTAG, normalizeDigestFormat } from './digest-format.js';
 
 const MAX_CONTENT_LENGTH = 3000;
-const RETRY_ATTEMPTS = 3;
-const INTER_CALL_DELAY_MS = 200;
+const RETRY_ATTEMPTS = 8;
+const INTER_CALL_DELAY_MS = 1000;
 // Per-call timeout so a hung LLM request cannot leave articles stuck in
 // 'processing' forever. Each SDK call gets its own AbortSignal timeout.
-const MODEL_CALL_TIMEOUT_MS = 120000; // 2 minutes
+const MODEL_CALL_TIMEOUT_MS = 120000; // 2 minutes — per-article commentary
+const ASSEMBLY_CALL_TIMEOUT_MS = 360000; // 6 minutes — full digest assembly
+const ABORT_SLOT_RELEASE_MS = 3000;
+
+// Some vendors (Kimi/Moonshot, some OpenAI orgs) allow only one in-flight
+// completion per organization. Queue all digest LLM calls in-process.
+let llmQueue = Promise.resolve();
+
+function withLlmLock(fn) {
+  const run = llmQueue.then(fn, fn);
+  llmQueue = run.then(() => undefined, () => undefined);
+  return run;
+}
+
+function isAbortError(err) {
+  const name = err?.name || '';
+  const msg = String(err?.message || '');
+  return name === 'APIUserAbortError'
+    || name === 'AbortError'
+    || /aborted|timeout/i.test(msg);
+}
+
+function timeoutError(timeoutMs, err) {
+  const wrapped = new Error(`LLM call timed out after ${timeoutMs}ms`);
+  wrapped.cause = err;
+  wrapped.status = err?.status;
+  return wrapped;
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function retryAfterMs(err, attempt) {
+  const headers = err?.headers;
+  const headerVal = headers && typeof headers.get === 'function'
+    ? headers.get('retry-after')
+    : headers?.['retry-after'] || headers?.['Retry-After'];
+  const headerSec = headerVal != null ? Number(headerVal) : NaN;
+  const msgMatch = String(err?.message || '').match(/after\s+(\d+)\s+seconds?/i);
+  const msgSec = msgMatch ? Number(msgMatch[1]) : NaN;
+  const vendorMs = Number.isFinite(headerSec)
+    ? headerSec * 1000
+    : Number.isFinite(msgSec)
+      ? msgSec * 1000
+      : 0;
+  return Math.max(vendorMs, Math.pow(2, attempt) * 1000, 1000);
+}
+
 /**
- * Run a single model call (already vendor-specific) with exponential-backoff
- * retry on 429. `fn` returns the raw vendor response.
+ * Retry 429 only. Do not retry client aborts: the vendor still counts the
+ * aborted request against org concurrency=1, so a second call 429s immediately.
  */
 async function withRetry(fn, attempt = 1) {
   try {
     return await fn();
   } catch (err) {
     if (err?.status === 429 && attempt < RETRY_ATTEMPTS) {
-      const delay = Math.pow(2, attempt) * 1000;
-      console.warn(`[digest-generator] Rate limited, retrying in ${delay}ms (attempt ${attempt}/${RETRY_ATTEMPTS})`);
+      const delay = retryAfterMs(err, attempt);
+      console.warn(`[digest-generator] Rate limited (concurrency), retrying in ${delay}ms (attempt ${attempt}/${RETRY_ATTEMPTS})`);
       await sleep(delay);
       return withRetry(fn, attempt + 1);
     }
@@ -52,10 +95,11 @@ async function withRetry(fn, attempt = 1) {
  * @param {{system:string, user:string, maxTokens:number}} opts
  * @returns {Promise<{text:string, inputTokens:number, outputTokens:number}>}
  */
-async function callModel(config, { system, user, maxTokens }, phaseName = 'model') {
+async function callModel(config, { system, user, maxTokens, timeoutMs }, phaseName = 'model') {
   const vendor = config.llmVendor || 'anthropic';
+  const callTimeoutMs = timeoutMs || MODEL_CALL_TIMEOUT_MS;
   const callStart = Date.now();
-  console.log(`[digest-generator] ${phaseName}: LLM call started at ${new Date().toISOString()} (vendor=${vendor}, model=${config.claudeModel})`);
+  console.log(`[digest-generator] ${phaseName}: LLM call started at ${new Date().toISOString()} (vendor=${vendor}, model=${config.claudeModel}, timeout=${callTimeoutMs}ms)`);
 
   // OpenAI-compatible callers: OpenAI (native), OpenRouter (OpenAI-compatible
   // API with DeepSeek & other routed models), and Moonshot (Kimi). The `openai`
@@ -101,13 +145,20 @@ async function callModel(config, { system, user, maxTokens }, phaseName = 'model
       } else {
         completionParams.max_completion_tokens = maxTokens;
       }
-      resp = await withRetry(() => client.chat.completions.create(
-        completionParams,
-        { signal: AbortSignal.timeout(MODEL_CALL_TIMEOUT_MS) }
-      ));
+      resp = await withLlmLock(async () => {
+        try {
+          return await withRetry(() => client.chat.completions.create(
+            completionParams,
+            { signal: AbortSignal.timeout(callTimeoutMs) }
+          ));
+        } catch (err) {
+          if (isAbortError(err)) await sleep(ABORT_SLOT_RELEASE_MS);
+          throw err;
+        }
+      });
     } catch (err) {
       console.error(`[digest-generator] ${phaseName}: LLM call FAILED after ${Date.now() - callStart}ms: ${err.message}`);
-      throw err;
+      throw isAbortError(err) ? timeoutError(callTimeoutMs, err) : err;
     }
     console.log(`[digest-generator] ${phaseName}: LLM call OK in ${Date.now() - callStart}ms`);
     return {
@@ -124,15 +175,22 @@ async function callModel(config, { system, user, maxTokens }, phaseName = 'model
   });
   let resp;
   try {
-    resp = await withRetry(() => client.messages.create({
-      model: config.claudeModel,
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: 'user', content: user }],
-    }, { signal: AbortSignal.timeout(MODEL_CALL_TIMEOUT_MS) }));
+    resp = await withLlmLock(async () => {
+      try {
+        return await withRetry(() => client.messages.create({
+          model: config.claudeModel,
+          max_tokens: maxTokens,
+          system,
+          messages: [{ role: 'user', content: user }],
+        }, { signal: AbortSignal.timeout(callTimeoutMs) }));
+      } catch (err) {
+        if (isAbortError(err)) await sleep(ABORT_SLOT_RELEASE_MS);
+        throw err;
+      }
+    });
   } catch (err) {
     console.error(`[digest-generator] ${phaseName}: LLM call FAILED after ${Date.now() - callStart}ms: ${err.message}`);
-    throw err;
+    throw isAbortError(err) ? timeoutError(callTimeoutMs, err) : err;
   }
   console.log(`[digest-generator] ${phaseName}: LLM call OK in ${Date.now() - callStart}ms`);
   return {
@@ -255,6 +313,7 @@ export async function generateDigest(db, articles, config) {
       system: config.assemblyPrompt,
       user: assemblyUserMessage,
       maxTokens: 16384,
+      timeoutMs: ASSEMBLY_CALL_TIMEOUT_MS,
     }, 'assembly');
   } catch (err) {
     // Phase B (assembly) failed AFTER Phase A marked the articles as
