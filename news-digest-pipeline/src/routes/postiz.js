@@ -3,7 +3,9 @@ import config from '../config.js';
 import { getDigest, updateDigest } from '../db/index.js';
 import {
   createPostizClient,
+  aggregatePostizAnalytics,
   firstFacebookRelease,
+  mergePostizPosts,
   normalizeAnalytics,
   postizPostsForDigest,
   publishPostizDigest,
@@ -66,7 +68,11 @@ router.post('/digests/:id/publish', async (req, res) => {
         return resolved?.permalinkUrl || '';
       },
     });
-    const update = { status: 'published', published_at: new Date().toISOString() };
+    const update = {
+      status: 'published',
+      published_at: new Date().toISOString(),
+      postiz_posts: JSON.stringify(mergePostizPosts(digest, kind, result.posts)),
+    };
     const release = firstFacebookRelease(result.posts);
     if (release && kind === 'text') update.facebook_post_id = release;
     if (release && kind === 'reel') update.facebook_reel_id = release;
@@ -117,7 +123,8 @@ router.get('/digests/:id/stats', async (req, res) => {
       }
       channels.push({ integrationId: post.integrationId, kind: post.kind, postId: post.postId, releaseURL: post.releaseURL, ...metrics });
     }
-    res.json({ digestId: digest.id, days, channels });
+    const series = aggregatePostizAnalytics(channels, ['text', 'story']);
+    res.json({ digestId: digest.id, days, series, channels });
   } catch (err) {
     console.error('[postiz] stats error:', err);
     res.status(502).json({ error: err.message });

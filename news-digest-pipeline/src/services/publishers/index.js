@@ -1,4 +1,4 @@
-import { firstFacebookRelease, publishPostizDigest } from './postiz.js';
+import { firstFacebookRelease, mergePostizPosts, publishPostizDigest } from './postiz.js';
 import { publishImageToFacebook } from './facebook-image.js';
 import { publishVideoToFacebook } from './facebook-video.js';
 import { publishReelToFacebook } from './facebook-reel.js';
@@ -56,6 +56,7 @@ export async function publishDigest(digest, config, platforms) {
       } else {
         results.facebook = { postId, via: 'postiz', posts: published.posts };
         updateFields.facebook_post_id = postId;
+        updateFields.postiz_posts = JSON.stringify(mergePostizPosts(digest, 'text', published.posts));
       }
     } catch (err) {
       results.facebook = { error: `[facebook] ${err.message}`, via: 'postiz' };

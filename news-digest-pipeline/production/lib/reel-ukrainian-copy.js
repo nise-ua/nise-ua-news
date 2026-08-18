@@ -63,7 +63,7 @@ function ensureTerminalPunctuation(text) {
  * @returns {object}
  */
 export function ensureUkrainianOnScreenCopy(shot = {}) {
-  const headline = preserveEnglishDisplayTerms(shot.headline).trim();
+  const headline = preserveEnglishDisplayTerms(shot.headline).trim().replace(/[,:;—-]+$/, '');
   let detailText = String(shot.detailText || '').trim();
   let spokenText = String(shot.spokenText || '').trim();
   detailText = preserveEnglishDisplayTerms(detailText);
@@ -80,10 +80,14 @@ export function ensureUkrainianOnScreenCopy(shot = {}) {
     detailText = ensureTerminalPunctuation(detailText);
   }
 
+  const finishedHeadline = headline
+    ? (/[.!?…]$/.test(headline) ? headline : `${headline}.`)
+    : '';
+
   // Headline should also stay Ukrainian; do not invent a replacement here.
   return {
     ...shot,
-    headline,
+    headline: finishedHeadline,
     detailText,
     spokenText,
   };

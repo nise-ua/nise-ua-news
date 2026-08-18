@@ -223,6 +223,33 @@ export function postizPostsForDigest(digest) {
   try { return JSON.parse(digest.postiz_posts) || {}; } catch { return {}; }
 }
 
+export function mergePostizPosts(digest, kind, posts) {
+  return { ...postizPostsForDigest(digest), [kind]: posts };
+}
+
+/** Sum text + story metrics across every Postiz channel, keyed by metric label and date. */
+export function aggregatePostizAnalytics(channels, kinds = ['text', 'story']) {
+  const allowed = new Set(kinds);
+  const byLabel = new Map();
+  for (const channel of channels || []) {
+    if (!allowed.has(channel.kind) || channel.unavailable) continue;
+    for (const metric of channel.metrics || []) {
+      const label = metric.label || 'metric';
+      if (!byLabel.has(label)) byLabel.set(label, new Map());
+      const byDate = byLabel.get(label);
+      for (const point of metric.data || []) {
+        const date = point.date || '';
+        byDate.set(date, (byDate.get(date) || 0) + Number(point.total || 0));
+      }
+    }
+  }
+  return [...byLabel.entries()].map(([label, byDate]) => ({
+    label,
+    data: [...byDate.entries()].map(([date, total]) => ({ date, total })),
+    total: [...byDate.values()].reduce((sum, value) => sum + value, 0),
+  }));
+}
+
 export function firstFacebookRelease(results = []) {
   const facebook = results.find((item) => item.platform === 'facebook') || results[0];
   return isHttpUrl(facebook?.releaseURL) ? facebook.releaseURL : null;

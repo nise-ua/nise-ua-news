@@ -1,6 +1,6 @@
 {
   "name": "news-digest-pipeline",
-  "version": "1.0.0",
+  "version": "3.0.1",
   "description": "Automated news digest pipeline: collect articles, generate commentary via Claude API, assemble digests",
   "main": "src/index.js",
   "type": "module",

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { normalizeAnalytics, publishPostizDigest, waitForPostizReleaseUrl, firstFacebookRelease } from './postiz.js';
+import { aggregatePostizAnalytics, mergePostizPosts, normalizeAnalytics, publishPostizDigest, waitForPostizReleaseUrl, firstFacebookRelease } from './postiz.js';
 
 const config = {
   publishBackend: 'postiz',
@@ -94,9 +94,41 @@ describe('waitForPostizReleaseUrl', () => {
   });
 });
 
-describe('normalizeAnalytics', () => {
-  it('normalizes Postiz metric points for sparklines', () => {
-    expect(normalizeAnalytics({ data: [{ label: 'Likes', data: [{ date: 'today', total: '4' }] }] }))
-      .toEqual([{ label: 'Likes', percentageChange: null, data: [{ date: 'today', total: 4 }] }]);
+describe('aggregatePostizAnalytics', () => {
+  it('sums text and story across channels and skips reels', () => {
+    const series = aggregatePostizAnalytics([
+      {
+        kind: 'text',
+        metrics: [{ label: 'Views', data: [{ date: 'd1', total: 10 }, { date: 'd2', total: 4 }] }],
+      },
+      {
+        kind: 'story',
+        metrics: [{ label: 'Views', data: [{ date: 'd1', total: 3 }] }],
+      },
+      {
+        kind: 'reel',
+        metrics: [{ label: 'Views', data: [{ date: 'd1', total: 99 }] }],
+      },
+      {
+        kind: 'text',
+        unavailable: true,
+        metrics: [{ label: 'Views', data: [{ date: 'd1', total: 50 }] }],
+      },
+    ]);
+    expect(series).toEqual([{
+      label: 'Views',
+      data: [{ date: 'd1', total: 13 }, { date: 'd2', total: 4 }],
+      total: 17,
+    }]);
+  });
+});
+
+describe('mergePostizPosts', () => {
+  it('keeps earlier kinds when a new kind is published', () => {
+    expect(mergePostizPosts(
+      { postiz_posts: { text: [{ postId: 't1' }] } },
+      'story',
+      [{ postId: 's1' }],
+    )).toEqual({ text: [{ postId: 't1' }], story: [{ postId: 's1' }] });
   });
 });

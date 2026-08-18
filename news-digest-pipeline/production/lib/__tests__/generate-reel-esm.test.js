@@ -27,6 +27,12 @@ describe('generate-reel.js ESM safety', () => {
     expect(bareRequireCalls).toEqual([]);
   });
 
+  it('composites overlay onto --images-only review frames', () => {
+    expect(source).toMatch(/createShotImage\(/);
+    expect(source).toMatch(/imagesOnly/);
+    expect(source).toMatch(/review frame/);
+  });
+
   it('prints Path: then updates digest URLs with basename(finalReelPath)', () => {
     expect(source).toMatch(/console\.log\(`Path: \$\{finalReelPath\}`\)/);
     expect(source).toMatch(/basename\(finalReelPath\)/);

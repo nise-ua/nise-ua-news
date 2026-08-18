@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS digests (
   facebook_post_id TEXT,
   facebook_reel_id TEXT,
   facebook_story_id TEXT,
+  postiz_posts TEXT,
   telegram_message_id TEXT,
   youtube_post_id TEXT,
   video_url TEXT,
