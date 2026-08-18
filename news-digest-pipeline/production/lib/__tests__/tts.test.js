@@ -28,6 +28,11 @@ describe('completeClause', () => {
     const result = completeClause('Один два три. Чотири пять шість. Сім вісім.', 4, 200);
     expect(result).toBe('Один два три.');
   });
+
+  it('does not cut a sentence at a comma', () => {
+    const text = 'Amazon починав з продажу книжок, а тепер ріже рідкісні видання на складі.';
+    expect(completeClause(text, 8, 80)).toBe(text);
+  });
 });
 
 describe('getAudioDuration', () => {

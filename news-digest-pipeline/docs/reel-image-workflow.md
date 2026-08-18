@@ -3,6 +3,12 @@
 This document is the persistent operating contract for generating NiSeNews
 reel backgrounds and reels.
 
+**FROZEN.** Overlay copy, layout, grounding, and CLI review-first workflow
+below are locked. Do not loosen word bands, allow unfinished sentences,
+reintroduce mid-sentence truncation, move text off the upper 25%, add an
+in-video CTA, or skip `assertFinishedReelCopy` without an explicit product
+decision.
+
 ## Visual grounding rules
 
 Every news block must produce a visual based on its factual core:
@@ -154,6 +160,25 @@ All editorial output must be Ukrainian:
 - Company, product, and model names may remain in Latin script.
 - Image prompts remain English internally for the image provider, but they are
   never rendered as reel text.
+
+## Frozen control: finished overlay copy
+
+**Locked bands** (do not retune without a product decision):
+
+- `headline`: one complete Ukrainian sentence, 6–11 words.
+- `detailText`: exactly one complete Ukrainian sentence, 8–12 words.
+- `spokenText`: one complete Ukrainian sentence.
+
+A trailing period is not enough. Forbidden: cutting on a comma/dash, ending on
+a conjunction or preposition, dangling verbs (`а тепер ріже.`), lead-ins like
+`і ледь не дав ще один шанс` with no object, two-sentence details, or
+five-word stubs. Never slice overlay copy by character/word cap.
+
+Enforced in `production/lib/reel-ukrainian-copy.js`
+(`HEADLINE_WORD_*`, `DETAIL_WORD_*`, `looksUnfinishedSentence`,
+`ensureUkrainianOnScreenCopy`, `assertFinishedReelCopy`). Incomplete LLM copy
+is replaced from `spokenText` or the run fails. Do not ship review frames that
+still trail off or overflow the smaller headline.
 
 After a successful full reel, the script stores `video_url` and `reel_url` on
 the digest so the dashboard Reel button can publish it.

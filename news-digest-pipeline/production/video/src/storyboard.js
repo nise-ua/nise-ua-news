@@ -13,7 +13,7 @@ import { config as dotenvConfig } from 'dotenv';
 import { VISUAL_GROUNDING_RULES, groundVisualVariant } from '../../lib/visual-grounding.js';
 import { parseDigestItems } from '../../lib/digest.js';
 import { log, projectRoot } from '../../lib/logging.js';
-import { ensureUkrainianOnScreenCopy } from '../../lib/reel-ukrainian-copy.js';
+import { assertFinishedReelCopy, ensureUkrainianOnScreenCopy } from '../../lib/reel-ukrainian-copy.js';
 
 const ROOT = projectRoot(import.meta.url);
 dotenvConfig({ path: join(ROOT, '.env'), override: true });
@@ -38,9 +38,9 @@ export async function generateStoryboard(digestText, format = 'facebook') {
 3. entities — масив конкретних назв (компанії, продукти, технології, місця)
 4. newsTone — "positive" | "neutral" | "negative" (лише з coreFact, не з сарказму автора)
 5. visualSubject — 1 конкретна сцена англійською з цих сутностей і дії
-6. headline — змістовний ПОВНИЙ headline ТІЛЬКИ УКРАЇНСЬКОЮ (6-10 слів), який самостійно пояснює головний факт новини. Це має бути завершена думка: обов'язково закінчуй крапкою або «?». НІКОЛИ не обривай речення на комі, тире чи півслові. Не копіюй саркастичні зачини («Знову революція?», «Оце так історія»). Не використовуй розмиті фрази на кшталт «ШІ змінює все».
+6. headline — змістовний ПОВНИЙ headline ТІЛЬКИ УКРАЇНСЬКОЮ (6-10 слів), який самостійно пояснює головний факт новини. ЖОРСТКИЙ КОНТРОЛЬ: повна думка з підметом, присудком і потрібним додатком. Обов'язково закінчуй крапкою або «?». НІКОЛИ не обривай на комі, тире, сполучнику чи голому дієслові без об'єкта («а тепер ріже.» — ЗАБОРОНЕНО; пиши «а тепер ріже рідкісні книжки.»). Не копіюй саркастичні зачини («Знову революція?», «Оце так історія»). Не використовуй розмиті фрази на кшталт «ШІ змінює все».
 7. spokenText — ${format === 'shorts' ? `ТІЛЬКИ УКРАЇНСЬКОЮ (18-30 слів), повне речення, 12-18 секунд. Обов\'язково закінчуй крапкою/знаком оклику. Це має бути ФАКТ, не сарказм. Назви брендів, продуктів і абревіатури ЗАВЖДИ залишай англійськими: Nvidia, Google, AI, GPT, не перекладай і не транслітеруй їх кирилицею.` : `коротке ЗАВЕРШЕНЕ речення ТІЛЬКИ УКРАЇНСЬКОЮ для диктора (8-12 слів, приблизно 4-6 секунд). Обов\'язково закінчуй крапкою/знаком оклику. Це має бути ФАКТ, не сарказм. Назви брендів, продуктів і абревіатури ЗАВЖДИ залишай англійськими: Nvidia, Google, AI, GPT, не перекладай і не транслітеруй їх кирилицею.`}
-8. detailText — РІВНО 1 КОРОТКЕ ПОВНЕ РЕЧЕННЯ ТІЛЬКИ УКРАЇНСЬКОЮ (8-12 слів). Головна конкретна деталь новини. Обов'язково закінчуй крапкою. НІКОЛИ не обривай на «і ледь не дав ще один» без об'єкта. КРИТИЧНО: РІВНО ОДНЕ РЕЧЕННЯ; НІКОЛИ англійською; НІКОЛИ не копіюй coreFact / visualSubject / prompt у detailText. Англійські назви й абревіатури всередині речення не перекладай і не транслітеруй: пиши Nvidia, Google, AI, GPT саме латиницею.
+8. detailText — РІВНО 1 КОРОТКЕ ПОВНЕ РЕЧЕННЯ ТІЛЬКИ УКРАЇНСЬКОЮ, ЖОРСТКО 8-12 слів. Головна конкретна деталь новини, не повторюй headline. Закінчуй крапкою. НІКОЛИ не пиши два речення і не роздувай до абзацу. НІКОЛИ не обривай на «і ледь не дав ще один шанс» без того, на що шанс. НІКОЛИ англійською; НІКОЛИ не копіюй coreFact / visualSubject / prompt у detailText. Англійські назви й абревіатури всередині речення не перекладай і не транслітеруй: пиши Nvidia, Google, AI, GPT саме латиницею.
 9. textPosition — завжди "upper": текст розміщується у верхніх 25% кадру, нижче брендингу.
 10. prompt — англійський промпт фону, ОБОВ'ЯЗКОВО з visualSubject. Додавай: "professional news photography, cinematic lighting, 9:16 vertical composition"
 
@@ -135,7 +135,7 @@ ${VISUAL_GROUNDING_RULES}
     if (grounded.prompt !== shot.prompt) {
       log(`  Shot ${i + 1}: rebuilt prompt from coreFact/entities (sarcasm/abstract rejected)`);
     }
-    const localized = ensureUkrainianOnScreenCopy(grounded);
+    const localized = assertFinishedReelCopy(ensureUkrainianOnScreenCopy(grounded));
     if (localized.detailText !== String(shot.detailText || '').trim()) {
       log(`  Shot ${i + 1}: detailText localized to Ukrainian (was non-UA or empty)`);
     }

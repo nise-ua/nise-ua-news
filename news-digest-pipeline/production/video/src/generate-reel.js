@@ -47,7 +47,7 @@ import {
   generatePerArticleAudio,
 } from '../../lib/tts.js';
 import { log, projectRoot, scriptDir } from '../../lib/logging.js';
-import { ensureUkrainianOnScreenCopy } from '../../lib/reel-ukrainian-copy.js';
+import { assertFinishedReelCopy, ensureUkrainianOnScreenCopy } from '../../lib/reel-ukrainian-copy.js';
 
 import OpenAI from 'openai';
 import { fal } from '@fal-ai/client';
@@ -96,9 +96,7 @@ function buildFallbackTitle(text) {
   if (lower.includes('математик')) return 'ШІ наближається до рівня професійних математиків';
   if (lower.includes('falcon 9') || lower.includes('місяц')) return 'Стара ракета Falcon 9 вріжеться в Місяць';
   if (lower.includes('hugging face') || lower.includes('кібербезп')) return 'Автономний AI-агент атакував Hugging Face';
-  const colon = sentence.search(/\s[:—-]\s/);
-  const candidate = colon > 0 ? sentence.slice(0, colon) : sentence;
-  return candidate.split(/\s+/).filter(Boolean).slice(0, 8).join(' ');
+  return completeClause(sentence, 16, 140);
 }
 
 function buildFallbackHook(text) {
@@ -294,6 +292,9 @@ async function main() {
       log(`Storyboard AI unavailable (${err.message}); using fallback parser.`);
       storyboard = fallbackStoryboard(digestText);
     }
+    storyboard.shots = (storyboard.shots || []).map((shot) => (
+      assertFinishedReelCopy(ensureUkrainianOnScreenCopy(shot))
+    ));
 
     // Step 3: Background images. Never use a shared/older carousel fallback:
     // this reel must contain images generated for the selected digest.
