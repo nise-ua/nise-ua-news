@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   falImageSize,
+  generateGoogleImage,
   generateImage,
   generateOpenRouterImage,
   imageSizeForModel,
+  isHardImageQuotaError,
   isRetryableImageError,
   openRouterImageRequestBody,
   resolveImageModel,
@@ -79,6 +81,13 @@ describe('isRetryableImageError', () => {
     expect(isRetryableImageError(new Error('temporarily unavailable'))).toBe(true);
     expect(isRetryableImageError(new Error('please try again later'))).toBe(true);
     expect(isRetryableImageError(new Error('invalid prompt'))).toBe(false);
+  });
+
+  it('does not retry billing or spend-cap failures', () => {
+    expect(isHardImageQuotaError(429, 'monthly spending cap')).toBe(true);
+    expect(isRetryableImageError({ status: 429, message: 'monthly spending cap' })).toBe(false);
+    expect(isRetryableImageError({ status: 402, message: 'Insufficient credits' })).toBe(false);
+    expect(isRetryableImageError(new Error('You have no credits remaining'))).toBe(false);
   });
 });
 
@@ -212,5 +221,37 @@ describe('generateImage', () => {
     const body = JSON.parse(fetchFn.mock.calls[0][1].body);
     expect(body.aspect_ratio).toBe('9:16');
     expect(body.prompt).toMatch(/Portrait 9:16/i);
+  });
+});
+
+describe('generateGoogleImage', () => {
+  it('skips extra Google models on spend cap and uses OpenAI fallback', async () => {
+    const fetchFn = mockFetchResponses({
+      status: 429,
+      body: 'Your project has exceeded its monthly spending cap.',
+    });
+    const openaiFallback = vi.fn(async () => 'data:image/png;base64,abc');
+
+    const url = await generateGoogleImage('prompt', {
+      apiKey: 'g-key',
+      fetchFn,
+      openaiFallback,
+      log: () => {},
+    });
+
+    expect(url).toBe('data:image/png;base64,abc');
+    expect(fetchFn).toHaveBeenCalledOnce();
+    expect(openaiFallback).toHaveBeenCalledOnce();
+  });
+
+  it('throws the spend-cap body when every fallback fails', async () => {
+    mockFetchResponses({
+      status: 429,
+      body: 'Your project has exceeded its monthly spending cap.',
+    });
+
+    await expect(
+      generateGoogleImage('prompt', { apiKey: 'g-key', fetchFn: fetch, log: () => {} }),
+    ).rejects.toThrow(/spending cap/i);
   });
 });

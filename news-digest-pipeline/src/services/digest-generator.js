@@ -18,9 +18,13 @@ import { DEFAULT_OPENING_HASHTAG, normalizeDigestFormat } from './digest-format.
 const MAX_CONTENT_LENGTH = 3000;
 const RETRY_ATTEMPTS = 8;
 const INTER_CALL_DELAY_MS = 1000;
+// Thinking models (Kimi K2.6, GPT-5) share this budget with hidden reasoning.
+// 512 used to cut 2-paragraph Ukrainian commentaries mid-word.
+export const COMMENTARY_MAX_TOKENS = 8192;
+export const ASSEMBLY_MAX_TOKENS = 16384;
 // Per-call timeout so a hung LLM request cannot leave articles stuck in
 // 'processing' forever. Each SDK call gets its own AbortSignal timeout.
-const MODEL_CALL_TIMEOUT_MS = 120000; // 2 minutes — per-article commentary
+const MODEL_CALL_TIMEOUT_MS = 180000; // 3 minutes — per-article commentary
 const ASSEMBLY_CALL_TIMEOUT_MS = 360000; // 6 minutes — full digest assembly
 const ABORT_SLOT_RELEASE_MS = 3000;
 
@@ -87,6 +91,26 @@ async function withRetry(fn, attempt = 1) {
   }
 }
 
+/** Models that accept Moonshot `thinking: { type: "disabled" }`. K2.7 Code rejects it. */
+export function moonshotExtraBody(modelId, { disableThinking } = {}) {
+  if (!disableThinking) return undefined;
+  const id = String(modelId || '').toLowerCase();
+  if (id === 'kimi-k2.6' || id === 'kimi-k2.5' || id.startsWith('kimi-k2.6')) {
+    return { thinking: { type: 'disabled' } };
+  }
+  return undefined;
+}
+
+export function extractChatCompletionText(resp) {
+  const message = resp?.choices?.[0]?.message;
+  return (message?.content || message?.reasoning_content || '') || '';
+}
+
+export function completionWasTruncated(resp) {
+  return resp?.choices?.[0]?.finish_reason === 'length'
+    || resp?.stop_reason === 'max_tokens';
+}
+
 /**
  * Vendor-agnostic single-shot model call. Routes to Anthropic, OpenAI or
  * OpenRouter based on config.llmVendor. Returns text plus token usage.
@@ -95,7 +119,7 @@ async function withRetry(fn, attempt = 1) {
  * @param {{system:string, user:string, maxTokens:number}} opts
  * @returns {Promise<{text:string, inputTokens:number, outputTokens:number}>}
  */
-async function callModel(config, { system, user, maxTokens, timeoutMs }, phaseName = 'model') {
+async function callModel(config, { system, user, maxTokens, timeoutMs, disableThinking }, phaseName = 'model') {
   const vendor = config.llmVendor || 'anthropic';
   const callTimeoutMs = timeoutMs || MODEL_CALL_TIMEOUT_MS;
   const callStart = Date.now();
@@ -142,6 +166,10 @@ async function callModel(config, { system, user, maxTokens, timeoutMs }, phaseNa
       // Moonshot API uses max_tokens (legacy), not max_completion_tokens
       if (vendor === 'moonshot') {
         completionParams.max_tokens = maxTokens;
+        // openai-node has no extra_body (that's the Python SDK). Put Moonshot
+        // fields on the JSON body so K2.6 actually disables thinking.
+        const extra = moonshotExtraBody(config.claudeModel, { disableThinking });
+        if (extra) Object.assign(completionParams, extra);
       } else {
         completionParams.max_completion_tokens = maxTokens;
       }
@@ -161,8 +189,12 @@ async function callModel(config, { system, user, maxTokens, timeoutMs }, phaseNa
       throw isAbortError(err) ? timeoutError(callTimeoutMs, err) : err;
     }
     console.log(`[digest-generator] ${phaseName}: LLM call OK in ${Date.now() - callStart}ms`);
+    if (completionWasTruncated(resp)) {
+      console.warn(`[digest-generator] ${phaseName}: completion truncated (finish_reason=length)`);
+    }
     return {
-      text: (resp.choices[0]?.message?.content || resp.choices[0]?.message?.reasoning_content || '') || "",
+      text: extractChatCompletionText(resp),
+      truncated: completionWasTruncated(resp),
       inputTokens: resp.usage?.prompt_tokens || 0,
       outputTokens: resp.usage?.completion_tokens || 0,
     };
@@ -193,8 +225,13 @@ async function callModel(config, { system, user, maxTokens, timeoutMs }, phaseNa
     throw isAbortError(err) ? timeoutError(callTimeoutMs, err) : err;
   }
   console.log(`[digest-generator] ${phaseName}: LLM call OK in ${Date.now() - callStart}ms`);
+  const truncated = completionWasTruncated(resp);
+  if (truncated) {
+    console.warn(`[digest-generator] ${phaseName}: completion truncated (stop_reason=max_tokens)`);
+  }
   return {
     text: resp.content[0]?.text || '',
+    truncated,
     inputTokens: resp.usage?.input_tokens || 0,
     outputTokens: resp.usage?.output_tokens || 0,
   };
@@ -241,11 +278,15 @@ export async function generateDigest(db, articles, config) {
       const res = await callModel(config, {
         system: commentarySystem,
         user: userMessage,
-        maxTokens: 512,
+        maxTokens: COMMENTARY_MAX_TOKENS,
+        disableThinking: true,
       }, `commentary[${article.id}]`);
       const commentary = res.text;
       if (!commentary || !commentary.trim()) {
         throw new Error(`LLM returned empty commentary for article ${article.id}`);
+      }
+      if (res.truncated) {
+        throw new Error(`LLM truncated commentary for article ${article.id} (token cap)`);
       }
       totalInputTokens += res.inputTokens;
       totalOutputTokens += res.outputTokens;
@@ -312,7 +353,7 @@ export async function generateDigest(db, articles, config) {
     assemblyRes = await callModel(config, {
       system: config.assemblyPrompt,
       user: assemblyUserMessage,
-      maxTokens: 16384,
+      maxTokens: ASSEMBLY_MAX_TOKENS,
       timeoutMs: ASSEMBLY_CALL_TIMEOUT_MS,
     }, 'assembly');
   } catch (err) {

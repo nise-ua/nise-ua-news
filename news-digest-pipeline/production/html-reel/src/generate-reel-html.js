@@ -150,13 +150,7 @@ async function main() {
 
     let shotsForRender = storyboard.shots;
     if (!noAiBg) {
-      const withAi = await generateAiBackgroundsForShots(storyboard.shots, { log });
-      if (!withAi.length) {
-        throw new Error(
-          'AI scene backgrounds failed for the HTML hybrid path. Fix IMAGE_VENDOR keys/quota, or re-run with --no-ai-bg for typography-only frames.',
-        );
-      }
-      shotsForRender = withAi;
+      shotsForRender = await generateAiBackgroundsForShots(storyboard.shots, { log });
     } else {
       log('Skipping AI scene backgrounds (--no-ai-bg); typography-only CSS templates.');
     }

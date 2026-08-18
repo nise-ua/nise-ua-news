@@ -48,6 +48,18 @@ export async function generateAiBackgroundsForShots(shots, { log = () => {} } = 
         { log, label: 'Image google-fallback' },
       )
       : null,
+    openaiFallback: process.env.OPENAI_API_KEY
+      ? (prompt) => generateImageWithRetry(
+        () => generateImage(prompt, {
+          vendor: 'openai',
+          aspect: '9:16',
+          openai,
+          model: 'gpt-image-1',
+          log,
+        }),
+        { log, label: 'Image openai-fallback' },
+      )
+      : null,
   };
 
   for (let i = 0; i < shots.length; i += 1) {
@@ -85,5 +97,10 @@ export async function generateAiBackgroundsForShots(shots, { log = () => {} } = 
   if (failures.length > 0) {
     log(`AI bg failures: ${failures.slice(0, 3).join(' | ')}${failures.length > 3 ? ' | ...' : ''}`);
   }
-  return ok.length === shots.length ? results : [];
+  if (ok.length !== shots.length) {
+    throw new Error(
+      `AI scene backgrounds failed (${ok.length}/${shots.length}). ${failures[0] || 'Fix IMAGE_VENDOR keys/quota.'}`,
+    );
+  }
+  return results;
 }
