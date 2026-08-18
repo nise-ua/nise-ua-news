@@ -10,6 +10,11 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
+    html, body {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #f5f3ef;
@@ -19,16 +24,27 @@
       font-size: 15px;
     }
 
-    .container { max-width: 1060px; margin: 0 auto; }
+    .container {
+      width: 100%;
+      max-width: min(1060px, 100%);
+      margin: 0 auto;
+      min-width: 0;
+      overflow-x: hidden;
+    }
 
     /* Header */
     .header {
       display: flex;
       align-items: baseline;
       justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
       margin-bottom: 6px;
+      min-width: 0;
     }
     h1 {
+      min-width: 0;
+      overflow-wrap: anywhere;
       font-size: 32px;
       font-weight: 700;
       letter-spacing: -0.5px;
@@ -38,7 +54,8 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      flex-shrink: 0;
+      flex-wrap: wrap;
+      min-width: 0;
     }
     .version-badge {
       font-size: 12px;
@@ -80,9 +97,18 @@
     /* Table as card list */
     table {
       width: 100%;
+      max-width: 100%;
+      table-layout: fixed;
       border-collapse: separate;
       border-spacing: 0 6px;
     }
+    col.col-num { width: 40px; }
+    col.col-digest { width: 28%; }
+    col.col-pub { width: 110px; }
+    col.col-articles { width: 64px; }
+    col.col-cost { width: 88px; }
+    col.col-status { width: 132px; }
+    col.col-actions { width: auto; }
     thead th {
       text-align: left;
       padding: 8px 16px;
@@ -103,6 +129,7 @@
       background: #faf9f7;
       box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     }
+    th, td { overflow: hidden; }
     td {
       padding: 12px 16px;
       border: none;
@@ -110,7 +137,10 @@
       border-top: 1px solid #e8e4df;
       border-bottom: 1px solid #e8e4df;
       vertical-align: middle;
+      min-width: 0;
     }
+    td.digest-cell { overflow: hidden; }
+    td.actions-cell { width: 34%; }
     td:first-child {
       border-left: 1px solid #e8e4df;
       border-radius: 10px 0 0 10px;
@@ -135,12 +165,57 @@
       font-size: 14px;
       letter-spacing: -0.2px;
       line-height: 1.3;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .digest-meta {
       color: #b0aaa4;
       font-size: 12px;
       line-height: 1.3;
     }
+    .digest-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+      margin-top: 6px;
+      max-width: 100%;
+      min-width: 0;
+    }
+    .digest-stats:has(.stat-empty) { display: none; }
+    .stat-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    .stat-spark {
+      flex: 0 0 64px;
+      width: 64px;
+      height: 22px;
+      display: block;
+    }
+    .stat-meta {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.15;
+    }
+    .stat-total {
+      font-size: 12px;
+      font-weight: 600;
+      color: #2d2a26;
+    }
+    .stat-label {
+      font-size: 10px;
+      color: #8a8580;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 72px;
+    }
+    .stat-empty { color: #ccc; font-size: 13px; }
     .pub-date { color: #22c55e; font-size: 14px; font-weight: 500; }
     .no-pub { color: #ccc; font-size: 13px; }
 
@@ -224,15 +299,15 @@
 
     /* Action toolbar — one consistent button row */
     .platform-row {
-      display: inline-flex;
-      flex-wrap: nowrap;
+      display: flex;
+      flex-wrap: wrap;
       align-items: stretch;
       gap: 0;
+      width: 100%;
       max-width: 100%;
-      overflow-x: auto;
+      min-width: 0;
+      overflow: hidden;
       padding: 0;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: thin;
       border: 1px solid #ddd8d0;
       border-radius: 8px;
       background: #ffffff;
@@ -514,8 +589,8 @@
         display: flex;
         width: 100%;
         max-width: 100%;
-        flex-wrap: nowrap;
-        overflow-x: auto;
+        flex-wrap: wrap;
+        overflow: hidden;
       }
       td::before {
         font-size: 10px;
@@ -540,11 +615,20 @@
       <div class="header-right">
         <a class="btn-settings" href="articles.html">📚 Статті</a>
         <a class="btn-settings" href="settings.html">⚙️ Налаштування</a>
-        <span class="version-badge">v2.0.4 &middot; 13.04.2026</span>
+        <span class="version-badge">v3.0.1 &middot; 17.08.2026</span>
       </div>
     </div>
     <p class="subtitle" id="subtitle">Завантаження...</p>
     <table>
+      <colgroup>
+        <col class="col-num">
+        <col class="col-digest">
+        <col class="col-pub">
+        <col class="col-articles">
+        <col class="col-cost">
+        <col class="col-status">
+        <col class="col-actions">
+      </colgroup>
       <thead>
         <tr>
           <th>#</th>
@@ -647,6 +731,7 @@
           <span class="digest-name">${digestLabel}</span>
           <span class="digest-meta">${digestMeta}</span>
           ${videoStatusHtml}
+          <div class="digest-stats" data-digest-stats="${d.id}"><span class="stat-empty">—</span></div>
         </div>`;
 
         // Published datetime
@@ -746,6 +831,7 @@
           <td class="actions-cell">${actionBtn}</td>
         </tr>`;
       }).join('');
+      loadPostizStats(digests);
       for (const [jobId, job] of activeVideoJobs) {
         const progress = tbody.querySelector(`[data-video-job="${jobId}"]`);
         if (progress && !job.polling) {
@@ -755,6 +841,68 @@
           });
         }
       }
+    }
+
+    function sparklinePath(points, width = 64, height = 22) {
+      const values = points.map((p) => Number(p.total || 0));
+      if (values.length === 0) return '';
+      const min = Math.min(...values, 0);
+      const max = Math.max(...values, 1);
+      const span = max - min || 1;
+      return values.map((value, i) => {
+        const x = values.length === 1 ? width / 2 : (i / (values.length - 1)) * (width - 2) + 1;
+        const y = height - 2 - ((value - min) / span) * (height - 4);
+        return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
+      }).join(' ');
+    }
+
+    function formatStatTotal(n) {
+      if (n >= 10000) return `${Math.round(n / 1000)}k`;
+      if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+      return String(Math.round(n));
+    }
+
+    function preferredSeries(series) {
+      const order = ['views', 'impressions', 'reach', 'likes', 'reactions'];
+      const ranked = [...(series || [])].sort((a, b) => {
+        const ai = order.findIndex((key) => String(a.label).toLowerCase().includes(key));
+        const bi = order.findIndex((key) => String(b.label).toLowerCase().includes(key));
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      });
+      return ranked.slice(0, 2);
+    }
+
+    function renderSparkline(metric) {
+      const path = sparklinePath(metric.data || []);
+      return `<div class="stat-row">
+        <svg class="stat-spark" viewBox="0 0 64 22" aria-hidden="true">
+          <path d="${path}" fill="none" stroke="#7c3aed" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+        </svg>
+        <span class="stat-meta">
+          <span class="stat-total">${formatStatTotal(metric.total || 0)}</span>
+          <span class="stat-label">${metric.label}</span>
+        </span>
+      </div>`;
+    }
+
+    async function loadPostizStats(digests) {
+      const targets = (digests || []).filter((d) => d.postiz_posts);
+      await Promise.all(targets.map(async (d) => {
+        const host = document.querySelector(`[data-digest-stats="${d.id}"]`);
+        if (!host) return;
+        try {
+          const res = await fetch(`/api/postiz/digests/${d.id}/stats?days=7`);
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'stats error');
+          const series = preferredSeries(data.series);
+          host.innerHTML = series.length
+            ? series.map(renderSparkline).join('')
+            : '<span class="stat-empty">—</span>';
+        } catch (err) {
+          host.innerHTML = '<span class="stat-empty">—</span>';
+          console.error('Postiz stats failed:', err);
+        }
+      }));
     }
 
     async function copyDigest(id, btn) {

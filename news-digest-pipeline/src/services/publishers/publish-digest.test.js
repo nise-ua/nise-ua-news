@@ -6,6 +6,7 @@ vi.mock('../../db/index.js', () => ({
 vi.mock('./facebook.js', () => ({ publishToFacebook: vi.fn() }));
 vi.mock('./postiz.js', () => ({
   publishPostizDigest: vi.fn(),
+  mergePostizPosts: vi.fn((digest, kind, posts) => ({ ...(digest?.postiz_posts || {}), [kind]: posts })),
   firstFacebookRelease: vi.fn((posts = []) =>
     posts.find((item) => item.platform === 'facebook' && item.releaseURL)?.releaseURL || null
   ),
@@ -59,6 +60,9 @@ describe('publishDigest facebook text', () => {
     });
     expect(updateDigest).toHaveBeenCalledWith('digest-1', expect.objectContaining({
       facebook_post_id: 'https://www.facebook.com/111/posts/999',
+      postiz_posts: JSON.stringify({
+        text: [{ platform: 'facebook', postId: '111_999', releaseURL: 'https://www.facebook.com/111/posts/999' }],
+      }),
       status: 'published',
     }));
   });

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Increment patch version on each commit unless version files are already staged.
+set -euo pipefail
+
+if [[ "${SKIP_VERSION_BUMP:-}" == "1" ]]; then
+  exit 0
+fi
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+if git diff --cached --name-only | grep -qx 'VERSION'; then
+  exit 0
+fi
+
+"$ROOT/scripts/bump-version.sh"
+
+git add VERSION README.md CHANGELOG.md \
+  news-digest-pipeline/src/public/index.html \
+  news-digest-pipeline/package.json

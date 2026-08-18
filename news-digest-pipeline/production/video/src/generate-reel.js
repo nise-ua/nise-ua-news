@@ -30,7 +30,7 @@ import { config as dotenvConfig } from 'dotenv';
 import { initDb, getDb, updateDigest } from '../../../src/db/index.js';
 
 import { generateStoryboard } from './storyboard.js';
-import { generateShotClip } from './generate-clips.js';
+import { createShotImage, generateShotClip } from './generate-clips.js';
 import { stitchClips, mergeShotVideoAndAudio } from './stitch.js';
 import { groundVisualVariant, buildGroundedPrompt, inferNewsToneFromFact } from '../../lib/visual-grounding.js';
 import { getDigestContent, parseDigestItemTexts } from '../../lib/digest.js';
@@ -47,6 +47,7 @@ import {
   generatePerArticleAudio,
 } from '../../lib/tts.js';
 import { log, projectRoot, scriptDir } from '../../lib/logging.js';
+import { ensureUkrainianOnScreenCopy } from '../../lib/reel-ukrainian-copy.js';
 
 import OpenAI from 'openai';
 import { fal } from '@fal-ai/client';
@@ -300,12 +301,22 @@ async function main() {
       const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
       const savedImages = [];
       for (let i = 0; i < shotsWithImages.length; i += 1) {
+        const shot = ensureUkrainianOnScreenCopy(shotsWithImages[i]);
         const filepath = join(OUTPUT_DIR, `reel-image_${timestamp}_${String(i + 1).padStart(2, '0')}.png`);
-        await saveGeneratedImage(shotsWithImages[i].imageUrl, filepath);
+        const reviewFrame = await createShotImage(
+          shot.imageUrl,
+          shot.headline,
+          shot.detailText,
+          'upper',
+          1080,
+          1920,
+          true,
+        );
+        writeFileSync(filepath, reviewFrame);
         savedImages.push(filepath);
-        log(`  Saved reel background ${i + 1}/${shotsWithImages.length}: ${filepath}`);
+        log(`  Saved reel review frame ${i + 1}/${shotsWithImages.length}: ${filepath}`);
       }
-      log(`Generated ${savedImages.length} reel background images; stopped before TTS/video assembly.`);
+      log(`Generated ${savedImages.length} reel review frames with overlay; stopped before TTS/video assembly.`);
       return savedImages;
     }
 

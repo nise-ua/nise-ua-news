@@ -66,6 +66,15 @@ describe('ensureUkrainianOnScreenCopy', () => {
     expect(shot.detailText).toBe('');
   });
 
+  it('finishes a headline that ends with a comma', () => {
+    const shot = ensureUkrainianOnScreenCopy({
+      headline: 'Anthropic вирішила, що нам бракувало драм у житті,',
+      detailText: 'Кожен вибір слова тепер не випадковий.',
+      spokenText: '',
+    });
+    expect(shot.headline).toBe('Anthropic вирішила, що нам бракувало драм у житті.');
+  });
+
   it('adds terminal punctuation to Ukrainian detail without a period', () => {
     const shot = ensureUkrainianOnScreenCopy({
       headline: 'Заголовок.',

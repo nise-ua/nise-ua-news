@@ -1,6 +1,6 @@
-# News Digest Pipeline v2.0.4
+# News Digest Pipeline v3.0.1
 
-[![Version](https://img.shields.io/badge/version-2.0.4-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.0.1-blue)](CHANGELOG.md)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Claude API](https://img.shields.io/badge/Claude_API-Opus_4-d97706?logo=anthropic&logoColor=white)](https://www.anthropic.com/)
 [![OpenAI](https://img.shields.io/badge/OpenAI-Compatible-412991?logo=openai&logoColor=white)](https://openai.com/)

@@ -30,6 +30,7 @@ import { fal } from '@fal-ai/client';
 import { config as dotenvConfig } from 'dotenv';
 import ffmpegStatic from 'ffmpeg-static';
 import { getOverlayThemeColors, UPPER_READABILITY_BAND } from '../../lib/reel-overlay-theme.js';
+import { layoutReelOverlayText } from '../../lib/reel-overlay-text.js';
 import { log, projectRoot, scriptDir } from '../../lib/logging.js';
 
 const FFMPEG = ffmpegStatic || 'ffmpeg';
@@ -53,69 +54,6 @@ function escapeXml(str) {
             .replace(/'/g, String.fromCharCode(38) + 'apos;');
 }
 
-function splitHeadline(text, maxChars = 18) {
-  const words = text.split(' ');
-  const lines = [];
-  let current = '';
-  for (const w of words) {
-    if ((current + ' ' + w).trim().length > maxChars && current) {
-      lines.push(current.trim());
-      current = w;
-    } else {
-      current += (current ? ' ' : '') + w;
-    }
-  }
-  if (current) lines.push(current.trim());
-  return lines;
-}
-
-/** Wrap a headline into readable lines. */
-function wrapHeadline(text, maxChars = 24, maxLines = 4) {
-  const words = text.split(/\s+/).filter(Boolean);
-  const lines = [];
-  let current = '';
-  for (const w of words) {
-    if ((current + ' ' + w).trim().length > maxChars && current) {
-      lines.push(current.trim());
-      current = w;
-    } else {
-      current += (current ? ' ' : '') + w;
-    }
-  }
-  if (current) lines.push(current.trim());
-  return lines.slice(0, maxLines);
-}
-
-function sanitizeDetailText(text) {
-  let s = String(text || '').trim();
-  if (!s) return '';
-  // Extract ONLY the FIRST complete sentence if multiple exist
-  const sentences = s.split(/(?<=[.!?])\s+/).map(x => x.trim()).filter(Boolean);
-  if (sentences.length > 0) {
-    s = sentences[0];
-  }
-  // Ensure it ends cleanly with punctuation
-  if (!/[.!?]$/.test(s)) {
-    s = `${s.replace(/[,:;—-]+$/, '')}.`;
-  }
-  return s;
-}
-
-function wrapText(text, maxChars = 40, maxLines = 3) {
-  const words = String(text || '').split(/\s+/).filter(Boolean);
-  const lines = [];
-  let current = '';
-  for (const word of words) {
-    if ((current + ' ' + word).trim().length > maxChars && current) {
-      lines.push(current.trim());
-      current = word;
-    } else {
-      current += (current ? ' ' : '') + word;
-    }
-  }
-  if (current) lines.push(current.trim());
-  return lines.slice(0, maxLines);
-}
 
 async function fetchImageBuffer(urlOrDataUri) {
   if (!urlOrDataUri) throw new Error('Image URL or data URI is empty');
@@ -138,8 +76,8 @@ async function fetchImageBuffer(urlOrDataUri) {
  * Build the native 9:16 full-frame image (1080x1920) with the headline overlay.
  *
  * Font sizes are enlarged for high readability in FB / IG Reels without overcrowding:
- *  - Headline: 56px font size (900 weight), 70px line height.
- *  - Detail Text: 36px font size (500 weight), 46px line height (strictly 1 short complete sentence).
+ *  - Headline/detail start large, then shrink together so every word of the
+ *    complete sentence stays on screen (no max-line slice).
  */
 
 function createReelsOverlay(headline, detailText = '', textPosition = 'lower', width = 1080, height = 1920, overlayTheme = 'light') {
@@ -149,28 +87,23 @@ function createReelsOverlay(headline, detailText = '', textPosition = 'lower', w
   const colors = getOverlayThemeColors(safeTextPosition === 'upper' ? 'light' : overlayTheme);
 
   const hx = margin;
-  const lines = wrapText(headline, 24, 4);
-  const cleanDetail = sanitizeDetailText(detailText);
-  const detailLines = wrapText(cleanDetail, 40, 3);
-
-  const headlineFontSize = 56;
-  const headlineLineHeight = 70;
-  const detailFontSize = 36;
-  const detailLineHeight = 46;
+  const layout = layoutReelOverlayText({
+    headline,
+    detailText,
+    width,
+    height,
+    textPosition: safeTextPosition,
+    margin,
+  });
+  const lines = layout.headlineLines;
+  const detailLines = layout.detailLines;
+  const headlineFontSize = layout.headlineFontSize;
+  const headlineLineHeight = layout.headlineLineHeight;
+  const detailFontSize = layout.detailFontSize;
+  const detailLineHeight = layout.detailLineHeight;
   const detailFontWeight = colors.detailFontWeight || 800;
-  const gapBetween = 20;
-
-  const headlineTotalHeight = lines.length > 0 ? (lines.length - 1) * headlineLineHeight + headlineFontSize : 0;
-  const detailTotalHeight = detailLines.length > 0 ? (detailLines.length - 1) * detailLineHeight + detailFontSize : 0;
-
-  let hy;
-  if (safeTextPosition === 'upper') {
-    hy = 300;
-  } else {
-    const targetBottomY = height - 500;
-    const totalBlockHeight = headlineTotalHeight + (detailLines.length > 0 ? gapBetween + detailTotalHeight : 0);
-    hy = targetBottomY - totalBlockHeight + headlineFontSize;
-  }
+  const gapBetween = layout.gapBetween;
+  let hy = layout.hy;
 
   let svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">`;
 
