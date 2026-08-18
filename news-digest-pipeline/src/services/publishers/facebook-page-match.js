@@ -53,6 +53,29 @@ export function pickLatestMatchingBrowserPost(posts, {
   return candidates[0] || null;
 }
 
+/**
+ * Match a just-published Page post by message, including Graph/Postiz app posts.
+ */
+export function pickLatestMatchingFeedPost(posts, {
+  content,
+  pageId,
+  maxAgeMs = 10 * 60 * 1000,
+  now = Date.now(),
+} = {}) {
+  const list = Array.isArray(posts) ? posts : [];
+  const candidates = list.filter((post) => {
+    if (!post || typeof post !== 'object') return false;
+    if (pageId && post.from?.id && String(post.from.id) !== String(pageId)) return false;
+    const created = Date.parse(post.created_time);
+    if (!Number.isFinite(created) || now - created > maxAgeMs || created > now + 30_000) {
+      return false;
+    }
+    return messagesMatch(post.message || '', content || '');
+  });
+  candidates.sort((a, b) => Date.parse(b.created_time) - Date.parse(a.created_time));
+  return candidates[0] || null;
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -108,5 +131,41 @@ export async function resolveLatestBrowserPost(pageAccessToken, pageId, content,
 
   return {
     error: `[facebook-page-browser] Could not find a browser composer post after publishing (${lastError})`,
+  };
+}
+
+export async function resolveLatestMatchingFeedPost(pageAccessToken, pageId, content, {
+  fetchImpl = fetch,
+  sleepFn = sleep,
+  attempts = 5,
+} = {}) {
+  if (!pageAccessToken || !pageId) {
+    return { error: '[facebook] Missing pageAccessToken or pageId to resolve post url' };
+  }
+
+  const fields = ['id', 'message', 'created_time', 'from', 'permalink_url'].join(',');
+  let lastError = '';
+  for (let i = 0; i < attempts; i++) {
+    if (i > 0) await sleepFn(2000);
+    const url = `${GRAPH}/${pageId}/published_posts?fields=${fields}&limit=8&access_token=${encodeURIComponent(pageAccessToken)}`;
+    const res = await fetchImpl(url);
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.error) {
+      lastError = json.error?.message || `HTTP ${res.status}`;
+      continue;
+    }
+    const match = pickLatestMatchingFeedPost(json.data, { content, pageId });
+    if (match) {
+      return {
+        postId: match.id,
+        permalinkUrl: match.permalink_url || null,
+        raw: match,
+      };
+    }
+    lastError = 'No matching Page post yet';
+  }
+
+  return {
+    error: `[facebook] Could not find a matching Page post after publishing (${lastError})`,
   };
 }

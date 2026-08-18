@@ -10,6 +10,11 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
+    html {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #f5f3ef;
@@ -17,16 +22,25 @@
       padding: 24px;
       min-height: 100vh;
       font-size: 15px;
+      max-width: 100%;
+      overflow-x: hidden;
     }
 
-    .container { max-width: 1060px; margin: 0 auto; }
+    .container {
+      max-width: min(1060px, 100%);
+      margin: 0 auto;
+      overflow-x: hidden;
+    }
 
     /* Header */
     .header {
       display: flex;
+      flex-wrap: wrap;
       align-items: baseline;
       justify-content: space-between;
+      gap: 10px;
       margin-bottom: 6px;
+      min-width: 0;
     }
     h1 {
       font-size: 32px;
@@ -38,6 +52,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      flex-shrink: 0;
     }
     .btn {
       display: inline-flex;
@@ -74,8 +89,15 @@
     }
 
     /* Table */
+    .table-wrap {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: auto;
+    }
     table {
       width: 100%;
+      max-width: 100%;
+      table-layout: fixed;
       border-collapse: separate;
       border-spacing: 0 6px;
     }
@@ -97,13 +119,33 @@
       font-size: 14px;
       border-top: 1px solid #e8e4df;
       border-bottom: 1px solid #e8e4df;
+      overflow: hidden;
+      min-width: 0;
     }
+    th:nth-child(1), td:nth-child(1) { width: 46%; }
+    th:nth-child(2), td:nth-child(2) { width: 16%; }
+    th:nth-child(3), td:nth-child(3) { width: 12%; }
+    th:nth-child(4), td:nth-child(4) { width: 16%; }
+    th:nth-child(5), td:nth-child(5) { width: 10%; }
     td:first-child { border-left: 1px solid #e8e4df; border-radius: 10px 0 0 10px; }
     td:last-child { border-right: 1px solid #e8e4df; border-radius: 0 10px 10px 0; }
 
-    .article-title { font-weight: 600; color: #2d2a26; text-decoration: none; }
+    .article-title {
+      font-weight: 600;
+      color: #2d2a26;
+      text-decoration: none;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
     .article-title:hover { color: #7c3aed; }
-    .article-url { color: #8a8580; font-size: 12px; display: block; margin-top: 2px; }
+    .article-url {
+      color: #8a8580;
+      font-size: 12px;
+      display: block;
+      margin-top: 2px;
+      overflow-wrap: anywhere;
+      word-break: break-all;
+    }
     .status-badge {
       font-size: 11px;
       font-weight: 600;
@@ -143,6 +185,11 @@
       border-color: rgba(3,105,161,0.3);
       background: rgba(3,105,161,0.08);
     }
+
+    @media (max-width: 768px) {
+      body { padding: 14px; }
+      h1 { font-size: 22px; }
+    }
   </style>
 </head>
 <body>
@@ -155,18 +202,20 @@
       </div>
     </div>
     <p class="subtitle" id="stats">Завантаження...</p>
-    <table>
-      <thead>
-        <tr>
-          <th>Заголовок</th>
-          <th>Джерело</th>
-          <th>Статус</th>
-          <th>Створено</th>
-          <th>Дії</th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Заголовок</th>
+            <th>Джерело</th>
+            <th>Статус</th>
+            <th>Створено</th>
+            <th>Дії</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
   </div>
 
   <script>

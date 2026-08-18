@@ -55,6 +55,10 @@ npm run test:production
 Full gate: `npm run test:all`. New production-lib tests go in
 `production/lib/__tests__/` (Vitest). Do not add new `node:test` files.
 
+## Dashboard UI
+
+All web pages in `news-digest-pipeline/src/public/` (`index.html`, `articles.html`, `settings.html`) must fit the screen width. No page may be wider than the viewport: constrain `html`/`body`, wrap or break long URLs and titles, and never let tables or toolbars cause horizontal page overflow.
+
 ## Digest Format
 - `#новини` at the beginning (own line).
 - Numbered author commentaries + link to original, starting with `1.` on the next line.

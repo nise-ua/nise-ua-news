@@ -241,6 +241,8 @@ Additional pages:
 - **Settings** (`/settings.html`) — configure prompts, model, thresholds, scenarios
 - **Articles** (`/articles.html`) — view and manage article queue
 
+All dashboard pages must fit the screen width. No page may overflow the viewport horizontally (wrap long URLs/titles; constrain tables and toolbars).
+
 Protected by HTTP Basic Auth + rate limiting.
 
 ---

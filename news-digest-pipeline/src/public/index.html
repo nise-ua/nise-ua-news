@@ -793,20 +793,20 @@
     }
 
     async function publishFacebook(id, btn) {
-      if (!confirm('Опублікувати у Facebook?')) return;
+      if (!confirm('Опублікувати текст через Postiz у Facebook?')) return;
       btn.disabled = true;
-      btn.textContent = '⏳ браузер...';
+      btn.textContent = '⏳ Postiz...';
       try {
-        const res = await fetch(`/api/digests/${id}/publish`, {
+        const res = await fetch(`/api/postiz/digests/${id}/publish`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ platforms: ['facebook'] }),
+          body: JSON.stringify({ kind: 'text' }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Server error');
 
-        const result = data.published?.facebook;
-        if (result?.postId) {
+        const result = data.published?.find((post) => post.postId || post.releaseURL);
+        if (result?.postId || result?.releaseURL) {
           btn.className = 'plat-btn sent';
           btn.textContent = '✓ FB';
           btn.onclick = null;

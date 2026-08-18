@@ -4,6 +4,12 @@ vi.mock('../../db/index.js', () => ({
   updateDigest: vi.fn(),
 }));
 vi.mock('./facebook.js', () => ({ publishToFacebook: vi.fn() }));
+vi.mock('./postiz.js', () => ({
+  publishPostizDigest: vi.fn(),
+  firstFacebookRelease: vi.fn((posts = []) =>
+    posts.find((item) => item.platform === 'facebook' && item.releaseURL)?.releaseURL || null
+  ),
+}));
 vi.mock('./facebook-image.js', () => ({ publishImageToFacebook: vi.fn() }));
 vi.mock('./facebook-video.js', () => ({ publishVideoToFacebook: vi.fn() }));
 vi.mock('./facebook-reel.js', () => ({ publishReelToFacebook: vi.fn() }));
@@ -13,11 +19,13 @@ vi.mock('./youtube.js', () => ({ publishToYouTube: vi.fn() }));
 
 import { updateDigest } from '../../db/index.js';
 import { publishToFacebook } from './facebook.js';
+import { publishPostizDigest } from './postiz.js';
 import { publishReelToFacebook } from './facebook-reel.js';
 import { publishStoryToFacebook } from './facebook-story.js';
 import { publishDigest } from './index.js';
 
 const config = {
+  publishBackend: 'postiz',
   facebookPageAccessToken: 'token',
   facebookPageId: '111',
   facebookPageName: 'Nise-ua',
@@ -35,24 +43,22 @@ const digest = {
 describe('publishDigest facebook text', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    publishToFacebook.mockResolvedValue({ postId: '111_999', via: 'browser' });
+    publishPostizDigest.mockResolvedValue({
+      posts: [{ platform: 'facebook', postId: '111_999', releaseURL: 'https://www.facebook.com/111/posts/999' }],
+    });
   });
 
-  it('publishes Page text via the composer publisher', async () => {
+  it('publishes Page text via Postiz', async () => {
     const results = await publishDigest(digest, config, ['facebook']);
-    expect(publishToFacebook).toHaveBeenCalledWith(
-      'token',
-      '111',
-      'Дайджест текст',
-      {
-        pageName: 'Nise-ua',
-        profileDir: '/tmp/fb-page-profile',
-        timezoneId: 'America/New_York',
-      },
-    );
-    expect(results.facebook).toEqual({ postId: '111_999', via: 'browser' });
+    expect(publishPostizDigest).toHaveBeenCalledWith(digest, config, 'text');
+    expect(publishToFacebook).not.toHaveBeenCalled();
+    expect(results.facebook).toEqual({
+      postId: 'https://www.facebook.com/111/posts/999',
+      via: 'postiz',
+      posts: [{ platform: 'facebook', postId: '111_999', releaseURL: 'https://www.facebook.com/111/posts/999' }],
+    });
     expect(updateDigest).toHaveBeenCalledWith('digest-1', expect.objectContaining({
-      facebook_post_id: '111_999',
+      facebook_post_id: 'https://www.facebook.com/111/posts/999',
       status: 'published',
     }));
   });
