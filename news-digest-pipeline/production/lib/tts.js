@@ -30,7 +30,11 @@ export function completeClause(text, maxWords = 20, maxChars = 140) {
     let combined = '';
     for (const s of sentences) {
       const candidate = `${combined} ${s}`.trim();
-      if (candidate.split(/\s+/).length <= maxWords || !combined) {
+      if (!combined) {
+        combined = candidate;
+        continue;
+      }
+      if (candidate.split(/\s+/).length <= maxWords && candidate.length <= maxChars) {
         combined = candidate;
       } else {
         break;
@@ -38,17 +42,7 @@ export function completeClause(text, maxWords = 20, maxChars = 140) {
     }
     if (combined) return /[.!?]$/.test(combined) ? combined : `${combined}.`;
   }
-  const clauses = source.split(/(?<=[.!?;:])\s+|(?<=,\s)/).map(s => s.trim()).filter(Boolean);
-  let result = '';
-  for (const clause of clauses) {
-    const candidate = `${result} ${clause}`.trim();
-    if (candidate.split(/\s+/).length > maxWords || candidate.length > maxChars) break;
-    result = candidate;
-    if (/[.!?]$/.test(clause)) break;
-  }
-  if (result) return /[.!?]$/.test(result) ? result : `${result}.`;
-  const words = source.split(/\s+/).filter(Boolean).slice(0, maxWords);
-  return `${words.join(' ').replace(/[,:;—-]+$/, '')}.`;
+  return `${source.replace(/[,:;—–-]+$/, '')}.`;
 }
 
 export function synthesizeEdgeTts(text, outPath, {

@@ -135,8 +135,8 @@ CLI shorthand for selecting the newest digest.
 
 3. **Locked V1 editorial and visual style:**
     - Full-bleed background only: no plashka/card layout, borders, or red `НОВИНИ` label.
-    - Large meaningful Ukrainian headline (6–11 words) followed, when useful, by smaller detail text (one or two complete sentences).
-    - Short complete spoken hook per story (8–12 Ukrainian words); total duration is determined by the number of digest blocks and TTS output, and narration must never be truncated mid-phrase.
+    - Large meaningful Ukrainian headline (6–11 words) followed, when useful, by smaller detail text (one complete sentence with a required object).
+    - Short complete spoken hook per story (8–12 Ukrainian words); total duration is determined by the number of digest blocks and TTS output, and narration must never be truncated mid-phrase or mid-clause.
     - Use `textPosition: "upper"` for the current reel layout; headlines/details occupy the upper 25% below branding.
     - No `Більше новин тут...` CTA is embedded in the MP4 because it cannot be clicked there.
 

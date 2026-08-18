@@ -15,12 +15,14 @@ This is the **proven, in-production** path — the same quality you get from the
 
 ### Locked V1 Reel Style
 
-These rules are the production contract for every V1 run:
+**FROZEN.** These rules are the production contract for every V1 run. Do not
+loosen overlay word bands or unfinished-sentence checks without an explicit
+product decision.
 
 - Use a full-bleed fresh AI background in native 9:16. Do not use the old plashka/card layout, borders, or the red `НОВИНИ` label.
-- Render a meaningful Ukrainian editorial headline first: normally 6–11 words, large and readable, and complete enough to explain the main fact without relying on the paragraph below.
-- Render optional Ukrainian detail text below the headline in a smaller font. It must be one or two short, complete sentences and must not repeat the headline.
-- Keep each spoken hook short and complete (8–12 Ukrainian words); narration must never end mid-phrase.
+- Render a meaningful Ukrainian editorial headline first: normally 6–11 words, large and readable, and a finished sentence that explains the main fact without relying on the paragraph below.
+- Render optional Ukrainian detail text below the headline in a smaller font. It must be exactly one complete sentence of 8–12 words (subject, predicate, object), not a paragraph and not a five-word stub.
+- Keep each spoken hook a complete Ukrainian sentence (8–12 words); narration must never end mid-phrase, on a comma, or on a verb without its object.
 - Keep the headline/detail block in the upper 25% of the frame, below the branding row. Image prompts must leave negative space in that upper area so text does not cover the subject.
 - Do not render `Більше новин тут...` or any other CTA inside the MP4. Video text is not clickable. The Facebook Reel caption links to the already-published Facebook digest post (`📘 Більше новин тут: https://www.facebook.com/{page}/posts/{id}`). Publishing a Reel also posts the same video as a Facebook Story.
 - Generate a complete new background set for every digest. Never reuse an older carousel image or substitute a synthetic fallback for a missing shot.

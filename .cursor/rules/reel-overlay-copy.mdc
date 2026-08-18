@@ -1,0 +1,17 @@
+---
+description: Frozen NiSeNews reel overlay copy and layout contract
+alwaysApply: true
+---
+
+# Frozen reel overlay rules
+
+Do not loosen, delete, or bypass these without an explicit product decision.
+
+- `headline`: one finished Ukrainian sentence, 6–11 words, with subject, predicate, and required object.
+- `detailText`: exactly one finished Ukrainian sentence, 8–12 words. Never two sentences, a paragraph, or a five-word stub.
+- `spokenText`: one finished Ukrainian sentence. Never end on a comma, conjunction, or verb without its object (`а тепер ріже.`, `ще один шанс`).
+- A trailing period does not make a dangling clause finished.
+- Never slice overlay copy by character/word cap. Replace from `spokenText` or fail the run.
+- Upper 25% layout, locked dark readability band, no in-video CTA, one shot per digest block, Ukrainian on-screen/voice (brands may stay Latin).
+
+Enforced in `news-digest-pipeline/production/lib/reel-ukrainian-copy.js`. Contract: `news-digest-pipeline/docs/reel-image-workflow.md`.

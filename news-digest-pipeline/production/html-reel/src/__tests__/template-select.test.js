@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DETAIL_MAX,
-  HEADLINE_MAX,
   TEMPLATE_IDS,
   prepareShotCopy,
   selectTemplateId,
@@ -33,16 +31,9 @@ describe('truncateField', () => {
     expect(truncateField('  Новини   дня ', 40)).toBe('Новини дня');
   });
 
-  it('cuts at a word boundary when one is close to the limit', () => {
-    const text = 'Українець запустив велику мовну модель на дешевому мікроконтролері';
-    const result = truncateField(text, 40);
-    expect(result.length).toBeLessThanOrEqual(40);
-    expect(result).toBe('Українець запустив велику мовну модель');
-    expect(text.startsWith(result)).toBe(true);
-  });
-
-  it('hard-cuts when there is no usable word boundary', () => {
-    expect(truncateField('абвгдеєжзииклмноп', 6)).toBe('абвгде');
+  it('keeps a complete sentence instead of cutting mid-thought', () => {
+    const text = 'Українець запустив велику мовну модель на дешевому мікроконтролері.';
+    expect(truncateField(text, 40)).toBe(text);
   });
 
   it('returns an empty string for missing input or bad limits', () => {
@@ -52,14 +43,14 @@ describe('truncateField', () => {
 });
 
 describe('prepareShotCopy', () => {
-  it('caps both fields and keeps the shot number', () => {
+  it('keeps finished sentences and the shot number', () => {
     const copy = prepareShotCopy({
       shot: 3,
-      headline: 'а'.repeat(200),
-      detailText: 'б'.repeat(300),
+      headline: 'Amazon почав різати рідкісні книжки на складі в Лас-Вегасі.',
+      detailText: 'Рідкісні видання їдуть на склад із динозавром на логотипі.',
     });
-    expect(copy.headline.length).toBeLessThanOrEqual(HEADLINE_MAX);
-    expect(copy.detailText.length).toBeLessThanOrEqual(DETAIL_MAX);
+    expect(copy.headline).toMatch(/Лас-Вегасі\.$/);
+    expect(copy.detailText).toMatch(/логотипі\.$/);
     expect(copy.shotNumber).toBe(3);
     expect(validatePreparedCopy(copy).ok).toBe(true);
   });
@@ -72,18 +63,20 @@ describe('prepareShotCopy', () => {
 
 describe('validatePreparedCopy', () => {
   it('accepts valid copy', () => {
-    expect(validatePreparedCopy({ headline: 'Заголовок', detailText: 'Деталі.' })).toEqual({
+    expect(validatePreparedCopy({ headline: 'Заголовок готовий.', detailText: 'Деталі повні.' })).toEqual({
       ok: true,
       errors: [],
     });
   });
 
-  it('reports empty headlines and oversized fields', () => {
-    const result = validatePreparedCopy({ headline: '', detailText: 'x'.repeat(DETAIL_MAX + 1) });
+  it('reports empty headlines and unfinished details', () => {
+    const result = validatePreparedCopy({
+      headline: '',
+      detailText: 'Amazon починав з продажу книжок, а тепер ріже.',
+    });
     expect(result.ok).toBe(false);
-    expect(result.errors).toHaveLength(2);
     expect(result.errors[0]).toMatch(/headline is empty/);
-    expect(result.errors[1]).toMatch(/detailText exceeds/);
+    expect(result.errors.some((e) => /unfinished/i.test(e))).toBe(true);
   });
 
   it('rejects a non-string detail', () => {

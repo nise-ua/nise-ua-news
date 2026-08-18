@@ -42,6 +42,11 @@ of the frame. Headlines, details, spoken text, and voice output must be
 Ukrainian; brand and product names may remain in Latin script. Do not run the
 full reel when the user asks only for image review.
 
+**FROZEN overlay copy:** `headline` 6–11 words, one finished sentence;
+`detailText` exactly one finished sentence of 8–12 words; no dangling clauses;
+no mid-sentence truncation. Do not loosen. See
+`news-digest-pipeline/docs/reel-image-workflow.md`.
+
 ## Tests
 
 Before/after `production/lib` changes, read

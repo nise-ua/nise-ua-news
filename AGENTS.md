@@ -53,5 +53,7 @@ Use exactly one image per actual news block; derive the count dynamically from
 the selected digest and never hard-code a story/image count. Preserve the reel
 layout: no `Більше новин тут...` CTA and headline/detail in the upper 25%.
 Keep all headlines, details, spoken text, and voice output Ukrainian (brand and
-product names may remain in Latin script). Do not use old carousel images or
-synthetic fallbacks.
+product names may remain in Latin script). **FROZEN:** `headline` 6–11 words,
+one finished sentence; `detailText` exactly one finished sentence of 8–12
+words; never cut on a comma, word cap, or dangling verb. Do not loosen these
+bands. Do not use old carousel images or synthetic fallbacks.

@@ -18,6 +18,7 @@ import { config as dotenvConfig } from 'dotenv';
 import { initDb, getDb, updateDigest } from '../../../src/db/index.js';
 
 import { generateStoryboard } from '../../video/src/storyboard.js';
+import { ensureUkrainianOnScreenCopy, assertFinishedReelCopy } from '../../lib/reel-ukrainian-copy.js';
 import { generateShotClip } from '../../video/src/generate-clips.js';
 import { stitchClips, mergeShotVideoAndAudio } from '../../video/src/stitch.js';
 import { getDigestContent, parseDigestItemTexts } from '../../lib/digest.js';
@@ -73,9 +74,7 @@ function stripSarcasticLeadIn(text) {
 
 function buildFallbackTitle(text) {
   const sentence = firstSentence(text).replace(/^[-–—:]+|[-–—:]+$/g, '').trim();
-  const colon = sentence.search(/\s[:—-]\s/);
-  const candidate = colon > 0 ? sentence.slice(0, colon) : sentence;
-  return candidate.split(/\s+/).filter(Boolean).slice(0, 8).join(' ');
+  return completeClause(sentence, 16, 140);
 }
 
 function buildFallbackDetail(text) {
@@ -145,6 +144,9 @@ async function main() {
       log(`Storyboard AI unavailable (${err.message}); using fallback parser.`);
       storyboard = fallbackStoryboard(digestText);
     }
+    storyboard.shots = (storyboard.shots || []).map((shot) => (
+      assertFinishedReelCopy(ensureUkrainianOnScreenCopy(shot))
+    ));
 
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
 
