@@ -439,7 +439,7 @@ Full audit: [SECURITY_AUDIT_2026-04-13.md](SECURITY_AUDIT_2026-04-13.md)
 │   │   │       ├── index.js        # Publish router
 │   │   │       ├── telegram.js     # Telegram channel publish
 │   │   │       ├── facebook.js     # Facebook Page Graph API
-│   │   │       └── youtube.js      # YouTube Community (placeholder)
+│   │   │       └── youtube.js      # YouTube Shorts upload (Data API v3)
 │   │   ├── data/
 │   │   │   ├── model-catalog.js    # LLM pricing catalog
 │   │   │   └── model-catalog.test.js

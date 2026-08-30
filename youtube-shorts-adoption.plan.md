@@ -4,19 +4,19 @@ overview: Keep the existing Facebook reel short and unchanged. Add a separate 1â
 todos:
   - id: shorts-format
     content: "Add generate-reel --format shorts: longer UA narration, shot tails, intro/outro, shorts_*.mp4 + youtube_shorts_url"
-    status: pending
+    status: completed
   - id: music-duration
     content: Parameterize music bed duration and synthesize to match Shorts runtime instead of looping 36s
-    status: pending
+    status: completed
   - id: youtube-upload
     content: "Replace youtube.js stub with Data API v3 resumable upload, OAuth refresh, #Shorts metadata"
-    status: pending
+    status: completed
   - id: ui-publish
     content: Separate dashboard Generate Shorts + YouTube publish buttons; dedicated YouTube settings group (not planned stub)
-    status: pending
+    status: completed
   - id: tests
     content: Unit tests for Shorts pacing, music duration, publisher metadata, and publishDigest guards
-    status: pending
+    status: completed
 ---
 
 # YouTube Shorts from existing reel pipeline

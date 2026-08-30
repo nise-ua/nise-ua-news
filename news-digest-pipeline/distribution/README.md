@@ -18,5 +18,6 @@ Channel docs and stubs. Live publishers and media CLIs live elsewhere.
 | Telegram | `src/services/publishers/` | Stub + `telegram/telegram-setup.md` |
 | Facebook Page | `src/services/publishers/facebook.js` (+ page helpers) | Stub + `facebook-page/facebook-page-setup.md` |
 | Facebook Profile | `scripts/fb-publish.js`, `scripts/fb-profile-watcher.js` | Stub + `facebook-profile/facebook-setup.md` |
+| YouTube Shorts | `src/services/publishers/youtube.js` | Setup: `docs/youtube-setup.md` + `scripts/youtube-oauth.js` |
 
 Archived duplicate CLIs: `.archive/distribution/`.

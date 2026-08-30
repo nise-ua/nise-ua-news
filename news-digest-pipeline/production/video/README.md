@@ -48,7 +48,7 @@ Digest (DB, newest by DATE) ──► Storyboard
             If any shot image fails, stop before TTS/video work.
                                   │
                                   ▼
-   Natural Ukrainian TTS per shot (edge-tts uk-UA-PolinaNeural,
+   Natural Ukrainian TTS per shot (edge-tts uk-UA-OstapNeural,
    neural, free via `uvx`; ElevenLabs auto if ELEVENLABS_API_KEY set)
                                   │
                                   ▼
@@ -70,7 +70,13 @@ To generate a YouTube Short, use the `--format shorts` flag:
 node src/generate-reel.js latest --format shorts
 ```
 
-This will produce a video optimized for YouTube Shorts (longer narration, intro/outro, etc.) with a filename like `shorts_<timestamp>.mp4`.
+This will produce a video optimized for YouTube Shorts (longer narration, intro/outro, etc.) with a filename like `shorts_<timestamp>.mp4`. Projected runtime is capped under 180s by dropping intro/outro first, then shortening per-shot pads — digest blocks are never merged or dropped.
+
+Regenerate a music bed of a given length:
+
+```bash
+node src/generate-background-music.cjs --duration 90
+```
 
 
 
@@ -81,7 +87,7 @@ This will produce a video optimized for YouTube Shorts (longer narration, intro/
 | **Digest source** | `news-digest.db` — `ORDER BY date DESC LIMIT 1` | The image carousels are built from the same newest digest, so voiceover/pictures/text always match. Falls back to API → local `output/digest_*.txt`. |
 | **Storyboard** | Fallback: parse numbered digest items → shots (headline + spokenText + prompt) | AI storyboard is attempted first; when API credits are unavailable it auto-falls back. |
 | **Background images** | Complete fresh AI-generated text-free 9:16 set for this digest | OpenRouter uses `POST /api/v1/images`; no old carousel or synthetic fallback. |
-| **Voice-over** | `uvx edge-tts` → validated `uk-UA-*` voice (default `uk-UA-PolinaNeural`) | Free, no API key, natural Ukrainian. ElevenLabs is used only with an explicit Ukrainian voice ID. |
+| **Voice-over** | `uvx edge-tts` → validated `uk-UA-*` voice (default `uk-UA-OstapNeural`) | Free, no API key, natural Ukrainian. ElevenLabs is used only with an explicit Ukrainian voice ID. |
 | **Background music** | `assets/background-music.mp3` — synthesized 132 BPM anthemic news bed | Regenerate: `node src/generate-background-music.cjs` (loudnorm −14 LUFS + limiter). |
 | **Sync** | Each clip's duration = its TTS duration; voiceover paired per clip before stitching | `mergeShotVideoAndAudio` per shot; music ducked under voice in `stitch.js`. |
 | **Assembly** | `stitchClips({ clipPaths, outputPath, backgroundMusic: true })` | 1080×1920 9:16, H.264/AAC, faststart. |
@@ -92,6 +98,7 @@ This will produce a video optimized for YouTube Shorts (longer narration, intro/
 src/generate-reel.js                # MAIN entry (UI / production)
    node src/generate-reel.js latest
    node src/generate-reel.js <digest-id>
+   node src/generate-reel.js latest --copy-only     # review overlay copy only
    node src/generate-reel.js latest --images-only  # review fresh backgrounds only
 
 src/stitch-real-test.mjs            # Real-data test harness (proven path)
@@ -110,7 +117,7 @@ output paths, see
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `EDGE_TTS_VOICE` | Neural Ukrainian voice | `uk-UA-PolinaNeural` |
+| `EDGE_TTS_VOICE` | Neural Ukrainian voice | `uk-UA-OstapNeural` |
 | `ELEVENLABS_API_KEY` | ElevenLabs API access (optional) | *(none → edge-tts)* |
 | `ELEVENLABS_UKRAINIAN_VOICE_ID` | Explicit Ukrainian ElevenLabs voice ID | *(none → edge-tts)* |
 | `OPENROUTER_API_KEY` | OpenRouter image generation | *(none → image generation fails fast)* |

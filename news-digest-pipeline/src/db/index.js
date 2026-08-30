@@ -51,6 +51,9 @@ export function initDb(dbPath) {
   if (!digestCols.has('reel_url')) {
     db.exec('ALTER TABLE digests ADD COLUMN reel_url TEXT');
   }
+  if (!digestCols.has('youtube_shorts_url')) {
+    db.exec('ALTER TABLE digests ADD COLUMN youtube_shorts_url TEXT');
+  }
   if (!digestCols.has('facebook_reel_id')) {
     db.exec('ALTER TABLE digests ADD COLUMN facebook_reel_id TEXT');
   }
@@ -135,7 +138,8 @@ export function updateDigest(id, fields) {
   const allowed = ['content', 'status', 'generation_log', 'published_at',
     'facebook_post_id', 'facebook_reel_id', 'facebook_story_id', 'postiz_posts',
     'telegram_message_id', 'youtube_post_id', 'articles_count',
-    'model', 'input_tokens', 'output_tokens', 'cost_usd', 'video_url', 'reel_url'];
+    'model', 'input_tokens', 'output_tokens', 'cost_usd', 'video_url', 'reel_url',
+    'youtube_shorts_url'];
   const updates = [];
   const values = [];
 

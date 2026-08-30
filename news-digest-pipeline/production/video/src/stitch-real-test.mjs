@@ -13,7 +13,7 @@
  *      images were generated from.
  *   2. Parses its numbered news items.
  *   3. Synthesizes natural neural Ukrainian speech with edge-tts
- *      (uk-UA-PolinaNeural via uvx — free, no API key, neural quality).
+ *      (uk-UA-OstapNeural via uvx — free, no API key, neural quality).
  *   4. Times each clip to its own narration and stitches with music.
  */
 

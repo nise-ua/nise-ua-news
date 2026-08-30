@@ -7,6 +7,7 @@
  * rendered via Patchright. Pass --no-ai-bg for typography-only CSS backgrounds.
  *
  * Usage:
+ *   node production/html-reel/src/generate-reel-html.js latest --copy-only
  *   node production/html-reel/src/generate-reel-html.js latest --images-only
  *   node production/html-reel/src/generate-reel-html.js latest --images-only --no-ai-bg
  *   node production/html-reel/src/generate-reel-html.js <digest-id>
@@ -16,9 +17,20 @@ import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'fs';
 import { basename, join } from 'path';
 import { config as dotenvConfig } from 'dotenv';
 import { initDb, getDb, updateDigest } from '../../../src/db/index.js';
+import { digestVideoUpdateFields } from '../../../src/db/digest-video-fields.js';
 
 import { generateStoryboard } from '../../video/src/storyboard.js';
+import { planShortsRuntime } from '../../video/src/shorts-runtime.js';
 import { ensureUkrainianOnScreenCopy, assertFinishedReelCopy } from '../../lib/reel-ukrainian-copy.js';
+import {
+  ReelCopyReviewError,
+  findLatestStoryboardFile,
+  formatCopyReviewTable,
+  readStoryboardFile,
+  reviewReelStoryboard,
+  stripSarcasticLeadIn,
+  writeStoryboardFile,
+} from '../../lib/reel-copy-review.js';
 import { generateShotClip } from '../../video/src/generate-clips.js';
 import { stitchClips, mergeShotVideoAndAudio } from '../../video/src/stitch.js';
 import { getDigestContent, parseDigestItemTexts } from '../../lib/digest.js';
@@ -62,16 +74,6 @@ function firstSentence(text) {
   return String(text || '').split(/(?<=[.!?])\s+/)[0].trim();
 }
 
-function stripSarcasticLeadIn(text) {
-  return String(text || '')
-    .replace(/^\s*ну що,?\s*/i, '')
-    .replace(/^\s*знову\s*[«"']?революція[»"']?\s*\??\s*/i, '')
-    .replace(/^\s*оце так історія\.?\s*/i, '')
-    .replace(/^\s*інтересненько[^.!?]*[.!?]\s*/i, '')
-    .replace(/^\s*ага,?\s*/i, '')
-    .trim();
-}
-
 function buildFallbackTitle(text) {
   const sentence = firstSentence(text).replace(/^[-–—:]+|[-–—:]+$/g, '').trim();
   return completeClause(sentence, 16, 140);
@@ -96,6 +98,7 @@ function fallbackStoryboard(digestText) {
       return {
         shot: i + 1,
         coreFact,
+        sourceText: factual,
         entities: [],
         newsTone,
         visualSubject: coreFact,
@@ -123,6 +126,8 @@ async function main() {
   const args = process.argv.slice(2);
   const digestId = args.find(a => !a.startsWith('--')) || 'latest';
   const imagesOnly = args.includes('--images-only');
+  const copyOnly = args.includes('--copy-only');
+  const storyboardFlag = args.includes('--storyboard') ? args[args.indexOf('--storyboard') + 1] : null;
   const noAiBg = args.includes('--no-ai-bg');
   const format = args.includes('--format') ? args[args.indexOf('--format') + 1] : 'facebook';
 
@@ -136,17 +141,47 @@ async function main() {
     const digestText = await getDigestContent(digestId, { log });
     log(`Digest: ${digestText.length} chars`);
 
-    let storyboard;
-    try {
-      storyboard = await generateStoryboard(digestText, format);
-      log(`Storyboard created with ${storyboard.shots.length} shots.`);
-    } catch (err) {
-      log(`Storyboard AI unavailable (${err.message}); using fallback parser.`);
-      storyboard = fallbackStoryboard(digestText);
+    async function createReviewedStoryboard() {
+      try {
+        const created = await generateStoryboard(digestText, format);
+        log(`Storyboard created with ${created.shots.length} shots.`);
+        return created;
+      } catch (err) {
+        if (err?.name === 'ReelCopyReviewError' || err instanceof ReelCopyReviewError) throw err;
+        log(`Storyboard AI unavailable (${err.message}); using fallback parser.`);
+        return reviewReelStoryboard(fallbackStoryboard(digestText), { log });
+      }
     }
-    storyboard.shots = (storyboard.shots || []).map((shot) => (
-      assertFinishedReelCopy(ensureUkrainianOnScreenCopy(shot))
-    ));
+
+    let storyboard;
+    let reusePath = null;
+    if (!copyOnly) {
+      if (storyboardFlag && storyboardFlag !== 'latest') {
+        if (!existsSync(storyboardFlag)) {
+          throw new Error(`Storyboard file not found: ${storyboardFlag}`);
+        }
+        reusePath = storyboardFlag;
+      } else {
+        reusePath = findLatestStoryboardFile(OUTPUT_DIR, digestId);
+      }
+    }
+    if (reusePath && existsSync(reusePath)) {
+      log(`Reusing copy-reviewed storyboard: ${reusePath}`);
+      storyboard = readStoryboardFile(reusePath);
+      storyboard.shots = (storyboard.shots || []).map((shot) => (
+        assertFinishedReelCopy(ensureUkrainianOnScreenCopy(shot))
+      ));
+    } else {
+      storyboard = await createReviewedStoryboard();
+    }
+
+    if (copyOnly) {
+      const saved = writeStoryboardFile(OUTPUT_DIR, digestId, storyboard);
+      log(`\n${formatCopyReviewTable(storyboard)}`);
+      log(`Wrote copy-reviewed storyboard: ${saved}`);
+      log('Final copy is ready for review. Approve it, then run --images-only.');
+      return saved;
+    }
 
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
 
@@ -182,12 +217,16 @@ async function main() {
     const audioResults = await generatePerArticleAudio(storyboard.shots, tempDir, { log });
 
     log('Generating synchronized video clips for shots...');
+    const baseDurations = shotsWithImages.map((_, i) => audioResults[i]?.duration || 5);
+    const shortsPlan = format === 'shorts' ? planShortsRuntime(baseDurations) : { padSec: 0, introOutroSec: 0 };
+    if (format === 'shorts') {
+      log(`Shorts pacing: pad ${shortsPlan.padSec.toFixed(2)}s, intro/outro ${shortsPlan.introOutroSec}s, ~${shortsPlan.projectedSec.toFixed(1)}s`);
+    }
     const syncedShotPaths = [];
     for (let i = 0; i < shotsWithImages.length; i += 1) {
       const shot = shotsWithImages[i];
       const audio = audioResults[i];
-      shot.duration = audio ? audio.duration : 5;
-      if (format === 'shorts') shot.duration += 2.25;
+      shot.duration = baseDurations[i] + (format === 'shorts' ? shortsPlan.padSec : 0);
       log(`  Shot ${i + 1}: ${shot.duration.toFixed(2)}s — "${(shot.headline || '').slice(0, 50)}..."`);
 
       const silentVideoPath = await generateShotClip(shot, tempDir);
@@ -207,6 +246,7 @@ async function main() {
       backgroundMusic: true,
       musicSeed: Date.now(),
       format,
+      introOutroSec: shortsPlan.introOutroSec,
       firstFrameImage: shotsWithImages[0]?.imageUrl,
       lastFrameImage: shotsWithImages[shotsWithImages.length - 1]?.imageUrl,
     });
@@ -228,14 +268,10 @@ async function main() {
         if (row) digestToUpdateId = row.id;
       }
       if (digestToUpdateId) {
-        const updateData = {};
-        if (format === 'shorts') {
-          updateData.youtube_shorts_url = publicVideoUrl;
-        } else {
-          updateData.video_url = publicVideoUrl;
-          updateData.reel_url = publicReelUrl;
-        }
-        updateDigest(digestToUpdateId, updateData);
+        updateDigest(digestToUpdateId, digestVideoUpdateFields(format, {
+          videoUrl: publicVideoUrl,
+          reelUrl: publicReelUrl,
+        }));
         console.log(`[update] Video URL stored for digest ${digestToUpdateId}: ${publicVideoUrl}`);
       }
     } catch (e) {

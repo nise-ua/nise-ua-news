@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   assertFinishedReelCopy,
   ensureUkrainianOnScreenCopy,
+  extractSourceLatinNames,
   hasCyrillic,
   looksNonUkrainian,
   looksUnfinishedSentence,
-  preserveEnglishDisplayTerms,
+  restoreSourceLatinNames,
 } from '../reel-ukrainian-copy.js';
 
 describe('hasCyrillic / looksNonUkrainian', () => {
@@ -25,19 +26,47 @@ describe('hasCyrillic / looksNonUkrainian', () => {
 });
 
 describe('ensureUkrainianOnScreenCopy', () => {
-  it('keeps common brands and abbreviations in English display form', () => {
-    expect(preserveEnglishDisplayTerms('ШІ від Гугл та Нвідіа')).toBe(
-      'AI від Google та Nvidia',
-    );
+  it('restores source Latin names from phonetic Cyrillic overlay copy', () => {
+    expect(extractSourceLatinNames({
+      coreFact: 'Claude can write letters and share files.',
+    })).toEqual(['Claude']);
+
+    expect(restoreSourceLatinNames(
+      'Клауд може сам писати листи.',
+      ['Claude'],
+    )).toBe('Claude може сам писати листи.');
 
     const shot = ensureUkrainianOnScreenCopy({
-      headline: 'ШІ від Нвідіа виходить на ринок.',
-      detailText: 'Гугл представив нову велику модель AI цього тижня.',
-      spokenText: 'Нвідіа та Гугл розширюють AI-інструменти для розробників.',
+      coreFact: 'Google and Nvidia launch a new model this week.',
+      headline: 'Нвідіа виходить на ринок із новою моделлю.',
+      detailText: 'Гугл представив нову велику модель цього тижня.',
+      spokenText: 'Нвідіа та Гугл розширюють інструменти для розробників.',
     });
-    expect(shot.headline).toBe('AI від Nvidia виходить на ринок.');
-    expect(shot.detailText).toBe('Google представив нову велику модель AI цього тижня.');
-    expect(shot.spokenText).toBe('Nvidia та Google розширюють AI-інструменти для розробників.');
+    expect(shot.headline).toBe('Nvidia виходить на ринок із новою моделлю.');
+    expect(shot.detailText).toBe('Google представив нову велику модель цього тижня.');
+    expect(shot.spokenText).toBe('Nvidia та Google розширюють інструменти для розробників.');
+  });
+
+  it('restores Claude from coreFact when overlay used Клауд', () => {
+    const shot = ensureUkrainianOnScreenCopy({
+      coreFact: 'Claude can write letters and share a file by itself.',
+      headline: 'Клауд може сам писати листи та ділитись файлом.',
+      detailText: 'Нова функція Клауд дозволяє писати листи і ділитись файлами.',
+      spokenText: 'Клауд тепер сам пише листи та ділиться файлами.',
+    });
+    expect(shot.headline).toBe('Claude може сам писати листи та ділитись файлом.');
+    expect(shot.detailText).toBe('Нова функція Claude дозволяє писати листи і ділитись файлами.');
+    expect(shot.spokenText).toBe('Claude тепер сам пише листи та ділиться файлами.');
+  });
+
+  it('does not invent Latin names when the shot source has none', () => {
+    const shot = ensureUkrainianOnScreenCopy({
+      headline: 'Клауд може сам писати листи та ділитись файлом.',
+      detailText: 'Нова функція дозволяє писати листи і ділитись файлами.',
+      spokenText: 'Сервіс тепер сам пише листи та ділиться файлами.',
+    });
+    expect(shot.headline).toContain('Клауд');
+    expect(shot.headline).not.toContain('Claude');
   });
 
   it('keeps Ukrainian detailText', () => {
@@ -128,6 +157,26 @@ describe('ensureUkrainianOnScreenCopy', () => {
     expect(words.length).toBeGreaterThanOrEqual(8);
     expect(shot.detailText).toBe('Amazon ріже рідкісні книжки на шматки на складі в Лас-Вегасі.');
   });
+
+  it('replaces an over-long detail with an in-band spoken sentence', () => {
+    const shot = ensureUkrainianOnScreenCopy({
+      headline: 'ChatGPT читатиме твої медичні дані.',
+      detailText: 'Звучить зручно, поки не згадаєш, що це ще один шар посередника між тобою і твоїми власними даними.',
+      spokenText: 'ChatGPT Health читає медичні дані через шар посередника.',
+    });
+    expect(shot.detailText).toBe('ChatGPT Health читає медичні дані через шар посередника.');
+  });
+
+  it('keeps a complete clause when detail and spoken are the same over-long sentence', () => {
+    const longLine = 'Звучить зручно, поки не згадаєш, що це ще один шар посередника між тобою і твоїми власними даними.';
+    const shot = ensureUkrainianOnScreenCopy({
+      headline: 'ChatGPT Health читатиме твої медичні дані сьогодні.',
+      detailText: longLine,
+      spokenText: longLine,
+    });
+    expect(shot.detailText).toBe('Це ще один шар посередника між тобою і твоїми власними даними.');
+    expect(() => assertFinishedReelCopy(shot)).not.toThrow();
+  });
 });
 
 describe('looksUnfinishedSentence', () => {
@@ -145,5 +194,21 @@ describe('assertFinishedReelCopy', () => {
       detailText: 'Склад працює в Лас-Вегасі.',
       spokenText: 'Amazon ріже книжки на складі в Лас-Вегасі.',
     })).toThrow(/headline is unfinished/i);
+  });
+
+  it('throws on one-word stub headlines like «Класика.»', () => {
+    expect(() => assertFinishedReelCopy({
+      headline: 'Класика.',
+      detailText: 'Meta щедро підкидає токенів розробникам Llama.',
+      spokenText: 'Meta дає безплатні токени розробникам Llama.',
+    })).toThrow(/headline is out of band \(1 words\)/i);
+  });
+
+  it('throws when the headline is missing', () => {
+    expect(() => assertFinishedReelCopy({
+      headline: '',
+      detailText: 'Meta дає безплатні токени розробникам Llama.',
+      spokenText: 'Meta дає безплатні токени розробникам Llama.',
+    })).toThrow(/headline is missing/i);
   });
 });

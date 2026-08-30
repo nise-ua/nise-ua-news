@@ -146,7 +146,10 @@ export async function publishDigest(digest, config, platforms) {
     } else if (!youtubeShortsPath) {
       results.youtube = { error: '[youtube] No YouTube Shorts video. Generate the Shorts video first.' };
     } else {
-      const date = new Date(digest.date).toISOString().slice(0, 10); // YYYY-MM-DD
+      const dateValue = digest.date ? new Date(digest.date) : new Date();
+      const date = Number.isNaN(dateValue.getTime())
+        ? new Date().toISOString().slice(0, 10)
+        : dateValue.toISOString().slice(0, 10);
       const title = `NiSeNews · ${date} #Shorts`;
       let description = `${digest.content}\n\n#Shorts #новини #Україна`;
       if (digest.facebook_post_id) {

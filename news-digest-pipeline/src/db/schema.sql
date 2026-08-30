@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS digests (
   youtube_post_id TEXT,
   video_url TEXT,
   reel_url TEXT,
+  youtube_shorts_url TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );

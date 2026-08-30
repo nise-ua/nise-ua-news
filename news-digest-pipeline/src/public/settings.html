@@ -719,13 +719,17 @@
           </div>`;
       } else if (active === 'youtube') {
         const yt = d.youtube;
+        const ytReady = !!(yt.clientId?.configured && yt.clientSecret?.configured && yt.refreshToken?.configured);
         html = `
           <div class="card active">
             <h2>YouTube</h2>
             <p class="card-desc">Налаштування публікації Shorts на YouTube. Потрібно отримати <a href="https://console.developers.google.com/apis/credentials" target="_blank">OAuth Client ID</a> та <a href="https://console.developers.google.com/apis/library/youtube.googleapis.com" target="_blank">увімкнути YouTube Data API v3</a>.
             </p>
             <div class="status-note">
-              <span class="badge on">Крок 1:</span> Вкажіть Client ID та Client Secret у файлі <code>.env</code>.
+              ${ytReady
+                ? '<span class="badge on">готово</span> Refresh token налаштовано. Публікація Shorts доступна з панелі дайджестів.'
+                : '<span class="badge off">немає refresh token</span> Запустіть <code>node news-digest-pipeline/scripts/youtube-oauth.js</code>.'}
+              <br><span class="badge on">Крок 1:</span> Вкажіть Client ID та Client Secret у файлі <code>.env</code>.
               <br><span class="badge on">Крок 2:</span> Запустіть <code>node news-digest-pipeline/scripts/youtube-oauth.js</code> в консолі, щоб отримати Refresh Token.
               <br><span class="badge on">Крок 3:</span> Додайте Refresh Token до файлу <code>.env</code>.
             </div>

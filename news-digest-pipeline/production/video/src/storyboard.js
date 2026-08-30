@@ -13,7 +13,8 @@ import { config as dotenvConfig } from 'dotenv';
 import { VISUAL_GROUNDING_RULES, groundVisualVariant } from '../../lib/visual-grounding.js';
 import { parseDigestItems } from '../../lib/digest.js';
 import { log, projectRoot } from '../../lib/logging.js';
-import { assertFinishedReelCopy, ensureUkrainianOnScreenCopy } from '../../lib/reel-ukrainian-copy.js';
+import { ensureUkrainianOnScreenCopy } from '../../lib/reel-ukrainian-copy.js';
+import { reviewReelStoryboard } from '../../lib/reel-copy-review.js';
 
 const ROOT = projectRoot(import.meta.url);
 dotenvConfig({ path: join(ROOT, '.env'), override: true });
@@ -135,7 +136,7 @@ ${VISUAL_GROUNDING_RULES}
     if (grounded.prompt !== shot.prompt) {
       log(`  Shot ${i + 1}: rebuilt prompt from coreFact/entities (sarcasm/abstract rejected)`);
     }
-    const localized = assertFinishedReelCopy(ensureUkrainianOnScreenCopy(grounded));
+    const localized = ensureUkrainianOnScreenCopy(grounded);
     if (localized.detailText !== String(shot.detailText || '').trim()) {
       log(`  Shot ${i + 1}: detailText localized to Ukrainian (was non-UA or empty)`);
     }
@@ -145,6 +146,7 @@ ${VISUAL_GROUNDING_RULES}
     log(`  Shot ${i + 1} prompt: ${(localized.prompt || '').slice(0, 100)}`);
     return localized;
   });
-  log(`Generated ${storyboard.shots.length} shots storyboard.`);
-  return storyboard;
+  const reviewed = await reviewReelStoryboard(storyboard, { log });
+  log(`Generated ${reviewed.shots.length} shots storyboard.`);
+  return reviewed;
 }

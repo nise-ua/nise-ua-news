@@ -22,14 +22,20 @@ Collecting news from Perplexity via a Chrome extension (folder `extension/`) and
 ## Reel and Image Generation
 
 For reel/image tasks, read `news-digest-pipeline/docs/reel-image-workflow.md`
-before running commands. Review fresh reel backgrounds first:
+before running commands. Review overlay copy first:
 
 ```bash
 cd news-digest-pipeline
+node production/video/src/generate-reel.js latest --copy-only
+```
+
+After copy approval, generate grounded 9:16 reel backgrounds:
+
+```bash
 node production/video/src/generate-reel.js latest --images-only
 ```
 
-Only after approval, generate the full reel:
+Only after image approval, generate the full reel:
 
 ```bash
 node production/video/src/generate-reel.js latest
