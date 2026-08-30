@@ -35,15 +35,35 @@ When changing `news-digest-pipeline/production/lib` or adding tests, read
 `news-digest-pipeline/docs/testing.md` and run tests from
 `news-digest-pipeline/` (`npm run test:production` or `npm run test:all`).
 
+### Restart after major code changes
+
+After any major code change (pipeline, dashboard, production libs, video/reel,
+or other server-loaded code), restart the local app so the running process
+picks up the new code. From the repo root:
+
+```bash
+./restart.sh
+```
+
+Do this at the end of the task, after tests. Skip for docs-only or comment-only
+edits. The script wraps `news-digest-pipeline/scripts/restart-local.sh` and
+reloads the dashboard on port 3000.
+
 The required review-first CLI workflow is:
 
 ```bash
 cd news-digest-pipeline
+node production/video/src/generate-reel.js latest --copy-only
+```
+
+Wait for copy approval, then generate grounded 9:16 backgrounds:
+
+```bash
 node production/video/src/generate-reel.js latest --images-only
 ```
 
-This generates fresh, grounded 9:16 reel backgrounds without running TTS or
-video assembly. Wait for user approval before running:
+This reuses the saved storyboard so approved wording is not regenerated. Wait
+for image approval before running:
 
 ```bash
 node production/video/src/generate-reel.js latest

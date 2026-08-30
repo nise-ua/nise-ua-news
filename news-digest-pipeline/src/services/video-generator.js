@@ -6,6 +6,7 @@ import { readdirSync, statSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
 import { updateDigest } from '../db/index.js';
+import { digestVideoUpdateFields } from '../db/digest-video-fields.js';
 import config, { normalizeReelFrameMode } from '../config.js';
 
 
@@ -84,6 +85,24 @@ export function findActiveVideoJob(digestId) {
     }
   }
   return null;
+}
+
+function publicVideoUrlFromPath(videoPath) {
+  const fileName = String(videoPath || '').split(/[\\/]/).pop();
+  const baseUrl = process.env.BASE_URL || 'https://your-public-domain.com';
+  return `${baseUrl}/videos/${encodeURIComponent(fileName)}`;
+}
+
+function publicReelUrlFromPath(videoPath) {
+  const fileName = String(videoPath || '').split(/[\\/]/).pop();
+  const baseUrl = process.env.BASE_URL || 'https://your-public-domain.com';
+  return `${baseUrl}/reels/${encodeURIComponent(fileName)}`;
+}
+
+function persistGeneratedVideoUrls(digestId, format, videoPath) {
+  const videoUrl = publicVideoUrlFromPath(videoPath);
+  const reelUrl = publicReelUrlFromPath(videoPath);
+  updateDigest(digestId, digestVideoUpdateFields(format, { videoUrl, reelUrl }));
 }
 
 function buildScriptArgs(digestId, { format = 'facebook' } = {}) {
@@ -177,11 +196,8 @@ export function startVideoGeneration(digestId, { format = 'facebook' } = {}) {
       finishVideoJob(job, new Error('Пайплайн завершився без шляху до готового відео'));
       return;
     }
-    const fileName = videoPath.split(/[\\/]/).pop();
-    const baseUrl = process.env.BASE_URL || 'https://your-public-domain.com';
-    const videoUrl = `${baseUrl}/videos/${encodeURIComponent(fileName)}`;
-    const reelUrl = `${baseUrl}/reels/${encodeURIComponent(fileName)}`;
-    updateDigest(digestId, { video_url: videoUrl, reel_url: reelUrl });
+    persistGeneratedVideoUrls(digestId, job.format, videoPath);
+    const videoUrl = publicVideoUrlFromPath(videoPath);
     updateJob(job, { status: 'completed', stage: 'completed', progress: 100, message: 'Відео готове', videoUrl });
     scheduleJobCleanup(job.id);
   });
@@ -223,15 +239,8 @@ export async function generateVideoForDigest(digestId, { format = 'facebook' } =
         return reject(new Error('Video path not found in script output'));
       }
       const videoPath = mp4Line.replace(/^\s*Path:\s*/, '').trim();
-      // Convert absolute path to a URL served by the Express static middleware.
-      // The server mounts production/video/output under /videos, so the public
-      // URL is just /videos/<filename>.
-      const fileName = videoPath.trim().split(/[\\/]/).pop();
-      const baseUrl = process.env.BASE_URL || 'https://your-public-domain.com';
-      const videoUrl = `${baseUrl}/videos/${encodeURIComponent(fileName)}`;
-      const reelUrl = `${baseUrl}/reels/${encodeURIComponent(fileName)}`;
-      updateDigest(digestId, { video_url: videoUrl, reel_url: reelUrl });
-      resolve(videoUrl);
+      persistGeneratedVideoUrls(digestId, format === 'shorts' ? 'shorts' : 'facebook', videoPath);
+      resolve(publicVideoUrlFromPath(videoPath));
     });
   });
 }

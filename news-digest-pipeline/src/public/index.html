@@ -782,7 +782,10 @@
           if (shortsJobActive) {
             shortsBtn = `<button class="plat-btn busy" disabled title="Генеруються Shorts">⏳ Shorts</button>`;
           } else if (youtubeShortsExists) {
-            shortsBtn = `<a class="plat-btn" href="https://youtube.com/shorts/${d.youtube_post_id || ''}" target="_blank">▶️ Shorts</a>`
+            const shortsHref = String(d.youtube_shorts_url || '')
+              .replace(/&/g, '&amp;')
+              .replace(/"/g, '&quot;');
+            shortsBtn = `<a class="plat-btn" href="${shortsHref}" target="_blank">▶️ Shorts</a>`
               + `<button class="plat-btn" onclick="generateVideo('${d.id}', this, 'shorts', true)" title="Перегенерувати Shorts">🔄</button>`;
           } else {
             shortsBtn = `<button class="plat-btn" onclick="generateVideo('${d.id}', this, 'shorts')">▶️ Shorts</button>`;
@@ -797,7 +800,7 @@
           const youtubePublishBtn = !youtubeShortsExists
             ? ''
             : youtubeSent
-              ? `<button class="plat-btn sent" disabled>✓ YT</button>`
+              ? `<a class="plat-btn sent" href="https://youtube.com/shorts/${String(d.youtube_post_id || '').replace(/"/g, '&quot;')}" target="_blank">✓ YT</a>`
               : `<button class="plat-btn" onclick="publishYouTube('${d.id}', this)">▶️ YouTube</button>`;
 
           const delBtn = `<button class="btn-delete" onclick="deleteDigest('${d.id}')" title="Видалити">✕</button>`;
@@ -1100,7 +1103,10 @@
           btn.onclick = null;
         } else {
           const errorMsg = result?.error || 'Невідома помилка';
-          alert('YouTube: публікація не вдалася. ' + errorMsg);
+          const oauthHint = /OAuth2|refresh token|credentials/i.test(errorMsg)
+            ? ' Відкрийте Налаштування → YouTube і запустіть scripts/youtube-oauth.js.'
+            : '';
+          alert('YouTube: публікація не вдалася. ' + errorMsg + oauthHint);
           btn.disabled = false;
           btn.textContent = '▶️ YouTube';
         }

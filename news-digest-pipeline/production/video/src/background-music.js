@@ -18,6 +18,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ASSETS_DIR = join(__dirname, '..', 'assets');
 
 const SR = 48000;
+export const DEFAULT_MUSIC_DURATION_SEC = 36;
 
 export const MUSIC_STYLES = {
   anthem: { label: 'Anthem Drive', bpmOptions: [128, 130, 132, 134, 136] },
@@ -409,7 +410,7 @@ function encodeWavToMp3(wavPath, mp3Path) {
   ], { stdio: 'pipe' });
 }
 
-export function generateBackgroundMusic({ seed, outputPath, duration = DURATION } = {}) {
+export function generateBackgroundMusic({ seed, outputPath, duration = DEFAULT_MUSIC_DURATION_SEC } = {}) {
   if (!outputPath) throw new Error('outputPath is required');
   const resolvedSeed = seed != null ? Number(seed) : Date.now();
   const config = buildMusicConfig(resolvedSeed);
@@ -429,5 +430,10 @@ export function defaultAssetPath() {
 }
 
 export function reelMusicPathFor(reelPath) {
-  return reelPath.replace(/reel_([^.]+)\.mp4$/i, 'reel-music_$1.mp3');
+  const input = String(reelPath || '');
+  const shorts = input.replace(/shorts_([^.]+)\.mp4$/i, 'shorts-music_$1.mp3');
+  if (shorts !== input) return shorts;
+  const reel = input.replace(/reel_([^.]+)\.mp4$/i, 'reel-music_$1.mp3');
+  if (reel !== input) return reel;
+  return input.replace(/\.mp4$/i, '-music.mp3');
 }

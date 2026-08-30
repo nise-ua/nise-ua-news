@@ -9,7 +9,7 @@
  * 2. Generate a complete set of text-free 9:16 AI Background Images per shot
  *    (OpenRouter/OpenAI/fal). If any image is missing, stop before TTS/video
  *    generation; never reuse an older digest or create synthetic placeholders.
- * 3. Generate NATURAL Ukrainian TTS per shot (edge-tts uk-UA-PolinaNeural via
+ * 3. Generate NATURAL Ukrainian TTS per shot (edge-tts uk-UA-OstapNeural via
  *    uvx — free, neural, human-quality; ElevenLabs used automatically when
  *    ELEVENLABS_API_KEY is present).
  * 4. Generate Motion Clips matching the exact TTS duration & background image
@@ -20,6 +20,8 @@
  *    background-music bed (see generator script for the music synthesis).
  *
  * Usage:
+ *   node production/video/src/generate-reel.js latest --copy-only
+ *   node production/video/src/generate-reel.js latest --images-only
  *   node production/video/src/generate-reel.js latest
  *   node production/video/src/generate-reel.js <digest-id>
  */
@@ -28,8 +30,10 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync
 import { join, basename } from 'path';
 import { config as dotenvConfig } from 'dotenv';
 import { initDb, getDb, updateDigest } from '../../../src/db/index.js';
+import { digestVideoUpdateFields } from '../../../src/db/digest-video-fields.js';
 
 import { generateStoryboard } from './storyboard.js';
+import { planShortsRuntime } from './shorts-runtime.js';
 import { createShotImage, generateShotClip } from './generate-clips.js';
 import { stitchClips, mergeShotVideoAndAudio } from './stitch.js';
 import { groundVisualVariant, buildGroundedPrompt, inferNewsToneFromFact } from '../../lib/visual-grounding.js';
@@ -48,6 +52,15 @@ import {
 } from '../../lib/tts.js';
 import { log, projectRoot, scriptDir } from '../../lib/logging.js';
 import { assertFinishedReelCopy, ensureUkrainianOnScreenCopy } from '../../lib/reel-ukrainian-copy.js';
+import {
+  ReelCopyReviewError,
+  findLatestStoryboardFile,
+  formatCopyReviewTable,
+  readStoryboardFile,
+  reviewReelStoryboard,
+  stripSarcasticLeadIn,
+  writeStoryboardFile,
+} from '../../lib/reel-copy-review.js';
 
 import OpenAI from 'openai';
 import { fal } from '@fal-ai/client';
@@ -222,16 +235,6 @@ async function saveGeneratedImage(imageUrl, filepath) {
 // Digest -> storyboard (AI when available, otherwise direct item parsing)
 // ---------------------------------------------------------------------------
 
-function stripSarcasticLeadIn(text) {
-  return String(text || '')
-    .replace(/^\s*ну що,?\s*/i, '')
-    .replace(/^\s*знову\s*[«"']?революція[»"']?\s*\??\s*/i, '')
-    .replace(/^\s*оце так історія\.?\s*/i, '')
-    .replace(/^\s*інтересненько[^.!?]*[.!?]\s*/i, '')
-    .replace(/^\s*ага,?\s*/i, '')
-    .trim();
-}
-
 function fallbackStoryboard(digestText) {
   const items = parseDigestItemTexts(digestText);
   log(`Fallback storyboard: parsing ${items.length} digest items into shots.`);
@@ -243,6 +246,7 @@ function fallbackStoryboard(digestText) {
       return {
         shot: i + 1,
         coreFact,
+        sourceText: factual,
         entities: [],
         newsTone,
         visualSubject: coreFact,
@@ -270,6 +274,8 @@ async function main() {
   const args = process.argv.slice(2);
   const digestId = args.find(a => !a.startsWith('--')) || 'latest';
   const imagesOnly = args.includes('--images-only');
+  const copyOnly = args.includes('--copy-only');
+  const storyboardFlag = args.includes('--storyboard') ? args[args.indexOf('--storyboard') + 1] : null;
   const format = args.includes('--format') ? args[args.indexOf('--format') + 1] : 'facebook';
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -283,18 +289,48 @@ async function main() {
     const digestText = await getDigestContent(digestId, { log });
     log(`Digest: ${digestText.length} chars`);
 
-    // Step 2: Storyboard (AI if keys available, else parse digest items)
-    let storyboard;
-    try {
-      storyboard = await generateStoryboard(digestText, format);
-      log(`Storyboard created with ${storyboard.shots.length} shots.`);
-    } catch (err) {
-      log(`Storyboard AI unavailable (${err.message}); using fallback parser.`);
-      storyboard = fallbackStoryboard(digestText);
+    // Step 2: Storyboard (reuse copy-reviewed JSON when present)
+    async function createReviewedStoryboard() {
+      try {
+        const created = await generateStoryboard(digestText, format);
+        log(`Storyboard created with ${created.shots.length} shots.`);
+        return created;
+      } catch (err) {
+        if (err?.name === 'ReelCopyReviewError' || err instanceof ReelCopyReviewError) throw err;
+        log(`Storyboard AI unavailable (${err.message}); using fallback parser.`);
+        return reviewReelStoryboard(fallbackStoryboard(digestText), { log });
+      }
     }
-    storyboard.shots = (storyboard.shots || []).map((shot) => (
-      assertFinishedReelCopy(ensureUkrainianOnScreenCopy(shot))
-    ));
+
+    let storyboard;
+    let reusePath = null;
+    if (!copyOnly) {
+      if (storyboardFlag && storyboardFlag !== 'latest') {
+        if (!existsSync(storyboardFlag)) {
+          throw new Error(`Storyboard file not found: ${storyboardFlag}`);
+        }
+        reusePath = storyboardFlag;
+      } else {
+        reusePath = findLatestStoryboardFile(OUTPUT_DIR, digestId);
+      }
+    }
+    if (reusePath && existsSync(reusePath)) {
+      log(`Reusing copy-reviewed storyboard: ${reusePath}`);
+      storyboard = readStoryboardFile(reusePath);
+      storyboard.shots = (storyboard.shots || []).map((shot) => (
+        assertFinishedReelCopy(ensureUkrainianOnScreenCopy(shot))
+      ));
+    } else {
+      storyboard = await createReviewedStoryboard();
+    }
+
+    if (copyOnly) {
+      const saved = writeStoryboardFile(OUTPUT_DIR, digestId, storyboard);
+      log(`\n${formatCopyReviewTable(storyboard)}`);
+      log(`Wrote copy-reviewed storyboard: ${saved}`);
+      log('Final copy is ready for review. Approve it, then run --images-only.');
+      return saved;
+    }
 
     // Step 3: Background images. Never use a shared/older carousel fallback:
     // this reel must contain images generated for the selected digest.
@@ -340,15 +376,16 @@ async function main() {
 
     // Step 5: Generate synchronized clips.
     log('Generating synchronized video clips for shots...');
+    const baseDurations = shotsWithImages.map((_, i) => audioResults[i]?.duration || 5);
+    const shortsPlan = format === 'shorts' ? planShortsRuntime(baseDurations) : { padSec: 0, introOutroSec: 0 };
+    if (format === 'shorts') {
+      log(`Shorts pacing: pad ${shortsPlan.padSec.toFixed(2)}s, intro/outro ${shortsPlan.introOutroSec}s, ~${shortsPlan.projectedSec.toFixed(1)}s`);
+    }
     const syncedShotPaths = [];
     for (let i = 0; i < shotsWithImages.length; i++) {
       const shot = shotsWithImages[i];
       const audio = audioResults[i];
-      shot.duration = audio ? audio.duration : 5;
-      if (format === 'shorts') {
-        // Add 1.5-3s music-only interstitial
-        shot.duration += 2.25; // Average of 1.5 and 3
-      }
+      shot.duration = baseDurations[i] + (format === 'shorts' ? shortsPlan.padSec : 0);
       log(`  Shot ${i + 1}: ${shot.duration.toFixed(2)}s — "${(shot.headline || '').slice(0, 50)}..."`);
 
       const silentVideoPath = await generateShotClip(shot, tempDir);
@@ -372,6 +409,7 @@ async function main() {
       backgroundMusic: true,
       musicSeed: Date.now(),
       format,
+      introOutroSec: shortsPlan.introOutroSec,
       firstFrameImage: shotsWithImages[0]?.imageUrl,
       lastFrameImage: shotsWithImages[shotsWithImages.length - 1]?.imageUrl,
     });
@@ -397,14 +435,10 @@ async function main() {
         if (row) digestToUpdateId = row.id;
       }
       if (digestToUpdateId) {
-        const updateData = {};
-        if (format === 'shorts') {
-          updateData.youtube_shorts_url = publicVideoUrl;
-        } else {
-          updateData.video_url = publicVideoUrl;
-          updateData.reel_url = publicReelUrl;
-        }
-        updateDigest(digestToUpdateId, updateData);
+        updateDigest(digestToUpdateId, digestVideoUpdateFields(format, {
+          videoUrl: publicVideoUrl,
+          reelUrl: publicReelUrl,
+        }));
         console.log(`[update] Video URL stored for digest ${digestToUpdateId}: ${publicVideoUrl}`);
       }
     } catch (e) {

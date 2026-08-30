@@ -102,6 +102,24 @@ describe('startVideoGeneration', () => {
     });
   });
 
+  it('stores youtube_shorts_url and does not overwrite Facebook reel URLs', async () => {
+    const child = mockChild();
+    spawnMock.mockReturnValue(child);
+
+    const job = startVideoGeneration('digest-shorts-url', { format: 'shorts' });
+    child.stdout.emit('data', Buffer.from('Path: /tmp/out/shorts_test.mp4\n'));
+    child.emit('close', 0);
+
+    await vi.waitFor(() => {
+      expect(getVideoJob(job.id)?.status).toBe('completed');
+    });
+
+    expect(updateDigestMock).toHaveBeenCalledWith('digest-shorts-url', {
+      youtube_shorts_url: 'http://localhost:3000/videos/shorts_test.mp4',
+    });
+    expect(getVideoJob(job.id).videoUrl).toBe('http://localhost:3000/videos/shorts_test.mp4');
+  });
+
   it('spawns the HTML hybrid script when reelFrameMode=html', () => {
     config.reelFrameMode = 'html';
     const child = mockChild();

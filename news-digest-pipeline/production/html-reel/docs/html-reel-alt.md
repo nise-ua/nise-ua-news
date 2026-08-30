@@ -31,10 +31,11 @@ REEL_FRAME_MODE=html   # Video / Shorts buttons use this path
 
 Or Settings → Загальні → «Режим кадрів Reel».
 
-Review frames first (no TTS / video):
+Review copy, then frames (no TTS / video):
 
 ```bash
 cd news-digest-pipeline
+node production/html-reel/src/generate-reel-html.js latest --copy-only
 node production/html-reel/src/generate-reel-html.js latest --images-only
 # typography only (no AI picture):
 node production/html-reel/src/generate-reel-html.js latest --images-only --no-ai-bg

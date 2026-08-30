@@ -14,4 +14,6 @@ Do not loosen, delete, or bypass these without an explicit product decision.
 - Never slice overlay copy by character/word cap. Replace from `spokenText` or fail the run.
 - Upper 25% layout, locked dark readability band, no in-video CTA, one shot per digest block, Ukrainian on-screen/voice (brands may stay Latin).
 
-Enforced in `news-digest-pipeline/production/lib/reel-ukrainian-copy.js`. Contract: `news-digest-pipeline/docs/reel-image-workflow.md`.
+Enforced in `news-digest-pipeline/production/lib/reel-ukrainian-copy.js` and the
+critic loop in `news-digest-pipeline/production/lib/reel-copy-review.js`.
+Contract: `news-digest-pipeline/docs/reel-image-workflow.md`.

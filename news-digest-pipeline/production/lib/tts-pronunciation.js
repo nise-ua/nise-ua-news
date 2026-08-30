@@ -1,6 +1,6 @@
 /**
  * Prepare Ukrainian TTS text so Latin brand names and tech terms sound natural
- * with uk-UA-PolinaNeural / edge-tts. On-screen headlines stay unchanged; only
+ * with uk-UA-OstapNeural / edge-tts. On-screen headlines stay unchanged; only
  * the spoken script is transformed.
  *
  * Strategy:
@@ -166,20 +166,31 @@ function capitalizeUkrainian(word) {
   return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
-function transliterateEnglishWord(word) {
-  let lower = word.toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (!lower) return word;
+/**
+ * Generic English→Cyrillic phonetics (no brand dictionary).
+ * `au: 'au'` keeps the diphthong as «ау» (cloud/Claude-style spellings).
+ */
+export function phoneticCyrillic(word, { au = 'o' } = {}) {
+  let lower = String(word || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!lower) return '';
 
-  for (const [pattern, replacement] of ENGLISH_PHONETIC_RULES) {
+  const rules = ENGLISH_PHONETIC_RULES.map(([pattern, replacement]) => (
+    pattern === 'au' ? [pattern, au === 'au' ? 'ау' : replacement] : [pattern, replacement]
+  ));
+  for (const [pattern, replacement] of rules) {
     lower = lower.replaceAll(pattern, replacement);
   }
 
   let result = '';
   for (const ch of lower) {
     if (CHAR_MAP[ch]) result += CHAR_MAP[ch];
-    else if (/\d/.test(ch)) result += ch;
+    else if (/\d/.test(ch) || /[\u0400-\u04FF]/.test(ch)) result += ch;
   }
+  return result;
+}
 
+function transliterateEnglishWord(word) {
+  const result = phoneticCyrillic(word);
   return capitalizeUkrainian(result || word);
 }
 

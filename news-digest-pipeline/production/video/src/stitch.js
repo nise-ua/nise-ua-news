@@ -10,7 +10,7 @@ import {
   mergeShotVideoAndAudio,
   runMusicMix,
 } from '../../lib/ffmpeg-helpers.js';
-import { generateBackgroundMusic, reelMusicPathFor } from './background-music.js';
+import { generateBackgroundMusic, reelMusicPathFor, DEFAULT_MUSIC_DURATION_SEC } from './background-music.js';
 import { createShotImage } from './generate-clips.js';
 import { log, scriptDir } from '../../lib/logging.js';
 
@@ -137,20 +137,21 @@ export function mixVoiceoverWithMusic(voiceoverPath, outputPath, musicVolume = 0
   return runMusicMix(voiceoverPath, musicPath, outputPath, musicVolume);
 }
 
-export async function stitchClips({ clipPaths, audioPath, outputPath, backgroundMusic = true, musicSeed, format = 'facebook', firstFrameImage = null, lastFrameImage = null }) {
+export async function stitchClips({ clipPaths, audioPath, outputPath, backgroundMusic = true, musicSeed, format = 'facebook', introOutroSec = 0, firstFrameImage = null, lastFrameImage = null }) {
   mkdirSync(dirname(outputPath), { recursive: true });
 
   let finalClipPaths = [...clipPaths];
-  if (format === 'shorts') {
+  const bump = Number(introOutroSec) || 0;
+  if (format === 'shorts' && bump > 0) {
     const tempDir = dirname(clipPaths[0] || outputPath);
     log('Generating Shorts intro/outro...');
 
     const introPath = join(tempDir, `shorts_intro_${Date.now()}.mp4`);
-    await generateBlankVideo(introPath, 5, 1080, 1920, firstFrameImage);
+    await generateBlankVideo(introPath, bump, 1080, 1920, firstFrameImage);
     finalClipPaths.unshift(introPath);
 
     const outroPath = join(tempDir, `shorts_outro_${Date.now()}.mp4`);
-    await generateBlankVideo(outroPath, 5, 1080, 1920, lastFrameImage);
+    await generateBlankVideo(outroPath, bump, 1080, 1920, lastFrameImage);
     finalClipPaths.push(outroPath);
   }
 
@@ -165,7 +166,12 @@ export async function stitchClips({ clipPaths, audioPath, outputPath, background
   let musicMeta = null;
   try {
     const musicSelection = backgroundMusic
-      ? resolveBackgroundMusic({ workDir: dirname(outputPath), reelPath: outputPath, seed: musicSeed, duration: totalDuration })
+      ? resolveBackgroundMusic({
+        workDir: dirname(outputPath),
+        reelPath: outputPath,
+        seed: musicSeed,
+        duration: Math.max(DEFAULT_MUSIC_DURATION_SEC, totalDuration + 1),
+      })
       : { path: null, fresh: false };
     const musicPath = musicSelection.path;
     if (musicSelection.config) musicMeta = musicSelection.config;

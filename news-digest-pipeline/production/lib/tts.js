@@ -15,12 +15,15 @@ import {
 
 export { getAudioDuration };
 
+/** Default Microsoft Edge Ukrainian neural voice (male). */
+export const DEFAULT_EDGE_VOICE = 'uk-UA-OstapNeural';
+
 function resolveEdgeVoice(env = process.env) {
   const configured = env.EDGE_TTS_VOICE || '';
-  return /^uk-UA-/i.test(configured) ? configured : 'uk-UA-PolinaNeural';
+  return /^uk-UA-/i.test(configured) ? configured : DEFAULT_EDGE_VOICE;
 }
 
-/** Validated Ukrainian Edge neural voice (default uk-UA-PolinaNeural). */
+/** Validated Ukrainian Edge neural voice (default uk-UA-OstapNeural). */
 export const EDGE_VOICE = resolveEdgeVoice();
 
 export function completeClause(text, maxWords = 20, maxChars = 140) {

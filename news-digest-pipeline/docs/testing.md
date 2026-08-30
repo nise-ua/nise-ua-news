@@ -66,6 +66,7 @@ new `node:test` files.
 | `production/lib/ffmpeg-helpers.js` | `__tests__/ffmpeg-helpers.test.js` | — |
 | `production/lib/logging.js` | `__tests__/logging.test.js` | — |
 | `production/lib/reel-ukrainian-copy.js` | `__tests__/reel-ukrainian-copy.test.js` | — |
+| `production/lib/reel-copy-review.js` | `__tests__/reel-copy-review.test.js` | — |
 | `production/lib/tts-pronunciation.js` | — | `tts-pronunciation.test.js` |
 | `production/lib/reel-overlay-theme.js` | — | `reel-overlay-theme.test.js` |
 | Shared mocks / digest fixtures | `__tests__/helpers.js`, `__tests__/helpers.test.js`, `__tests__/fixtures/digest.js` | — |

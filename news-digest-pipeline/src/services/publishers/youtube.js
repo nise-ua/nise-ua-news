@@ -1,9 +1,5 @@
 import { google } from 'googleapis';
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { createReadStream, statSync } from 'fs';
 
 function getYouTubeOAuth2Client() {
   const { YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN } = process.env;
@@ -15,8 +11,7 @@ function getYouTubeOAuth2Client() {
   const oauth2Client = new google.auth.OAuth2(
     YOUTUBE_CLIENT_ID,
     YOUTUBE_CLIENT_SECRET,
-    // Redirect URI is not strictly needed for refresh token flow, but often required by API console
-    'http://localhost:3000/oauth2callback'
+    'http://localhost:3000/oauth2callback',
   );
 
   oauth2Client.setCredentials({
@@ -37,33 +32,26 @@ export async function publishToYouTube(youtubeShortsPath, title, description, pr
     auth: oauth2Client,
   });
 
-  const fileSize = readFileSync(youtubeShortsPath).length;
+  const fileSize = statSync(youtubeShortsPath).size;
   console.log(`Uploading ${youtubeShortsPath} (${fileSize} bytes) to YouTube...`);
 
   try {
     const res = await youtube.videos.insert({
-      part: 'snippet,status',
+      part: ['snippet', 'status'],
       requestBody: {
         snippet: {
-          title: title,
-          description: description,
+          title,
+          description,
           categoryId: '25', // News & Politics
         },
         status: {
-          privacyStatus: privacyStatus,
+          privacyStatus,
           selfDeclaredMadeForKids: false,
         },
       },
       media: {
-        body: readFileSync(youtubeShortsPath),
+        body: createReadStream(youtubeShortsPath),
       },
-    }, {
-      // This is important for resumable uploads, but the current API for simple
-      // uploads using `media.body` doesn't directly support the `onUploadProgress`
-      // callback for resumable streams without more advanced setup.
-      // For now, we'll assume direct upload of smaller files.
-      // A more robust solution for large files would involve `createReadStream`
-      // and managing chunks.
     });
 
     const videoId = res.data.id;

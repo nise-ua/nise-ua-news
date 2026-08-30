@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { join } from 'path';
 import {
+  DEFAULT_EDGE_VOICE,
   EDGE_VOICE,
   completeClause,
   generatePerArticleAudio,
@@ -52,8 +53,9 @@ describe('getAudioDuration', () => {
 });
 
 describe('EDGE_VOICE', () => {
-  it('defaults to uk-UA-PolinaNeural', () => {
-    expect(EDGE_VOICE).toMatch(/^uk-UA-/);
+  it('defaults to uk-UA-OstapNeural when EDGE_TTS_VOICE is unset', () => {
+    expect(DEFAULT_EDGE_VOICE).toBe('uk-UA-OstapNeural');
+    expect(EDGE_VOICE).toMatch(/^uk-UA-/i);
   });
 });
 
@@ -177,11 +179,26 @@ describe('generatePerArticleAudio', () => {
       await generatePerArticleAudio(
         [{ spokenText: 'Тільки edge.', headline: 'H' }],
         '/tmp/tts-test',
-        { execFileSync, fetchFn, writeFileSync, ffmpeg: '/mock/ffmpeg', ffprobe: '/mock/ffprobe', log: () => {} },
+        {
+          execFileSync,
+          fetchFn,
+          writeFileSync,
+          ffmpeg: '/mock/ffmpeg',
+          ffprobe: '/mock/ffprobe',
+          log: () => {},
+          env: {
+            ELEVENLABS_API_KEY: undefined,
+            ELEVENLABS_UKRAINIAN_VOICE_ID: undefined,
+          },
+        },
       );
 
       expect(fetchFn).not.toHaveBeenCalled();
-      expect(execFileSync.mock.calls.some((c) => c[0] === 'uvx')).toBe(true);
+      const uvxCalls = execFileSync.mock.calls.filter((c) => c[0] === 'uvx');
+      expect(uvxCalls.length).toBeGreaterThanOrEqual(1);
+      expect(uvxCalls[0][1]).toEqual(
+        expect.arrayContaining(['--voice=uk-UA-OstapNeural']),
+      );
     } finally {
       restore();
     }

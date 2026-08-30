@@ -141,7 +141,7 @@ CLI shorthand for selecting the newest digest.
     - No `Більше новин тут...` CTA is embedded in the MP4 because it cannot be clicked there.
 
 4. **Voice = natural neural Ukrainian TTS**:
-   - Default: `uvx edge-tts --voice uk-UA-PolinaNeural` (free, no API credits, human-quality).
+   - Default: `uvx edge-tts --voice uk-UA-OstapNeural` (free, no API credits, human-quality).
    - Optional: `ELEVENLABS_API_KEY` switches to ElevenLabs multilingual.
 
 5. **Music = energetic 132 BPM news bed**:

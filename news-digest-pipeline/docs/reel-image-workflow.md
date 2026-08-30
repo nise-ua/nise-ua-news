@@ -29,6 +29,8 @@ generic hostile-robot scene.
 The shared implementation is:
 
 - `production/lib/visual-grounding.js`
+- `production/lib/reel-ukrainian-copy.js`
+- `production/lib/reel-copy-review.js`
 - `production/video/src/storyboard.js`
 - `production/video/src/generate-reel.js`
 - `production/image/src/generate.js`
@@ -60,10 +62,42 @@ bottom or reintroduce the CTA without an explicit product decision.
 
 Run commands from `news-digest-pipeline/`.
 
-### 1. Generate backgrounds only for review (Reels and Shorts)
+### 1. Review overlay copy (Reels and Shorts)
 
-This runs digest loading, storyboard generation, grounding, and image
-generation, then stops before TTS and video assembly:
+This runs digest loading, storyboard generation, and the copy critic/rewrite
+loop, then stops before image generation:
+
+```bash
+node production/video/src/generate-reel.js latest --copy-only
+```
+
+For a YouTube Short:
+
+```bash
+node production/video/src/generate-reel.js latest --copy-only --format shorts
+```
+
+Outputs a numbered copy table plus:
+
+```text
+production/video/output/storyboard_<digest>_<timestamp>.json
+```
+
+Approve the wording before generating images. Frozen bands stay locked:
+`headline` 6–11 words, `detailText` exactly one 8–12 word sentence. Stubs like
+«Класика.» and dash-spliced details must be rewritten or the run fails.
+
+The HTML reel CLI accepts the same flag:
+
+```bash
+node production/html-reel/src/generate-reel-html.js latest --copy-only
+```
+
+### 2. Generate backgrounds only for review (Reels and Shorts)
+
+This reuses the latest copy-reviewed storyboard for the digest when one exists,
+then runs grounding and image generation, and stops before TTS and video
+assembly:
 
 ```bash
 node production/video/src/generate-reel.js latest --images-only
@@ -91,7 +125,7 @@ production/video/output/reel-image_<timestamp>_02.png
 
 Review these images and get approval before running the full reel or Short.
 
-### 2. Generate the full reel or Short after approval
+### 3. Generate the full reel or Short after approval
 
 For Facebook Reels:
 
@@ -114,12 +148,11 @@ production/video/output/reel_<timestamp>.mp4
 production/video/output/shorts_<timestamp>.mp4
 ```
 
-The UI uses the same entry point with a digest ID. The dashboard **Reel**
-button publishes that digest video to Facebook as a Reel (caption links to the
-already-posted digest feed post) and also as a Facebook Story. The dashboard
-**YouTube** button publishes the generated Short to YouTube.
+The dashboard **Shorts** button opens the generated local file (`youtube_shorts_url`).
+The dashboard **YouTube** button uploads that file; after a successful upload, **✓ YT**
+opens `https://youtube.com/shorts/{id}`.
 
-### 3. Generate carousel images only
+### 4. Generate carousel images only
 
 Carousel stills use the same grounding rules but a separate 4:5 image
 pipeline:
@@ -155,7 +188,7 @@ file should contain a fixed story/image count.
 All editorial output must be Ukrainian:
 
 - `headline`, `detailText`, and `spokenText` are Ukrainian.
-- Voice uses Ukrainian neural TTS (`uk-UA-PolinaNeural`) unless an explicitly
+- Voice uses Ukrainian neural TTS (`uk-UA-OstapNeural`) unless an explicitly
   configured Ukrainian-capable ElevenLabs voice is selected.
 - Company, product, and model names may remain in Latin script.
 - Image prompts remain English internally for the image provider, but they are
@@ -176,9 +209,10 @@ five-word stubs. Never slice overlay copy by character/word cap.
 
 Enforced in `production/lib/reel-ukrainian-copy.js`
 (`HEADLINE_WORD_*`, `DETAIL_WORD_*`, `looksUnfinishedSentence`,
-`ensureUkrainianOnScreenCopy`, `assertFinishedReelCopy`). Incomplete LLM copy
-is replaced from `spokenText` or the run fails. Do not ship review frames that
-still trail off or overflow the smaller headline.
+`ensureUkrainianOnScreenCopy`, `assertFinishedReelCopy`) and the critic loop in
+`production/lib/reel-copy-review.js`. Incomplete LLM copy is rewritten from
+`coreFact` (max 3 rounds) or the run fails. Do not ship review frames that
+still trail off, stub the headline, or overflow the smaller headline.
 
 After a successful full reel, the script stores `video_url` and `reel_url` on
 the digest so the dashboard Reel button can publish it.
