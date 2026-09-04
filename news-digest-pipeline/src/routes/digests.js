@@ -12,6 +12,7 @@ import { getDb } from '../db/index.js';
 import config from '../config.js';
 
 import { getVideoJob, startVideoGeneration } from '../services/video-generator.js';
+import { getImageJob, startImageGeneration } from '../services/image-generator.js';
 const router = Router();
 
 // POST /api/digests/generate — manual trigger
@@ -82,6 +83,13 @@ router.get('/latest/text', (req, res) => {
 router.get('/video-jobs/:jobId', (req, res) => {
   const job = getVideoJob(req.params.jobId);
   if (!job) return res.status(404).json({ error: 'Video job not found or expired' });
+  res.json({ job });
+});
+
+// GET /api/digests/image-jobs/:jobId — progress for digest-cover generation.
+router.get('/image-jobs/:jobId', (req, res) => {
+  const job = getImageJob(req.params.jobId);
+  if (!job) return res.status(404).json({ error: 'Image job not found or expired' });
   res.json({ job });
 });
 
@@ -159,6 +167,24 @@ router.post('/:id/generate-video', async (req, res) => {
     });
   } catch (err) {
     console.error('[digests] POST /:id/generate-video error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/digests/:id/generate-image — enqueue Facebook cover generation
+router.post('/:id/generate-image', async (req, res) => {
+  try {
+    const digest = getDigest(req.params.id);
+    if (!digest) {
+      return res.status(404).json({ error: 'Digest not found' });
+    }
+    if (!digest.content) {
+      return res.status(400).json({ error: 'Digest has no content to generate an image' });
+    }
+
+    res.status(202).json({ job: startImageGeneration(digest.id) });
+  } catch (err) {
+    console.error('[digests] POST /:id/generate-image error:', err);
     res.status(500).json({ error: err.message });
   }
 });

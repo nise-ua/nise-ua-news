@@ -47,7 +47,8 @@ test('palette reflects resolved news tone', () => {
   });
 
   assert.match(bright, /bright|golden|fresh|uplift/i);
-  assert.match(dark, /dark|somber|slate|shadow/i);
+  assert.match(dark, /dramatic|teal|amber|storm|contrast/i);
+  assert.doesNotMatch(dark, /desaturated|charcoal|grave|muted/i);
 });
 
 test('explicit newsTone overrides inference', () => {

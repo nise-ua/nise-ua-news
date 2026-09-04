@@ -159,6 +159,29 @@
       gap: 2px;
       min-width: 0;
     }
+    .digest-identity-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .digest-cover-thumb {
+      flex: 0 0 36px;
+      width: 36px;
+      height: 45px;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #f0ede8;
+      border: 1px solid #e8e4df;
+      display: block;
+    }
+    .digest-cover-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
     .digest-name {
       font-weight: 600;
       color: #2d2a26;
@@ -415,7 +438,7 @@
       letter-spacing: 0.2px;
     }
 
-    /* Video status lives under digest name, not in the action row */
+    /* Video/image status lives under digest name, not in the action row */
     .video-status {
       display: flex;
       flex-direction: column;
@@ -582,6 +605,7 @@
         align-items: stretch;
       }
       td.digest-cell .digest-identity { width: 100%; }
+      td.digest-cell .digest-identity-row { width: 100%; }
       td.actions-cell {
         display: block;
       }
@@ -685,8 +709,10 @@
     }
 
     const activeVideoJobs = new Map();
+    const activeImageJobs = new Map();
     // Expose for UI debugging / browser validation of in-progress video status.
     window.activeVideoJobs = activeVideoJobs;
+    window.activeImageJobs = activeImageJobs;
     window.loadDigests = loadDigests;
 
     function render(digests) {
@@ -716,7 +742,9 @@
           : 'Дата створення невідома';
 
         const activeJob = activeVideoJobs.get(d.id);
+        const activeImageJob = activeImageJobs.get(d.id);
         const videoStatusBusy = activeJob && !(activeJob.status === 'completed' && activeJob.videoUrl);
+        const imageStatusBusy = activeImageJob && !(activeImageJob.status === 'completed' && activeImageJob.imageUrl);
         let videoStatusHtml = '';
         if (videoStatusBusy) {
           const isFailed = activeJob.status === 'failed';
@@ -726,12 +754,31 @@
             <span class="video-progress-track"><span class="video-progress-bar" style="width:${activeJob.progress || 0}%"></span></span>
           </div>`;
         }
+        let imageStatusHtml = '';
+        if (imageStatusBusy) {
+          const isFailed = activeImageJob.status === 'failed';
+          imageStatusHtml = `<div class="video-status${isFailed ? ' is-failed' : ''}" data-image-job="${activeImageJob.jobId}" data-digest-id="${d.id}">
+            <span class="video-progress-label">${isFailed ? '❌' : '⏳'} ${activeImageJob.message || 'Створення обкладинки…'} (${activeImageJob.progress || 0}%)</span>
+            <span class="video-progress-track"><span class="video-progress-bar" style="width:${activeImageJob.progress || 0}%"></span></span>
+          </div>`;
+        }
 
-        const createdHtml = `<div class="digest-identity">
-          <span class="digest-name">${digestLabel}</span>
-          <span class="digest-meta">${digestMeta}</span>
-          ${videoStatusHtml}
-          <div class="digest-stats" data-digest-stats="${d.id}"><span class="stat-empty">—</span></div>
+        const coverHref = String(d.image_url || '')
+          .replace(/&/g, '&amp;')
+          .replace(/"/g, '&quot;');
+        const coverThumb = d.image_url
+          ? `<a class="digest-cover-thumb" href="${coverHref}" target="_blank" title="Обкладинка для Facebook"><img src="${coverHref}" alt=""></a>`
+          : '';
+
+        const createdHtml = `<div class="digest-identity-row">
+          ${coverThumb}
+          <div class="digest-identity">
+            <span class="digest-name">${digestLabel}</span>
+            <span class="digest-meta">${digestMeta}</span>
+            ${imageStatusHtml}
+            ${videoStatusHtml}
+            <div class="digest-stats" data-digest-stats="${d.id}"><span class="stat-empty">—</span></div>
+          </div>
         </div>`;
 
         // Published datetime
@@ -746,6 +793,7 @@
           actionBtn = '<span style="color:#444;font-size:12px">немає контенту</span>';
         } else {
           const fbSent = !!d.facebook_post_id;
+          const imageExists = !!d.image_url;
           const videoExists = !!(d.video_url || d.reel_url);
           const reelSent = !!d.facebook_reel_id;
           const youtubeShortsExists = !!d.youtube_shorts_url;
@@ -756,12 +804,27 @@
             ? (fbHref
                 ? `<a class="plat-btn sent" href="${fbHref.replace(/"/g, '&quot;')}" target="_blank" title="${fbHref.replace(/"/g, '&quot;')}">✓ FB</a>`
                 : `<button class="plat-btn sent" disabled>✓ FB</button>`)
-            : `<button class="plat-btn" onclick="publishFacebook('${d.id}',this)">📘 FB</button>`;
+            : `<button class="plat-btn" onclick="publishFacebook('${d.id}', this, ${imageExists ? 'true' : 'false'})">📘 FB</button>`;
           // Escape JSON for a double-quoted HTML attribute ("" / URLs otherwise break onclick).
           const fbUrlArg = JSON.stringify(d.facebook_post_id || '')
             .replace(/&/g, '&amp;')
             .replace(/"/g, '&quot;');
           const fbUrlBtn = `<button class="plat-btn" onclick="setFacebookUrl('${d.id}', ${fbUrlArg})" title="Вказати Facebook URL вручну">🔗</button>`;
+
+          let imageBtn;
+          const imageJobActive = imageStatusBusy;
+          if (imageJobActive) {
+            imageBtn = `<button class="plat-btn busy" disabled title="Генерується обкладинка">⏳ Фото</button>`;
+          } else if ((activeImageJob && activeImageJob.status === 'completed' && activeImageJob.imageUrl) || imageExists) {
+            const href = (activeImageJob && activeImageJob.imageUrl) || d.image_url;
+            const imageHref = String(href || '')
+              .replace(/&/g, '&amp;')
+              .replace(/"/g, '&quot;');
+            imageBtn = `<a class="plat-btn" href="${imageHref}" target="_blank" title="Відкрити обкладинку">🖼 Фото</a>`
+              + `<button class="plat-btn" onclick="generateCover('${d.id}', this, true)" title="Перегенерувати обкладинку">🔄</button>`;
+          } else {
+            imageBtn = `<button class="plat-btn" onclick="generateCover('${d.id}', this)" title="Згенерувати фото для Facebook-поста">🖼 Фото</button>`;
+          }
 
           let videoBtn, shortsBtn;
 
@@ -804,7 +867,7 @@
               : `<button class="plat-btn" onclick="publishYouTube('${d.id}', this)">▶️ YouTube</button>`;
 
           const delBtn = `<button class="btn-delete" onclick="deleteDigest('${d.id}')" title="Видалити">✕</button>`;
-          actionBtn = `<div class="platform-row"><button class="btn-preview" onclick="previewDigest('${d.id}')" title="Превʼю">&#128065;</button>${fbBtn}${fbUrlBtn}${videoBtn}${shortsBtn}${reelBtn}${youtubePublishBtn}<button class="btn-copy" onclick="copyDigest('${d.id}', this)" title="Копіювати">&#128203;</button>${delBtn}</div>`;
+          actionBtn = `<div class="platform-row"><button class="btn-preview" onclick="previewDigest('${d.id}')" title="Превʼю">&#128065;</button>${imageBtn}${fbBtn}${fbUrlBtn}${videoBtn}${shortsBtn}${reelBtn}${youtubePublishBtn}<button class="btn-copy" onclick="copyDigest('${d.id}', this)" title="Копіювати">&#128203;</button>${delBtn}</div>`;
         }
 
         // Status dropdown
@@ -835,11 +898,20 @@
         </tr>`;
       }).join('');
       loadPostizStats(digests);
-      for (const [jobId, job] of activeVideoJobs) {
-        const progress = tbody.querySelector(`[data-video-job="${jobId}"]`);
+      for (const job of activeVideoJobs.values()) {
+        const progress = tbody.querySelector(`[data-video-job="${job.jobId}"]`);
         if (progress && !job.polling) {
-          pollVideoJob(jobId, progress, null).catch(err => {
+          pollVideoJob(job.jobId, progress, null).catch(err => {
             console.error('Video progress polling failed:', err);
+            job.polling = false;
+          });
+        }
+      }
+      for (const job of activeImageJobs.values()) {
+        const progress = tbody.querySelector(`[data-image-job="${job.jobId}"]`);
+        if (progress && !job.polling) {
+          pollImageJob(job.jobId, progress).catch(err => {
+            console.error('Image progress polling failed:', err);
             job.polling = false;
           });
         }
@@ -943,8 +1015,11 @@
       }
     }
 
-    async function publishFacebook(id, btn) {
-      if (!confirm('Опублікувати текст через Postiz у Facebook?')) return;
+    async function publishFacebook(id, btn, hasImage) {
+      const confirmMsg = hasImage
+        ? 'Опублікувати дайджест у Facebook з обкладинкою?'
+        : 'Опублікувати текст у Facebook? Обкладинки ще немає — пост буде без фото.';
+      if (!confirm(confirmMsg)) return;
       btn.disabled = true;
       btn.textContent = '⏳ Postiz...';
       try {
@@ -1047,6 +1122,88 @@
       }
     }
     
+    async function generateCover(id, btn, regenerate = false) {
+      const prompt = regenerate
+        ? 'Перегенерувати обкладинку для Facebook? Попереднє фото буде замінено.'
+        : 'Створити обкладинку без тексту з головної новини дайджесту?';
+      if (!confirm(prompt)) return;
+      btn.disabled = true;
+      btn.textContent = '⏳ Запуск…';
+      try {
+        const res = await fetch(`/api/digests/${id}/generate-image`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const retryAfter = res.headers.get('Retry-After');
+          const suffix = retryAfter ? ` Спробуйте через ${retryAfter} с.` : '';
+          throw new Error((data.error || 'Помилка сервера') + suffix);
+        }
+        const job = data.job;
+        activeImageJobs.set(id, {
+          jobId: job.id,
+          progress: job.progress,
+          message: job.message,
+          status: job.status || 'running',
+          polling: false,
+          digestId: id,
+        });
+        await loadDigests();
+        const progress = document.querySelector(`[data-image-job="${job.id}"]`);
+        if (progress) await pollImageJob(job.id, progress);
+      } catch (err) {
+        console.error('Cover generation failed:', err);
+        activeImageJobs.delete(id);
+        alert('Не вдалося створити обкладинку: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = regenerate ? '🔄' : '🖼 Фото';
+      }
+    }
+
+    async function pollImageJob(jobId, progress) {
+      const active = [...activeImageJobs.values()].find(job => job.jobId === jobId);
+      if (active?.polling) return;
+      if (active) active.polling = true;
+      for (;;) {
+        const res = await fetch(`/api/digests/image-jobs/${jobId}`);
+        const data = await res.json();
+        if (!res.ok) {
+          if (res.status === 429) {
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            continue;
+          }
+          throw new Error(data.error || 'Не вдалося отримати статус обкладинки');
+        }
+        const job = data.job;
+        if (active) Object.assign(active, { progress: job.progress, message: job.message, imageUrl: job.imageUrl, status: job.status });
+        const currentProgress = document.querySelector(`[data-image-job="${jobId}"]`);
+        if (!currentProgress) {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          continue;
+        }
+        const label = currentProgress.querySelector('.video-progress-label');
+        const bar = currentProgress.querySelector('.video-progress-bar');
+        if (label) {
+          label.textContent = `${job.status === 'failed' ? '❌' : '⏳'} ${job.message} (${job.progress}%)`;
+        }
+        if (bar) bar.style.width = `${job.progress}%`;
+        currentProgress.classList.toggle('is-failed', job.status === 'failed');
+        if (job.status === 'completed') {
+          activeImageJobs.delete(active.digestId);
+          setTimeout(loadDigests, 300);
+          return;
+        }
+        if (job.status === 'failed') {
+          activeImageJobs.delete(job.digestId || active?.digestId);
+          alert('Не вдалося створити обкладинку: ' + (job.error || 'Невідома помилка'));
+          setTimeout(loadDigests, 300);
+          return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+    }
+
     // Generate video for a digest via backend endpoint
     async function generateVideo(id, btn, format = 'facebook', regenerate = false) {
       const label = format === 'shorts' ? 'Shorts' : 'відео';

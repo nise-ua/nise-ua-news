@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { aggregatePostizAnalytics, mergePostizPosts, normalizeAnalytics, publishPostizDigest, waitForPostizReleaseUrl, firstFacebookRelease } from './postiz.js';
+import { aggregatePostizAnalytics, mediaMimeFromFilename, mergePostizPosts, normalizeAnalytics, publishPostizDigest, waitForPostizReleaseUrl, firstFacebookRelease } from './postiz.js';
 
 const config = {
   publishBackend: 'postiz',
@@ -76,10 +76,53 @@ describe('Postiz publisher', () => {
       .toEqual([{ id: 'upload-1', path: 'http://postiz/upload.mp4' }]);
   });
 
+  it('uploads the digest cover image with a text Facebook post', async () => {
+    const client = {
+      integrations: vi.fn().mockResolvedValue([{ id: 'fb-1', platform: 'facebook' }]),
+      upload: vi.fn().mockResolvedValue({ id: 'img-1', path: 'http://postiz/cover.png' }),
+      createPost: vi.fn().mockResolvedValue({ posts: [{ id: 'post-img', releaseURL: 'https://fb/post-img' }] }),
+    };
+    const loadImage = vi.fn().mockResolvedValue({
+      buffer: Buffer.from('png'),
+      filename: 'digest-cover_test.png',
+    });
+    const result = await publishPostizDigest(
+      { id: 'd1', content: 'Текст', image_url: 'http://localhost:3000/images/digest-cover_test.png' },
+      config,
+      'text',
+      { client, loadImage },
+    );
+    expect(loadImage).toHaveBeenCalledWith('http://localhost:3000/images/digest-cover_test.png');
+    expect(client.upload).toHaveBeenCalledWith(Buffer.from('png'), 'digest-cover_test.png');
+    expect(client.createPost.mock.calls[0][0][0].value[0].image)
+      .toEqual([{ id: 'img-1', path: 'http://postiz/cover.png' }]);
+    expect(result.posts[0].releaseURL).toBe('https://fb/post-img');
+  });
+
+  it('puts #новини on the same line as the first digest paragraph', async () => {
+    const client = {
+      integrations: vi.fn().mockResolvedValue([{ id: 'fb-1', platform: 'facebook' }]),
+      createPost: vi.fn().mockResolvedValue({ posts: [{ id: 'post-1', releaseURL: 'https://fb/post-1' }] }),
+    };
+    await publishPostizDigest({
+      id: 'd1',
+      content: '#новини\n1. «Найрозумніша модель». Цифри підозрілі.\n\n2. Друга новина.',
+    }, config, 'text', { client });
+    expect(client.createPost.mock.calls[0][0][0].value[0].content)
+      .toBe('#новини 1. «Найрозумніша модель». Цифри підозрілі.\n\n2. Друга новина.');
+  });
+
   it('refuses a selected channel that is not connected', async () => {
     await expect(publishPostizDigest({ content: 'x' }, config, 'text', {
       client: { integrations: vi.fn().mockResolvedValue([{ id: 'other', platform: 'facebook' }]) },
     })).rejects.toThrow(/selected Postiz channels/);
+  });
+});
+
+describe('mediaMimeFromFilename', () => {
+  it('uses image types for still covers and mp4 for video', () => {
+    expect(mediaMimeFromFilename('d1-cover.png')).toBe('image/png');
+    expect(mediaMimeFromFilename('d1-story.mp4')).toBe('video/mp4');
   });
 });
 

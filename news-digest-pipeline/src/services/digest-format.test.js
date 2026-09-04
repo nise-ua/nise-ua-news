@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeDigestFormat, stripTrailingHashtags } from './digest-format.js';
+import {
+  joinOpeningHashtagToLead,
+  normalizeDigestFormat,
+  stripTrailingHashtags,
+} from './digest-format.js';
 
 const LEAKED_LATEST = `#AI  Ось вам ще одна "революційна" модель від NVIDIA. Немовтрон 3.5 Лайтнінг — 30 мільярдів параметрів, але активні лише 3. Таке собі "ефективне" розфарбування трафіку в кольори штучного інтелекту.
 
@@ -20,18 +24,45 @@ describe('stripTrailingHashtags', () => {
   });
 });
 
+describe('joinOpeningHashtagToLead', () => {
+  it('joins a standalone #новини line onto the first numbered paragraph', () => {
+    expect(joinOpeningHashtagToLead('#новини\n1. Перша новина.\n\n2. Друга.'))
+      .toBe('#новини 1. Перша новина.\n\n2. Друга.');
+  });
+
+  it('leaves an already-inline opening unchanged', () => {
+    const src = '#новини 1. Перша новина.\n\n2. Друга.';
+    expect(joinOpeningHashtagToLead(src)).toBe(src);
+  });
+
+  it('does not rewrite captions without a numbered lead', () => {
+    expect(joinOpeningHashtagToLead('Текст')).toBe('Текст');
+  });
+});
+
 describe('normalizeDigestFormat', () => {
-  it('rewrites #AI same-line opening to #новини + 1. on the next line', () => {
+  it('rewrites #AI same-line opening to #новини 1. on the first line', () => {
     const out = normalizeDigestFormat(LEAKED_LATEST);
-    expect(out.startsWith('#новини\n1. Ось вам')).toBe(true);
+    expect(out.startsWith('#новини 1. Ось вам')).toBe(true);
     expect(out).not.toMatch(/^#AI/m);
     expect(out).not.toMatch(/Хештеги:/);
     expect(out).not.toMatch(/#nvidia|#вам|#модель|#blog|#nemotron|#lightning/);
   });
 
-  it('keeps an already-correct opening', () => {
+  it('joins a two-line opening into #новини 1. on the first line', () => {
     const src = `#новини
 1. Перша новина про супутник.
+https://example.com/sat
+
+This digest is 100% prepared by AI.`;
+    expect(normalizeDigestFormat(src)).toBe(`#новини 1. Перша новина про супутник.
+https://example.com/sat
+
+This digest is 100% prepared by AI.`);
+  });
+
+  it('keeps an already-correct same-line opening', () => {
+    const src = `#новини 1. Перша новина про супутник.
 https://example.com/sat
 
 This digest is 100% prepared by AI.`;
@@ -40,6 +71,6 @@ This digest is 100% prepared by AI.`;
 
   it('adds 1. when the first block has no number', () => {
     expect(normalizeDigestFormat('#новини\nТекст без номера.\nhttps://example.com'))
-      .toBe('#новини\n1. Текст без номера.\nhttps://example.com');
+      .toBe('#новини 1. Текст без номера.\nhttps://example.com');
   });
 });

@@ -60,6 +60,7 @@ new `node:test` files.
 | Module | Vitest | node:test (legacy) |
 |--------|--------|--------------------|
 | `production/lib/digest.js` | `__tests__/digest.test.js` | — |
+| `production/lib/digest-cover.js` | `__tests__/digest-cover.test.js` | — |
 | `production/lib/visual-grounding.js` | `__tests__/visual-grounding.test.js` | `visual-grounding.test.js` |
 | `production/lib/image-backends.js` | `__tests__/image-backends.test.js` | — |
 | `production/lib/tts.js` | `__tests__/tts.test.js` | — |
@@ -72,10 +73,12 @@ new `node:test` files.
 | Shared mocks / digest fixtures | `__tests__/helpers.js`, `__tests__/helpers.test.js`, `__tests__/fixtures/digest.js` | — |
 | `production/video/src/generate-reel.js` (ESM/post-stitch) | `__tests__/generate-reel-esm.test.js` | — |
 | `src/services/video-generator.js` | `src/services/video-generator.test.js` | — |
+| `src/services/image-generator.js` | `src/services/image-generator.test.js` | — |
 
 Digest callers (do not reimplement load/parse locally):
 
 - `production/image/src/generate.js`
+- `production/image/src/generate-digest-cover.js`
 - `production/video/src/generate-reel.js`
 - `production/video/src/storyboard.js`
 - `production/audio/src/generate-voiceover.js`
@@ -83,6 +86,7 @@ Digest callers (do not reimplement load/parse locally):
 Image backend callers (do not reimplement vendor adapters locally; pass `aspect: '4:5'` for feed, `aspect: '9:16'` for reels):
 
 - `production/image/src/generate.js`
+- `production/image/src/generate-digest-cover.js`
 - `production/video/src/generate-reel.js`
 
 TTS callers (do not reimplement edge-tts / ElevenLabs shot audio locally; use `production/lib/tts.js`):

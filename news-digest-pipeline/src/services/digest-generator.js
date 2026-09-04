@@ -333,8 +333,8 @@ export async function generateDigest(db, articles, config) {
   ];
 
   const openingHashtag = config.hashtag || DEFAULT_OPENING_HASHTAG;
-  assemblyUserMessageParts.push(`Головний хештег (окремий перший рядок): ${openingHashtag}`);
-  assemblyUserMessageParts.push('Перший блок починається з наступного рядка з "1." Не став хештег і 1. в один рядок.');
+  assemblyUserMessageParts.push(`Головний хештег (перший рядок разом із першим абзацом): ${openingHashtag}`);
+  assemblyUserMessageParts.push('Перший рядок: хештег, пробіл, потім "1." і перший абзац. Не став хештег на окремий рядок.');
   assemblyUserMessageParts.push('');
 
   if (config.boundaryIntent) {
@@ -373,7 +373,7 @@ export async function generateDigest(db, articles, config) {
   totalInputTokens += assemblyRes.inputTokens;
   totalOutputTokens += assemblyRes.outputTokens;
 
-  // Drop LLM preamble / leaked hashtag instructions, force `#новини` + `1.` opening,
+  // Drop LLM preamble / leaked hashtag instructions, force `#новини 1.` opening,
   // and never append auto-generated trailing tags.
   const beforeNormalize = digestContent;
   digestContent = normalizeDigestFormat(digestContent, openingHashtag);

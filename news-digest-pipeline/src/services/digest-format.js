@@ -12,7 +12,20 @@ export function stripTrailingHashtags(content = '') {
 }
 
 /**
- * Canonical digest opening: `#новини` on its own line, then `1. …`.
+ * Put `#новини` on the same line as the first numbered paragraph.
+ * Existing stored digests still have the hashtag on its own line.
+ */
+export function joinOpeningHashtagToLead(content = '', hashtag = DEFAULT_OPENING_HASHTAG) {
+  const opening = String(hashtag || DEFAULT_OPENING_HASHTAG).trim() || DEFAULT_OPENING_HASHTAG;
+  const escaped = opening.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return String(content || '').replace(
+    new RegExp(`^${escaped}[ \\t]*\\r?\\n+(?=\\d+\\.)`),
+    `${opening} `,
+  );
+}
+
+/**
+ * Canonical digest opening: `#новини 1. …` on the first line.
  * Also strips leaked "Хештеги: …" instructions and trailing tag soup.
  */
 export function normalizeDigestFormat(content = '', hashtag = DEFAULT_OPENING_HASHTAG) {
@@ -26,5 +39,5 @@ export function normalizeDigestFormat(content = '', hashtag = DEFAULT_OPENING_HA
     body = `1. ${body}`;
   }
 
-  return `${opening}\n${body}`;
+  return `${opening} ${body}`;
 }

@@ -6,6 +6,7 @@ import { publishStoryToFacebook } from './facebook-story.js';
 import { publishToTelegram } from './telegram.js';
 import { publishToYouTube } from './youtube.js';
 import { updateDigest } from '../../db/index.js';
+import { joinOpeningHashtagToLead } from '../digest-format.js';
 import { buildReelCaption } from './facebook-caption.js';
 import { digestVideoUrl, localVideoPathFromUrl } from './facebook-video-file.js';
 
@@ -69,7 +70,7 @@ export async function publishDigest(digest, config, platforms) {
       config.facebookPageAccessToken,
       config.facebookPageId,
       digest.image_url,
-      digest.content,
+      joinOpeningHashtagToLead(digest.content),
     );
     if (results.facebookImage?.postId) {
       updateFields.facebook_post_id = results.facebookImage.postId;

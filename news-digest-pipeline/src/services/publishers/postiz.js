@@ -1,6 +1,8 @@
+import { joinOpeningHashtagToLead } from '../digest-format.js';
 import { buildReelCaption } from './facebook-caption.js';
 import { digestVideoUrl, loadVideoBuffer } from './facebook-video-file.js';
 import { bufferForFacebookStory } from './facebook-story.js';
+import { loadImageBuffer } from './digest-image-file.js';
 
 const API_PATH = '/api/public/v1';
 
@@ -29,7 +31,7 @@ export function createPostizClient({ apiUrl, apiKey, fetchImpl = globalThis.fetc
     },
     async upload(buffer, filename = 'digest.mp4') {
       const form = new FormData();
-      form.append('file', new Blob([buffer], { type: 'video/mp4' }), filename);
+      form.append('file', new Blob([buffer], { type: mediaMimeFromFilename(filename) }), filename);
       const response = await fetchImpl(`${apiBase(apiUrl)}/upload`, {
         method: 'POST',
         headers,
@@ -64,6 +66,15 @@ export function createPostizClient({ apiUrl, apiKey, fetchImpl = globalThis.fetc
       return readJson(response);
     },
   };
+}
+
+export function mediaMimeFromFilename(filename) {
+  const name = String(filename || '').toLowerCase();
+  if (name.endsWith('.png')) return 'image/png';
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
+  if (name.endsWith('.webp')) return 'image/webp';
+  if (name.endsWith('.gif')) return 'image/gif';
+  return 'video/mp4';
 }
 
 function uploadUrl(uploaded) {
@@ -154,7 +165,8 @@ function captionFor(digest, kind, config) {
       facebookPostId: digest.facebook_post_id,
     });
   }
-  return String(digest.content || '').trim();
+  const content = String(digest.content || '').trim();
+  return kind === 'reel' ? content : joinOpeningHashtagToLead(content);
 }
 
 /**
@@ -166,6 +178,7 @@ export async function publishPostizDigest(digest, config, kind, {
   client = createPostizClient({ apiUrl: config.postizApiUrl, apiKey: config.postizApiKey }),
   integrations,
   trimStory = bufferForFacebookStory,
+  loadImage = loadImageBuffer,
   resolveFacebookPermalink,
   sleepFn,
 } = {}) {
@@ -183,6 +196,12 @@ export async function publishPostizDigest(digest, config, kind, {
       ? await trimStory(videoUrl)
       : (await loadVideoBuffer(videoUrl)).buffer;
     mediaUpload = await client.upload(buffer, `${digest.id}-${kind}.mp4`);
+    if (!uploadUrl(mediaUpload)) throw new Error('Postiz upload did not return a media URL');
+  } else if (digest.image_url) {
+    const loaded = await loadImage(digest.image_url);
+    const buffer = loaded?.buffer || loaded;
+    const filename = loaded?.filename || `${digest.id}-cover.png`;
+    mediaUpload = await client.upload(buffer, filename);
     if (!uploadUrl(mediaUpload)) throw new Error('Postiz upload did not return a media URL');
   }
 

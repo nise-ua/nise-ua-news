@@ -42,15 +42,15 @@ const VERSION_NUMBER_RE = /\b\d+(?:\.\d+)+\b/g;
 
 const SAFE_VISUALS = {
   aiAssistantUpdate:
-    'Soft-focus abstract close-up of glowing blue and cyan fiber optic light trails in a dark server aisle, smooth light streaks and bokeh only, no hardware faceplates no ports no stickers no letters no numbers no watermarks',
+    'Sunlit close-up of glowing amber, gold, and cyan fiber optic light trails in a bright glass-walled server hall, warm window light and vivid color bokeh only, no hardware faceplates no ports no stickers no letters no numbers no watermarks',
   aiModelDevelopment:
-    'Engineers walking past rows of unmarked GPU server racks in a bright data center, warm window light, physical cables and blinking LEDs only, no monitors no diagrams no labels no watermarks',
+    'Engineers walking past rows of unmarked GPU server racks in a sunlit data center, warm window light and vivid cable color, physical cables and blinking LEDs only, no monitors no diagrams no labels no watermarks',
   mapFeatureRemoval:
-    'Hand removing colored push pins from a smooth blank blue desk sphere, soft natural light, no geography labels no continent outlines no readable markings on the sphere',
+    'Hand removing vivid colored push pins from a smooth blank blue desk sphere on a bright white desk, strong daylight, no geography labels no continent outlines no readable markings on the sphere',
   aiBrowserLaunch:
-    'Glowing fiber optic cables plugged into server blades in a bright network room, unmarked metal hardware, no screens no browser windows no tabs no icons no watermarks',
+    'Glowing amber and cyan fiber optic cables plugged into server blades in a bright sunlit network room, unmarked metal hardware, no screens no browser windows no tabs no icons no watermarks',
   default:
-    'Professional technology scene with unmarked hardware and soft ambient light, no screens dials labels symbols typography or watermarks',
+    'Sunlit technology scene with unmarked hardware, warm daylight and vivid color, no screens dials labels symbols typography or watermarks',
 };
 
 function factMatches(re, coreFact) {
@@ -152,24 +152,29 @@ export const NO_TEXT_IMAGE_RULES =
   'Pure photographic scene only — never a screenshot, dashboard, blog page, labeled interface, ' +
   'poster, magazine cover, or news graphic.';
 
-/** Palettes keyed by factual news tone — not author sarcasm. */
+/** Palettes keyed by factual news tone — not author sarcasm. Never gray sludge. */
 export const NEWS_TONE_PALETTES = {
   positive: [
     'bright warm golden-hour light, optimistic mood, vibrant clean photography',
     'fresh morning daylight, clean highlights, energetic professional photography',
-    'soft bright overcast with warm amber accents, uplifting factual reportage',
+    'soft bright overcast with warm amber accents, uplifting colorful reportage',
   ],
   neutral: [
-    'balanced natural daylight, neutral documentary tones, calm professional mood',
-    'soft window light with muted earth tones, documentary style',
-    'even studio lighting with gentle contrast, straightforward photographic feel',
+    'crisp daylight, rich natural color, lively professional photography',
+    'warm window light with vivid accents, clean colorful scene',
+    'bright even light with saturated midtones, energetic photographic feel',
   ],
   negative: [
-    'dark moody overcast light, somber desaturated tones, serious atmosphere',
-    'cool slate and charcoal palette, subdued low-key lighting, grave mood',
-    'heavy shadows with muted blue-grey tones, restrained dramatic photography',
+    'dramatic high-contrast light, deep teal and amber, cinematic but colorful',
+    'storm-blue highlights against warm tungsten, intense not gray',
+    'bold cool-warm color contrast, serious mood without desaturation',
   ],
 };
+
+export const COVER_COLOR_RULES =
+  'Vivid saturated color, high contrast, punchy light. Never gray, never desaturated, ' +
+  'never muted earth tones, never charcoal, never gloomy documentary. ' +
+  'Editorial magazine still that stops a social-feed scroll.';
 
 const POSITIVE_TONE_RE =
   /\b(launch(ed|es|ing)?|release(d|s|ing)?|unveil(ed|s|ing)?|introduc(es|ed|ing)|debuts?|breakthrough|upgrade(d|s|ing)?|improv(es|ed|ing)|record|success|wins?|partnership|funding|raised|expand(s|ed|ing)?|open(s|ed|ing)?\s+source)\b/i;
@@ -210,17 +215,27 @@ export function pickVisualPalette({ newsTone, coreFact, index = 0 } = {}) {
   return palettes[i % palettes.length];
 }
 
-export function buildAtmosphereClause({ newsTone, coreFact, index = 0 } = {}) {
+export function normalizeVisualLook(look) {
+  return String(look || '').trim().toLowerCase() === 'cover' ? 'cover' : 'reel';
+}
+
+export function buildAtmosphereClause({ newsTone, coreFact, index = 0, look = 'reel' } = {}) {
   const tone = resolveNewsTone({ newsTone, coreFact });
-  const upperThirdHint = tone === 'negative'
-    ? 'Keep the upper third of the frame empty and darker — uncluttered negative space only, never paint any writing there.'
-    : 'Keep the upper third of the frame empty and uncluttered — negative space only, never paint any writing there.';
+  const visualLook = normalizeVisualLook(look);
+  const palette = pickVisualPalette({ newsTone: tone, coreFact, index });
+  const spaceHint = visualLook === 'cover'
+    ? 'Fill the frame with a bold concrete subject. No empty gray void, no washed-out sky as the only content.'
+    : 'Keep the upper third of the frame uncluttered — negative space only, never paint any writing there.';
+  const style = visualLook === 'cover'
+    ? COVER_COLOR_RULES
+    : 'Photorealistic cinematic photography with rich color. Avoid gray, beige, and desaturated palettes.';
 
   return (
     `${NO_TEXT_IMAGE_RULES} ` +
-    `${pickVisualPalette({ newsTone: tone, coreFact, index })}. ` +
-    `${upperThirdHint} ` +
-    'Photorealistic documentary photography. Do not render any title, caption, watermark, or logo.'
+    `${palette}. ` +
+    `${spaceHint} ` +
+    `${style} ` +
+    'Do not render any title, caption, watermark, or logo.'
   );
 }
 
@@ -254,34 +269,44 @@ export const VISUAL_GROUNDING_RULES = `КРИТИЧНО — СПОЧАТКУ Ф�
 
 Промпт ОБОВ'ЯЗКОВО описує visualSubject.
 ЗАБОРОНЕНО: будь-який текст, літери, цифри, слова, логотипи, UI labels на зображенні.
-Колір/освітлення має відповідати newsTone фактичної новини: positive → яскравіше, negative → темніше/стриманіше, neutral → збалансовано.`;
+Колір/освітлення має відповідати newsTone фактичної новини, АЛЕ ніколи не сірий:
+- positive → яскраве тепле світло, насичений колір
+- negative → драматичний кольоровий контраст (teal/amber, storm-blue + tungsten), НЕ desaturated, НЕ charcoal
+- neutral → насичений денний колір, НЕ muted earth tones
+ЗАБОРОНЕНО: сіра, вугільна, вицвіла, gloomy documentary палітра.`;
 
 export function promptHasBannedMetaphor(prompt) {
   return BANNED_RE.test(String(prompt || ''));
 }
 
-export function buildGroundedPrompt({ visualSubject, coreFact, entities = [], newsTone, index = 0 }) {
+export function buildGroundedPrompt({ visualSubject, coreFact, entities = [], newsTone, index = 0, look = 'reel' } = {}) {
   const fact = String(coreFact || '').trim();
   const safeSubject = buildSafeVisualSubject({ visualSubject, coreFact: fact, entities });
   const factClause = buildImageFactClause(fact);
   const tone = resolveNewsTone({ newsTone, coreFact: fact });
+  const visualLook = normalizeVisualLook(look);
 
   return (
     `${safeSubject}.${factClause} ` +
-    'Professional documentary photography, concrete physical depiction (not abstract symbols of tone, not UI screenshots, not labeled objects, not dials or gauges). ' +
-    buildAtmosphereClause({ newsTone: tone, coreFact: fact, index })
+    'Concrete physical depiction (not abstract symbols of tone, not UI screenshots, not labeled objects, not dials or gauges). ' +
+    buildAtmosphereClause({ newsTone: tone, coreFact: fact, index, look: visualLook })
   ).replace(/\s+/g, ' ').trim();
 }
 
 /** Apply news-tone palette and ensure the no-text clause is present before image API calls. */
-export function finalizeImagePrompt(prompt, { newsTone, coreFact, index = 0 } = {}) {
+export function finalizeImagePrompt(prompt, { newsTone, coreFact, index = 0, look = 'reel' } = {}) {
+  const visualLook = normalizeVisualLook(look);
   let result = String(prompt || '').trim();
-  if (!result) return buildGroundedPrompt({ newsTone, coreFact, index });
+  if (!result) return buildGroundedPrompt({ newsTone, coreFact, index, look: visualLook });
 
-  // Strip legacy dark-moody boilerplate and entity-name clauses that trigger logo/text rendering.
+  // Strip legacy dark-moody / gray-documentary boilerplate and entity-name clauses.
   result = result
     .replace(/\bDark moody atmosphere\b[^.]*\./gi, '')
     .replace(/\bdark moody\b,?\s*/gi, '')
+    .replace(/\bdesaturated\b[^.]*\./gi, '')
+    .replace(/\b(charcoal palette|grave mood|muted earth tones|muted blue-grey)\b[^.]*\./gi, '')
+    .replace(/\bPhotorealistic documentary photography\b[^.]*\./gi, '')
+    .replace(/\bProfessional documentary photography\b[^.]*\./gi, '')
     .replace(/\bNo text, no letters, no numbers, no words, no logos\b[^.]*\./gi, '')
     .replace(/\bClearly depict cues for:[^.]*\./gi, '')
     .replace(BRAND_TOKEN_RE, 'AI technology')
@@ -293,7 +318,7 @@ export function finalizeImagePrompt(prompt, { newsTone, coreFact, index = 0 } = 
 
   const tone = resolveNewsTone({ newsTone, coreFact });
   return (
-    `IMAGE MUST CONTAIN ZERO TEXT, LETTERS, NUMBERS, LOGOS, WATERMARKS, OR CAPTIONS ANYWHERE. ${result} ${buildAtmosphereClause({ newsTone: tone, coreFact, index })}`
+    `IMAGE MUST CONTAIN ZERO TEXT, LETTERS, NUMBERS, LOGOS, WATERMARKS, OR CAPTIONS ANYWHERE. ${result} ${buildAtmosphereClause({ newsTone: tone, coreFact, index, look: visualLook })}`
   ).replace(/\s+/g, ' ').trim();
 }
 
@@ -312,6 +337,7 @@ export function groundVisualVariant(variant, index = 0) {
   const visualSubject = String(variant.visualSubject || '').trim();
   const coreFact = String(variant.coreFact || '').trim();
   const newsTone = resolveNewsTone({ newsTone: variant.newsTone, coreFact });
+  const look = normalizeVisualLook(variant.look);
   let prompt = String(variant.prompt || '').trim();
 
   const promptLower = prompt.toLowerCase();
@@ -338,9 +364,9 @@ export function groundVisualVariant(variant, index = 0) {
     || /abstract (ai |digital )?(vortex|background|swirl|eye)/i.test(prompt);
 
   if (needsRebuild) {
-    prompt = buildGroundedPrompt({ visualSubject: safeSubject, coreFact, entities, newsTone, index });
+    prompt = buildGroundedPrompt({ visualSubject: safeSubject, coreFact, entities, newsTone, index, look });
   } else {
-    prompt = finalizeImagePrompt(prompt, { newsTone, coreFact, index });
+    prompt = finalizeImagePrompt(prompt, { newsTone, coreFact, index, look });
   }
 
   return {
@@ -349,6 +375,7 @@ export function groundVisualVariant(variant, index = 0) {
     entities,
     visualSubject: safeSubject,
     newsTone,
+    look,
     prompt,
   };
 }
