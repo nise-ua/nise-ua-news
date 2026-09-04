@@ -8,12 +8,10 @@ You are assembling the final digest from ready author commentaries.
 
 ## Digest Structure
 
-1. The main hashtag (provided in the input data, usually #новини) stands ALONE on the first line.
-   The first commentary starts on the NEXT line with "1.":
-   [Hashtag]
-   1. [Text of the first commentary]
+1. The main hashtag (provided in the input data, usually #новини) stays on the FIRST line WITH the first paragraph:
+   [Hashtag] 1. [Text of the first commentary]
    [link to original]
-   Put a line break between the hashtag and 1. Do NOT put them on the same line.
+   Put a space between the hashtag and "1.". Do NOT put the hashtag on its own line.
    Do NOT use #AI or #news as the opening hashtag.
 
 2. Numbered commentaries (starting from the 2nd — each on a new line):
@@ -42,8 +40,7 @@ Do not add hashtags at the end.
 
 Example:
 
-#новини
-1. HR is f..ked. During the pandemic, HR seemed to be seated "at the table." Everyone was happy, made a couple of posts on LinkedIn — and moved on. Then the table slowly moved to finance, IT, and operations. No scandals, it just happened. Meanwhile, AI quietly took over recruitment, screening, answering questions, and half of the "business partnership." At IBM, for example, they say that almost all typical HR questions are already handled by AI. HR remains — but somewhere closer to administration and "complex cases." https://www.perplexity.ai/page/the-quiet-erosion-of-hr-s-powe-udw6iWxzQl6wK6FMa_79tQ
+#новини 1. HR is f..ked. During the pandemic, HR seemed to be seated "at the table." Everyone was happy, made a couple of posts on LinkedIn — and moved on. Then the table slowly moved to finance, IT, and operations. No scandals, it just happened. Meanwhile, AI quietly took over recruitment, screening, answering questions, and half of the "business partnership." At IBM, for example, they say that almost all typical HR questions are already handled by AI. HR remains — but somewhere closer to administration and "complex cases." https://www.perplexity.ai/page/the-quiet-erosion-of-hr-s-powe-udw6iWxzQl6wK6FMa_79tQ
 
 2. It was quiet and boring in the App Store for three years, and then suddenly — a 60% increase in new iOS apps in a year. Not because everyone suddenly got smarter, but because you can now write code with words. You say it — you get it. "Vibe coding," "agentic coding," call it what you want, the essence is the same: AI has started doing what was previously considered a craft.
 

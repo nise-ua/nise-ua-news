@@ -63,6 +63,9 @@ export function initDb(dbPath) {
   if (!digestCols.has('postiz_posts')) {
     db.exec('ALTER TABLE digests ADD COLUMN postiz_posts TEXT');
   }
+  if (!digestCols.has('image_url')) {
+    db.exec('ALTER TABLE digests ADD COLUMN image_url TEXT');
+  }
 
   return db;
 }
@@ -139,7 +142,7 @@ export function updateDigest(id, fields) {
     'facebook_post_id', 'facebook_reel_id', 'facebook_story_id', 'postiz_posts',
     'telegram_message_id', 'youtube_post_id', 'articles_count',
     'model', 'input_tokens', 'output_tokens', 'cost_usd', 'video_url', 'reel_url',
-    'youtube_shorts_url'];
+    'youtube_shorts_url', 'image_url'];
   const updates = [];
   const values = [];
 

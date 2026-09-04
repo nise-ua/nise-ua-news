@@ -8,6 +8,7 @@ import {
   groundVisualVariant,
   groundVisualList,
   inferNewsToneFromFact,
+  pickVisualPalette,
 } from '../visual-grounding.js';
 
 describe('promptHasBannedMetaphor', () => {
@@ -215,5 +216,42 @@ describe('tone inference (characterization)', () => {
     expect(inferNewsToneFromFact('Google discontinued an AI feature on satellite photos.')).toBe('negative');
     expect(inferNewsToneFromFact('Cloudflare launches Kitesurf, a browser for AI agents.')).toBe('positive');
     expect(inferNewsToneFromFact('ByteDance is developing a large language model with 10 trillion parameters.')).toBe('neutral');
+  });
+});
+
+describe('colorful image palettes', () => {
+  it('does not ask the image model for gray or desaturated light', () => {
+    expect(pickVisualPalette({ newsTone: 'neutral' })).not.toMatch(/desaturated|charcoal|muted earth|grave mood/i);
+    const prompt = buildGroundedPrompt({
+      visualSubject: 'Engineers walking past unmarked GPU server racks',
+      coreFact: 'ByteDance is developing a large language model with 10 trillion parameters.',
+      entities: ['ByteDance'],
+      newsTone: 'neutral',
+    });
+    expect(prompt).toMatch(/color|daylight|vivid|warm|rich/i);
+    expect(prompt).not.toMatch(/photorealistic documentary photography|dark server aisle/i);
+  });
+
+  it('keeps negative news dramatic and colorful instead of gray', () => {
+    expect(pickVisualPalette({ newsTone: 'negative' })).not.toMatch(/desaturated|charcoal|grave mood|muted blue-grey/i);
+    const prompt = buildGroundedPrompt({
+      visualSubject: 'Hand removing colored push pins from a blank desk globe',
+      coreFact: 'Google discontinued an AI feature on satellite photos.',
+      newsTone: 'negative',
+    });
+    expect(prompt).toMatch(/teal|amber|storm|contrast|vivid|color/i);
+    expect(prompt).not.toMatch(/photorealistic documentary photography|dark server aisle/i);
+  });
+
+  it('cover look forbids gloomy documentary language', () => {
+    const prompt = buildGroundedPrompt({
+      visualSubject: 'Sunlit fiber optic light trails',
+      coreFact: 'OpenAI updates ChatGPT with a new response mode.',
+      entities: ['OpenAI'],
+      newsTone: 'positive',
+      look: 'cover',
+    });
+    expect(prompt).not.toMatch(/dark server aisle|photorealistic documentary photography|upper third of the frame empty and darker/i);
+    expect(prompt).toMatch(/vivid|saturated|punchy|scroll/i);
   });
 });

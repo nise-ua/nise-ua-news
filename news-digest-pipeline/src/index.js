@@ -43,7 +43,10 @@ const apiLimiter = rateLimit({
   message: { error: 'Too many requests' },
   // Video progress is polled while a render is running. It must not consume
   // the same request budget as user/API operations.
-  skip: (req) => req.method === 'GET' && req.path.startsWith('/digests/video-jobs/'),
+  skip: (req) => req.method === 'GET' && (
+    req.path.startsWith('/digests/video-jobs/')
+    || req.path.startsWith('/digests/image-jobs/')
+  ),
 });
 
 const publishLimiter = rateLimit({
@@ -62,6 +65,14 @@ const videoGenerateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 3,
   message: { error: 'Too many video generation requests' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const imageGenerateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 3,
+  message: { error: 'Too many image generation requests' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -87,6 +98,7 @@ app.use((req, res, next) => {
 });
 app.use('/videos', express.static(join(__dirname, '..', 'production', 'video', 'output')));
 app.use('/reels', express.static(join(__dirname, '..', 'production', 'video', 'output')));
+app.use('/images', express.static(join(__dirname, '..', 'production', 'image', 'output')));
 
 // Telegram webhook — mounted before general API auth (has its own secret-token check)
 app.use('/api/telegram', telegramRouter);
@@ -101,6 +113,7 @@ app.use('/api/digests/generate', generateLimiter);
 app.use('/api/digests/:id/publish', publishLimiter);
 app.use('/api/postiz/digests/:id/publish', publishLimiter);
 app.use('/api/digests/:id/generate-video', videoGenerateLimiter);
+app.use('/api/digests/:id/generate-image', imageGenerateLimiter);
 app.use('/api/postiz', postizRouter);
 app.use('/api/digests', digestsRouter);
 

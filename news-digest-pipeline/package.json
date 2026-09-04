@@ -13,6 +13,7 @@
     "test:production": "vitest run production/lib/__tests__ && node --test production/lib/*.test.js",
     "test:all": "vitest run && node --test production/lib/*.test.js",
     "generate:image": "node production/image/src/generate.js",
+    "generate:cover": "node production/image/src/generate-digest-cover.js",
     "generate:reel": "node production/video/src/generate-reel.js",
     "generate:reel:html": "node production/html-reel/src/generate-reel-html.js",
     "generate:voiceover": "node production/audio/src/generate-voiceover.js",

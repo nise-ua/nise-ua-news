@@ -26,4 +26,12 @@ describe('digest youtube_shorts_url', () => {
     expect(row.video_url).toBe('http://localhost:3000/videos/reel_1.mp4');
     expect(row.youtube_shorts_url).toBe('http://localhost:3000/videos/shorts_1.mp4');
   });
+
+  it('persists image_url for the Facebook digest cover', () => {
+    const id = createDigest({ date: '2026-09-01', part: 1 });
+    updateDigest(id, {
+      image_url: 'http://localhost:3000/images/digest-cover_1.png',
+    });
+    expect(getDigest(id).image_url).toBe('http://localhost:3000/images/digest-cover_1.png');
+  });
 });
