@@ -631,61 +631,49 @@
     ::-webkit-scrollbar-thumb { background: #ddd8d0; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #b0aaa4; }
   </style>
+  <link rel="stylesheet" href="digest-workflow.css">
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>Панель керування дайджестом новин</h1>
+      <h1>Дайджести</h1>
       <div class="header-right">
         <a class="btn-settings" href="articles.html">📚 Статті</a>
         <a class="btn-settings" href="settings.html">⚙️ Налаштування</a>
         <span class="version-badge">v3.0.1 &middot; 17.08.2026</span>
       </div>
     </div>
-    <p class="subtitle" id="subtitle">Завантаження...</p>
-    <table>
-      <colgroup>
-        <col class="col-num">
-        <col class="col-digest">
-        <col class="col-pub">
-        <col class="col-articles">
-        <col class="col-cost">
-        <col class="col-status">
-        <col class="col-actions">
-      </colgroup>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Дайджест</th>
-          <th>Опубліковано</th>
-          <th>Статей</th>
-          <th>Вартість</th>
-          <th>Статус</th>
-          <th>Дії</th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
+    <p class="subtitle">Від перевірки тексту до публікації — один наступний крок.</p>
+    <nav class="workflow-filters" id="workflow-filters" aria-label="Фільтр за етапом"></nav>
+    <p class="workflow-note">Етап залежить від перевірки тексту, активних завдань і результатів каналів. «Опубліковані» — є публікація, немає готових ненадісланих форматів.</p>
+    <div class="list-error" id="list-error" role="alert" hidden></div>
+    <p class="list-summary" id="subtitle" role="status">Завантаження…</p>
+    <div class="digest-list" id="tbody" aria-label="Список дайджестів"></div>
     <p class="refresh-note">Автооновлення кожні 30 сек</p>
   </div>
 
   <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div class="modal-header">
         <div style="display:flex; align-items:center; gap:15px;">
           <h2 id="modal-title">Прев'ю</h2>
           <button id="save-digest-btn" class="btn btn-publish" style="display:none" onclick="saveDigest()">Зберегти зміни</button>
         </div>
-        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <button class="modal-close" onclick="closeModal()" aria-label="Закрити">&times;</button>
       </div>
       <div class="modal-body">
-        <textarea id="digest-edit-content" class="digest-textarea" style="display:none"></textarea>
+        <textarea id="digest-edit-content" class="digest-textarea" aria-label="Текст дайджесту" style="display:none"></textarea>
         <div id="modal-body-view">Завантаження...</div>
+      </div>
+      <div class="modal-footer">
+        <p id="review-note">Перевірка запам’ятовується лише в цьому браузері й скидається після зміни тексту.</p>
+        <button class="next-action" id="review-digest-btn" onclick="markDigestReviewed()" disabled>Текст перевірено — продовжити</button>
       </div>
     </div>
   </div>
 
-  <script>
+  <script type="module">
+    import { createDashboard } from './dashboard-controller.js';
     function fmtDatetime(isoStr) {
       if (!isoStr) return null;
       // Handle both SQLite format "2026-04-12 23:20:03" and ISO "2026-04-12T23:20:03.649Z"
@@ -701,10 +689,14 @@
     async function loadDigests() {
       try {
         const res = await fetch('/api/digests');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const digests = await res.json();
+        if (!Array.isArray(digests)) throw new Error('Invalid digest response');
+        dashboard.showError('');
         render(digests);
       } catch (err) {
         console.error('Failed to load digests:', err);
+        dashboard.showError('Не вдалося завантажити дайджести. Перевірте з’єднання; повторна спроба через 30 секунд.');
       }
     }
 
@@ -715,208 +707,7 @@
     window.activeImageJobs = activeImageJobs;
     window.loadDigests = loadDigests;
 
-    function render(digests) {
-      const tbody = document.getElementById('tbody');
-      const subtitle = document.getElementById('subtitle');
-
-      if (digests.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty">Дайджестів поки немає</td></tr>';
-        subtitle.textContent = 'Немає дайджестів';
-        return;
-      }
-
-      subtitle.textContent = `Всього дайджестів: ${digests.length}`;
-
-      tbody.innerHTML = digests.map((d, i) => {
-        const status = d.status || 'draft';
-        const selectClass = status === 'published' ? 'is-published' : 'is-draft';
-        const hasContent = !!d.content;
-
-        // Created datetime / digest identity
-        const created = fmtDatetime(d.created_at);
-        const digestLabel = d.date
-          ? `Дайджест ${d.date}${d.part ? ` · ч.${d.part}` : ''}`
-          : (created ? `Дайджест ${created.date}` : `Дайджест #${d.seq_number || (i + 1)}`);
-        const digestMeta = created
-          ? `Створено ${created.date} · ${created.time}`
-          : 'Дата створення невідома';
-
-        const activeJob = activeVideoJobs.get(d.id);
-        const activeImageJob = activeImageJobs.get(d.id);
-        const videoStatusBusy = activeJob && !(activeJob.status === 'completed' && activeJob.videoUrl);
-        const imageStatusBusy = activeImageJob && !(activeImageJob.status === 'completed' && activeImageJob.imageUrl);
-        let videoStatusHtml = '';
-        if (videoStatusBusy) {
-          const isFailed = activeJob.status === 'failed';
-          const defaultMsg = activeJob.format === 'shorts' ? 'Створення Shorts…' : 'Створення відео…';
-          videoStatusHtml = `<div class="video-status${isFailed ? ' is-failed' : ''}" data-video-job="${activeJob.jobId}" data-digest-id="${d.id}">
-            <span class="video-progress-label">${isFailed ? '❌' : '⏳'} ${activeJob.message || defaultMsg} (${activeJob.progress || 0}%)</span>
-            <span class="video-progress-track"><span class="video-progress-bar" style="width:${activeJob.progress || 0}%"></span></span>
-          </div>`;
-        }
-        let imageStatusHtml = '';
-        if (imageStatusBusy) {
-          const isFailed = activeImageJob.status === 'failed';
-          imageStatusHtml = `<div class="video-status${isFailed ? ' is-failed' : ''}" data-image-job="${activeImageJob.jobId}" data-digest-id="${d.id}">
-            <span class="video-progress-label">${isFailed ? '❌' : '⏳'} ${activeImageJob.message || 'Створення обкладинки…'} (${activeImageJob.progress || 0}%)</span>
-            <span class="video-progress-track"><span class="video-progress-bar" style="width:${activeImageJob.progress || 0}%"></span></span>
-          </div>`;
-        }
-
-        const coverHref = String(d.image_url || '')
-          .replace(/&/g, '&amp;')
-          .replace(/"/g, '&quot;');
-        const coverThumb = d.image_url
-          ? `<a class="digest-cover-thumb" href="${coverHref}" target="_blank" title="Обкладинка для Facebook"><img src="${coverHref}" alt=""></a>`
-          : '';
-
-        const createdHtml = `<div class="digest-identity-row">
-          ${coverThumb}
-          <div class="digest-identity">
-            <span class="digest-name">${digestLabel}</span>
-            <span class="digest-meta">${digestMeta}</span>
-            ${imageStatusHtml}
-            ${videoStatusHtml}
-            <div class="digest-stats" data-digest-stats="${d.id}"><span class="stat-empty">—</span></div>
-          </div>
-        </div>`;
-
-        // Published datetime
-        const pub = fmtDatetime(d.published_at);
-        const pubHtml = pub
-          ? `<span class="pub-date">${pub.date} ${pub.time}</span>`
-          : '<span class="no-pub">—</span>';
-
-        // Action buttons — per-platform (Facebook & Video)
-        let actionBtn = '';
-        if (!hasContent) {
-          actionBtn = '<span style="color:#444;font-size:12px">немає контенту</span>';
-        } else {
-          const fbSent = !!d.facebook_post_id;
-          const imageExists = !!d.image_url;
-          const videoExists = !!(d.video_url || d.reel_url);
-          const reelSent = !!d.facebook_reel_id;
-          const youtubeShortsExists = !!d.youtube_shorts_url;
-          const youtubeSent = !!d.youtube_post_id;
-
-          const fbHref = /^https?:\/\//i.test(d.facebook_post_id || '') ? d.facebook_post_id : '';
-          const fbBtn = fbSent
-            ? (fbHref
-                ? `<a class="plat-btn sent" href="${fbHref.replace(/"/g, '&quot;')}" target="_blank" title="${fbHref.replace(/"/g, '&quot;')}">✓ FB</a>`
-                : `<button class="plat-btn sent" disabled>✓ FB</button>`)
-            : `<button class="plat-btn" onclick="publishFacebook('${d.id}', this, ${imageExists ? 'true' : 'false'})">📘 FB</button>`;
-          // Escape JSON for a double-quoted HTML attribute ("" / URLs otherwise break onclick).
-          const fbUrlArg = JSON.stringify(d.facebook_post_id || '')
-            .replace(/&/g, '&amp;')
-            .replace(/"/g, '&quot;');
-          const fbUrlBtn = `<button class="plat-btn" onclick="setFacebookUrl('${d.id}', ${fbUrlArg})" title="Вказати Facebook URL вручну">🔗</button>`;
-
-          let imageBtn;
-          const imageJobActive = imageStatusBusy;
-          if (imageJobActive) {
-            imageBtn = `<button class="plat-btn busy" disabled title="Генерується обкладинка">⏳ Фото</button>`;
-          } else if ((activeImageJob && activeImageJob.status === 'completed' && activeImageJob.imageUrl) || imageExists) {
-            const href = (activeImageJob && activeImageJob.imageUrl) || d.image_url;
-            const imageHref = String(href || '')
-              .replace(/&/g, '&amp;')
-              .replace(/"/g, '&quot;');
-            imageBtn = `<a class="plat-btn" href="${imageHref}" target="_blank" title="Відкрити обкладинку">🖼 Фото</a>`
-              + `<button class="plat-btn" onclick="generateCover('${d.id}', this, true)" title="Перегенерувати обкладинку">🔄</button>`;
-          } else {
-            imageBtn = `<button class="plat-btn" onclick="generateCover('${d.id}', this)" title="Згенерувати фото для Facebook-поста">🖼 Фото</button>`;
-          }
-
-          let videoBtn, shortsBtn;
-
-          // Facebook Video Button — keep button in the row; progress lives under digest name
-          const videoJobActive = activeJob && activeJob.format !== 'shorts' && videoStatusBusy;
-          if (videoJobActive) {
-            videoBtn = `<button class="plat-btn busy" disabled title="Генерується відео">⏳ Video</button>`;
-          } else if ((activeJob && activeJob.format !== 'shorts' && activeJob.status === 'completed' && activeJob.videoUrl) || videoExists) {
-            const href = (activeJob && activeJob.videoUrl) || d.video_url || d.reel_url;
-            videoBtn = `<a class="plat-btn" href="${href}" target="_blank">🎬 Video</a>`
-              + `<button class="plat-btn" onclick="generateVideo('${d.id}', this, 'facebook', true)" title="Перегенерувати відео">🔄</button>`;
-          } else {
-            videoBtn = `<button class="plat-btn" onclick="generateVideo('${d.id}', this)">▶️ Video</button>`;
-          }
-
-          // YouTube Shorts Button
-          const shortsJobActive = activeJob && activeJob.format === 'shorts' && videoStatusBusy;
-          if (shortsJobActive) {
-            shortsBtn = `<button class="plat-btn busy" disabled title="Генеруються Shorts">⏳ Shorts</button>`;
-          } else if (youtubeShortsExists) {
-            const shortsHref = String(d.youtube_shorts_url || '')
-              .replace(/&/g, '&amp;')
-              .replace(/"/g, '&quot;');
-            shortsBtn = `<a class="plat-btn" href="${shortsHref}" target="_blank">▶️ Shorts</a>`
-              + `<button class="plat-btn" onclick="generateVideo('${d.id}', this, 'shorts', true)" title="Перегенерувати Shorts">🔄</button>`;
-          } else {
-            shortsBtn = `<button class="plat-btn" onclick="generateVideo('${d.id}', this, 'shorts')">▶️ Shorts</button>`;
-          }
-
-          const reelBtn = !videoExists
-            ? ''
-            : reelSent
-              ? `<button class="plat-btn sent" disabled>✓ Reel</button>`
-              : `<button class="plat-btn" onclick="publishFacebookReel('${d.id}', this, ${fbSent ? 'true' : 'false'})">📽️ Reel</button>`;
-
-          const youtubePublishBtn = !youtubeShortsExists
-            ? ''
-            : youtubeSent
-              ? `<a class="plat-btn sent" href="https://youtube.com/shorts/${String(d.youtube_post_id || '').replace(/"/g, '&quot;')}" target="_blank">✓ YT</a>`
-              : `<button class="plat-btn" onclick="publishYouTube('${d.id}', this)">▶️ YouTube</button>`;
-
-          const delBtn = `<button class="btn-delete" onclick="deleteDigest('${d.id}')" title="Видалити">✕</button>`;
-          actionBtn = `<div class="platform-row"><button class="btn-preview" onclick="previewDigest('${d.id}')" title="Превʼю">&#128065;</button>${imageBtn}${fbBtn}${fbUrlBtn}${videoBtn}${shortsBtn}${reelBtn}${youtubePublishBtn}<button class="btn-copy" onclick="copyDigest('${d.id}', this)" title="Копіювати">&#128203;</button>${delBtn}</div>`;
-        }
-
-        // Status dropdown
-        const statusSelect = `<select class="status-select ${selectClass}" onchange="changeStatus('${d.id}', this)">
-          <option value="draft" ${status !== 'published' ? 'selected' : ''}>Чернетка</option>
-          <option value="published" ${status === 'published' ? 'selected' : ''}>Опубліковано</option>
-        </select>`;
-
-        // Cost cell
-        let costHtml;
-        if (d.cost_usd !== null && d.cost_usd !== undefined) {
-          const inTok = d.input_tokens || 0;
-          const outTok = d.output_tokens || 0;
-          const title = `${d.model || 'модель не вказана'} · ${inTok}/${outTok} токенів`;
-          costHtml = `<span class="cost-val" title="${title}">$${Number(d.cost_usd).toFixed(4)}</span>`;
-        } else {
-          costHtml = '<span class="no-pub">—</span>';
-        }
-
-        return `<tr>
-          <td><span class="row-num">${d.seq_number || (i + 1)}</span></td>
-          <td class="digest-cell">${createdHtml}</td>
-          <td>${pubHtml}</td>
-          <td><span class="articles-count">${d.articles_count || 0}</span></td>
-          <td>${costHtml}</td>
-          <td>${statusSelect}</td>
-          <td class="actions-cell">${actionBtn}</td>
-        </tr>`;
-      }).join('');
-      loadPostizStats(digests);
-      for (const job of activeVideoJobs.values()) {
-        const progress = tbody.querySelector(`[data-video-job="${job.jobId}"]`);
-        if (progress && !job.polling) {
-          pollVideoJob(job.jobId, progress, null).catch(err => {
-            console.error('Video progress polling failed:', err);
-            job.polling = false;
-          });
-        }
-      }
-      for (const job of activeImageJobs.values()) {
-        const progress = tbody.querySelector(`[data-image-job="${job.jobId}"]`);
-        if (progress && !job.polling) {
-          pollImageJob(job.jobId, progress).catch(err => {
-            console.error('Image progress polling failed:', err);
-            job.polling = false;
-          });
-        }
-      }
-    }
+    function render(digests) { dashboard.render(digests); }
 
     function sparklinePath(points, width = 64, height = 22) {
       const values = points.map((p) => Number(p.total || 0));
@@ -960,22 +751,29 @@
       </div>`;
     }
 
+    const statsCache = new Map();
     async function loadPostizStats(digests) {
       const targets = (digests || []).filter((d) => d.postiz_posts);
       await Promise.all(targets.map(async (d) => {
         const host = document.querySelector(`[data-digest-stats="${d.id}"]`);
         if (!host) return;
         try {
-          const res = await fetch(`/api/postiz/digests/${d.id}/stats?days=7`);
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || 'stats error');
+          let cached = statsCache.get(d.id);
+          if (!cached || Date.now() - cached.time > 30000) {
+            cached = { time: Date.now(), result: fetch(`/api/postiz/digests/${d.id}/stats?days=7`).then(async res => {
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.error || 'stats error');
+              return data;
+            }) };
+            statsCache.set(d.id, cached);
+          }
+          const data = await cached.result;
           const series = preferredSeries(data.series);
           host.innerHTML = series.length
             ? series.map(renderSparkline).join('')
             : '<span class="stat-empty">—</span>';
         } catch (err) {
-          host.innerHTML = '<span class="stat-empty">—</span>';
-          console.error('Postiz stats failed:', err);
+          host.innerHTML = '<span class="stat-empty">Статистика тимчасово недоступна</span>';
         }
       }));
     }
@@ -983,35 +781,16 @@
     async function copyDigest(id, btn) {
       try {
         const res = await fetch(`/api/digests/${id}/text`);
+        if (!res.ok) throw new Error('Не вдалося завантажити текст');
         const text = await res.text();
         await navigator.clipboard.writeText(text);
-        btn.className = 'btn-copy btn-copied';
-        btn.innerHTML = '&#10003;';
+        btn.textContent = '✓ Текст скопійовано';
         btn.title = 'Скопійовано';
         btn.disabled = true;
         btn.onclick = null;
       } catch (err) {
         console.error('Copy failed:', err);
         alert('Не вдалося скопіювати: ' + err.message);
-      }
-    }
-
-    async function changeStatus(id, select) {
-      try {
-        const status = select.value;
-        const res = await fetch(`/api/digests/${id}/status`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status }),
-        });
-        if (!res.ok) throw new Error('Server error');
-        select.className = 'status-select ' + (status === 'published' ? 'is-published' : 'is-draft');
-        // Reload to update published date
-        setTimeout(loadDigests, 300);
-      } catch (err) {
-        console.error('Status update failed:', err);
-        alert('Не вдалося оновити статус');
-        loadDigests(); // reload to reset
       }
     }
 
@@ -1177,6 +956,17 @@
         }
         const job = data.job;
         if (active) Object.assign(active, { progress: job.progress, message: job.message, imageUrl: job.imageUrl, status: job.status });
+        if (job.status === 'completed') {
+          activeImageJobs.delete(active.digestId);
+          setTimeout(loadDigests, 300);
+          return;
+        }
+        if (job.status === 'failed') {
+          // Keep the failed state visible until the user retries.
+          alert('Не вдалося створити обкладинку: ' + (job.error || 'Невідома помилка'));
+          setTimeout(loadDigests, 300);
+          return;
+        }
         const currentProgress = document.querySelector(`[data-image-job="${jobId}"]`);
         if (!currentProgress) {
           await new Promise(resolve => setTimeout(resolve, 1500));
@@ -1189,17 +979,6 @@
         }
         if (bar) bar.style.width = `${job.progress}%`;
         currentProgress.classList.toggle('is-failed', job.status === 'failed');
-        if (job.status === 'completed') {
-          activeImageJobs.delete(active.digestId);
-          setTimeout(loadDigests, 300);
-          return;
-        }
-        if (job.status === 'failed') {
-          activeImageJobs.delete(job.digestId || active?.digestId);
-          alert('Не вдалося створити обкладинку: ' + (job.error || 'Невідома помилка'));
-          setTimeout(loadDigests, 300);
-          return;
-        }
         await new Promise(resolve => setTimeout(resolve, 1500));
       }
     }
@@ -1294,6 +1073,17 @@
         }
         const job = data.job;
         if (active) Object.assign(active, { progress: job.progress, message: job.message, videoUrl: job.videoUrl, status: job.status });
+        if (job.status === 'completed') {
+          activeVideoJobs.delete(active.digestId);
+          setTimeout(loadDigests, 300);
+          return;
+        }
+        if (job.status === 'failed') {
+          // Keep the failed state visible until the user retries.
+          alert('Не вдалося створити відео: ' + (job.error || 'Невідома помилка'));
+          setTimeout(loadDigests, 300);
+          return;
+        }
         const currentProgress = document.querySelector(`[data-video-job="${jobId}"]`);
         if (!currentProgress) {
           await new Promise(resolve => setTimeout(resolve, 1500));
@@ -1306,25 +1096,34 @@
         }
         if (bar) bar.style.width = `${job.progress}%`;
         currentProgress.classList.toggle('is-failed', job.status === 'failed');
-        if (job.status === 'completed') {
-          activeVideoJobs.delete(active.digestId);
-          setTimeout(loadDigests, 300);
-          return;
-        }
-        if (job.status === 'failed') {
-          activeVideoJobs.delete(job.digestId || active?.digestId);
-          alert('Не вдалося створити відео: ' + (job.error || 'Невідома помилка'));
-          setTimeout(loadDigests, 300);
-          return;
-        }
         await new Promise(resolve => setTimeout(resolve, 1500));
       }
     }
 
     let currentEditingDigestId = null;
+    let loadedDigestText = null;
+    let modalReturnFocus = null;
+
+    function markDigestReviewed() {
+      const text = document.getElementById('digest-edit-content').value;
+      if (!currentEditingDigestId || loadedDigestText === null || text !== loadedDigestText) return;
+      dashboard.markReviewed(currentEditingDigestId, text);
+      closeModal();
+    }
+
+    document.getElementById('digest-edit-content').addEventListener('input', event => {
+      document.getElementById('review-digest-btn').disabled = event.target.value !== loadedDigestText;
+      document.getElementById('review-note').textContent = event.target.value !== loadedDigestText
+        ? 'Спочатку збережіть зміни, потім підтвердьте перевірку.'
+        : 'Перевірка запам’ятовується лише в цьому браузері й скидається після зміни тексту.';
+    });
 
     async function previewDigest(id) {
       currentEditingDigestId = id;
+      loadedDigestText = null;
+      modalReturnFocus = document.activeElement;
+      document.getElementById('review-digest-btn').disabled = true;
+      document.getElementById('review-note').textContent = 'Перевірка запам’ятовується лише в цьому браузері й скидається після зміни тексту.';
       const modal = document.getElementById('modal');
       const bodyView = document.getElementById('modal-body-view');
       const textArea = document.getElementById('digest-edit-content');
@@ -1335,18 +1134,26 @@
       bodyView.textContent = 'Завантаження...';
       textArea.style.display = 'none';
       saveBtn.style.display = 'none';
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Зберегти зміни';
+      saveBtn.style.background = '';
       title.textContent = 'Прев\'ю дайджесту';
       modal.classList.add('open');
+      modal.querySelector('.modal-close').focus();
 
       try {
         const res = await fetch(`/api/digests/${id}/text`);
         if (!res.ok) throw new Error('Не вдалося завантажити текст');
         const text = await res.text();
+        if (currentEditingDigestId !== id) return;
+        loadedDigestText = text;
         
         bodyView.style.display = 'none';
         textArea.style.display = 'block';
         textArea.value = text;
         saveBtn.style.display = 'inline-flex';
+        document.getElementById('review-digest-btn').disabled = !text.trim();
+        textArea.focus();
       } catch (err) {
         bodyView.textContent = 'Помилка завантаження: ' + err.message;
       }
@@ -1354,18 +1161,21 @@
 
     async function saveDigest() {
       if (!currentEditingDigestId) return;
+      const editingId = currentEditingDigestId;
       const textArea = document.getElementById('digest-edit-content');
       const saveBtn = document.getElementById('save-digest-btn');
       const originalText = saveBtn.textContent;
+      const savedText = textArea.value;
 
       try {
         saveBtn.disabled = true;
         saveBtn.textContent = 'Зберігання...';
+        document.getElementById('review-digest-btn').disabled = true;
 
         const res = await fetch(`/api/digests/${currentEditingDigestId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: textArea.value }),
+          body: JSON.stringify({ content: savedText }),
         });
 
         if (!res.ok) {
@@ -1373,6 +1183,11 @@
           throw new Error(errData.error || 'Server error');
         }
 
+        await loadDigests();
+        if (currentEditingDigestId !== editingId) return;
+        loadedDigestText = savedText;
+        document.getElementById('review-digest-btn').disabled = textArea.value !== savedText || !savedText.trim();
+        document.getElementById('review-note').textContent = 'Зміни збережено. Підтвердьте перевірку тексту, щоб продовжити.';
         saveBtn.textContent = 'Збережено!';
         saveBtn.style.background = '#22c55e';
         
@@ -1391,12 +1206,39 @@
     }
 
     function closeModal() {
+      if (!document.getElementById('modal').classList.contains('open')) return;
+      if (currentEditingDigestId && loadedDigestText !== null && document.getElementById('digest-edit-content').value !== loadedDigestText
+        && !confirm('Закрити без збереження змін?')) return;
       document.getElementById('modal').classList.remove('open');
       currentEditingDigestId = null;
+      loadedDigestText = null;
+      if (modalReturnFocus?.isConnected) modalReturnFocus.focus();
+      else document.querySelector('#tbody .next-action')?.focus();
     }
 
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+    document.getElementById('modal').addEventListener('keydown', event => {
+      if (event.key !== 'Tab') return;
+      const controls = [...event.currentTarget.querySelectorAll('button:not(:disabled), textarea')].filter(el => el.offsetParent !== null);
+      const first = controls[0], last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    });
 
+    const dashboard = createDashboard({
+      imageJobs: activeImageJobs, videoJobs: activeVideoJobs,
+      pollImage: pollImageJob, pollVideo: pollVideoJob, loadStats: loadPostizStats, loadDigests,
+      actions: {
+        review: d => previewDigest(d.id), copy: (d, btn) => copyDigest(d.id, btn),
+        cover: (d, btn) => generateCover(d.id, btn), 'cover-regenerate': (d, btn) => generateCover(d.id, btn, true),
+        video: (d, btn) => generateVideo(d.id, btn), 'video-regenerate': (d, btn) => generateVideo(d.id, btn, 'facebook', true),
+        shorts: (d, btn) => generateVideo(d.id, btn, 'shorts'), 'shorts-regenerate': (d, btn) => generateVideo(d.id, btn, 'shorts', true),
+        facebook: (d, btn) => publishFacebook(d.id, btn, !!d.image_url),
+        reel: (d, btn) => publishFacebookReel(d.id, btn, !!d.facebook_post_id), youtube: (d, btn) => publishYouTube(d.id, btn),
+        'facebook-url': d => setFacebookUrl(d.id, d.facebook_post_id), delete: d => deleteDigest(d.id),
+      },
+    });
+    Object.assign(window, { closeModal, saveDigest, markDigestReviewed });
     loadDigests();
     setInterval(loadDigests, 30000);
   </script>
