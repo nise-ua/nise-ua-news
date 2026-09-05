@@ -333,7 +333,7 @@
       <div class="header-right">
         <a class="btn-settings" href="articles.html">📚 Статті</a>
         <a class="btn-settings" href="settings.html">⚙️ Налаштування</a>
-        <span class="version-badge">v3.0.1 &middot; 17.08.2026</span>
+        <span class="version-badge" id="version-badge" title="Версія застосунку">…</span>
       </div>
     </div>
     <p class="subtitle">Від перевірки тексту до публікації — один наступний крок.</p>
@@ -367,6 +367,21 @@
 
   <script type="module">
     import { createDashboard } from './dashboard-controller.js';
+    import { formatDateTime } from './digest-workflow.js';
+
+    async function loadVersion() {
+      const badge = document.getElementById('version-badge');
+      try {
+        const res = await fetch('/health');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const { version, buildDate } = await res.json();
+        const date = buildDate ? formatDateTime(buildDate, { time: false }) : '';
+        badge.textContent = [version ? `v${version}` : '', date].filter(Boolean).join(' · ') || 'версія невідома';
+      } catch (err) {
+        console.error('Failed to load version:', err);
+        badge.textContent = 'версія невідома';
+      }
+    }
 
     async function loadDigests() {
       try {
@@ -886,6 +901,7 @@
       },
     });
     Object.assign(window, { closeModal, saveDigest, markDigestReviewed });
+    loadVersion();
     loadDigests();
     setInterval(loadDigests, 30000);
   </script>
