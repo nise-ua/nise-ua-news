@@ -66,6 +66,12 @@ function safeUrl(value) {
   return /^https?:\/\//i.test(url) || /^\/(?!\/)/.test(url) ? escapeHtml(url) : '';
 }
 
+function showStatusStrip(state, context) {
+  return state.stage === 'progress'
+    || state.label === 'Потрібна увага'
+    || Boolean(context.imageJob || context.videoJob);
+}
+
 export function renderDigestCard(digest, context = {}) {
   const state = digestWorkflow(digest, context);
   const id = escapeHtml(digest.id);
@@ -75,14 +81,14 @@ export function renderDigestCard(digest, context = {}) {
     ? `<a class="${className}" href="${safeUrl(url)}" target="_blank" rel="noopener noreferrer">${label}</a>` : '';
   const locked = state.stage === 'progress';
   const media = [
-    ['image_url', 'обкладинку', 'cover'],
-    [digest.video_url ? 'video_url' : 'reel_url', 'відео', 'video'],
-    ['youtube_shorts_url', 'Shorts', 'shorts'],
-  ].map(([field, name, action]) => digest[field]
-    ? link(digest[field], `Переглянути ${name}`) + button(`${action}-regenerate`, `Перегенерувати ${name}`, locked)
-    : button(action, `Створити ${name}`, locked)).join('');
+    ['image_url', 'обкладинку', 'Обкладинка', 'cover'],
+    [digest.video_url ? 'video_url' : 'reel_url', 'відео', 'Відео', 'video'],
+    ['youtube_shorts_url', 'Shorts', 'Shorts', 'shorts'],
+  ].map(([field, viewName, createName, action]) => digest[field]
+    ? link(digest[field], `Відкрити ${viewName}`) + button(`${action}-regenerate`, `Оновити ${createName.toLowerCase()}`, locked)
+    : button(action, createName, locked)).join('');
   const publication = channels.filter(([field]) => digest[field]).map(([field, name]) => {
-    const label = `${name} · опубліковано`;
+    const label = name;
     let url = '';
     if (field === 'youtube_post_id') url = `https://youtube.com/shorts/${encodeURIComponent(digest[field])}`;
     if (field === 'facebook_post_id') {
@@ -92,7 +98,7 @@ export function renderDigestCard(digest, context = {}) {
     }
     if (field === 'facebook_reel_id') url = `https://www.facebook.com/reel/${encodeURIComponent(digest[field])}`;
     return link(url, label, 'channel-badge') || `<span class="channel-badge">${label}</span>`;
-  }).join('') || '<span class="channel-empty">Ще не опубліковано</span>';
+  }).join('') || '<span class="channel-empty">Не опубліковано</span>';
   const progress = [[context.imageJob, 'image'], [context.videoJob, 'video']].filter(([job]) => job).map(([job, type]) => {
     const value = Math.max(0, Math.min(100, Number(job.progress) || 0));
     return `<div class="video-status${job.status === 'failed' ? ' is-failed' : ''}" data-${type}-job="${escapeHtml(job.jobId)}" data-digest-id="${id}">
@@ -108,28 +114,32 @@ export function renderDigestCard(digest, context = {}) {
     created ? `створено ${created}` : '',
     publishedAt ? `опубліковано ${publishedAt}` : '',
   ].filter(Boolean).map(escapeHtml).join(' · ');
+  const statusStrip = showStatusStrip(state, context)
+    ? `<div class="card-status">${state.stage === 'progress' || state.label === 'Потрібна увага' ? `<p class="next-hint">${state.hint}</p>` : ''}${progress}</div>`
+    : '';
   return `<article class="digest-card" data-digest-id="${id}" aria-label="${escapeHtml(title)}">
-    <div class="card-identity">
+    <div class="card-main">
       ${safeUrl(digest.image_url) ? link(digest.image_url, `<img src="${safeUrl(digest.image_url)}" alt="Обкладинка дайджесту" loading="lazy">`, 'digest-cover-thumb') : ''}
-      <div class="card-title"><h2>${escapeHtml(title)}</h2><p class="card-meta">${meta}</p></div>
-      <span class="workflow-badge stage-${state.stage}">${state.label}</span>
-    </div>
-    <div class="card-body"><div class="card-context"><p class="next-hint">${state.hint}</p>
-      <div class="channel-results" aria-label="Результати публікацій">${publication}</div>${progress}
-      <div class="digest-stats" data-digest-stats="${id}"><span class="stat-empty">—</span></div></div>
+      <div class="card-title">
+        <div class="card-title-row"><h2>${escapeHtml(title)}</h2><span class="workflow-badge stage-${state.stage}">${state.label}</span></div>
+        <p class="card-meta">${meta}</p>
+        <div class="channel-results" aria-label="Результати публікацій">${publication}</div>
+        <div class="digest-stats" data-digest-stats="${id}"><span class="stat-empty">—</span></div>
+      </div>
       <div class="card-actions">${state.action === 'articles' ? '<a class="next-action" href="articles.html">Перейти до статей</a>' : button(state.action, state.next, locked, 'next-action')}
-        <details class="more-actions" data-id="${id}"><summary aria-label="Інші дії: ${escapeHtml(title)}">Інші дії</summary>
-          <div class="action-menu">
-            ${digest.content?.trim() ? `<span class="menu-heading">Текст і медіа</span>${button('review', 'Переглянути / редагувати текст')}${button('copy', 'Копіювати текст')}${media}
+        <details class="more-actions" data-id="${id}"><summary aria-label="Інші дії: ${escapeHtml(title)}"><span aria-hidden="true">⋯</span></summary>
+          <div class="action-menu" role="menu">
+            ${digest.content?.trim() ? `<span class="menu-heading">Текст і медіа</span>${button('review', 'Текст')}${button('copy', 'Копіювати')}${media}
               <span class="menu-heading">Публікація</span>
-              ${!digest.facebook_post_id ? button('facebook', digest.image_url ? 'Опублікувати у Facebook' : 'Опублікувати лише текст у Facebook', locked) : ''}
-              ${(digest.video_url || digest.reel_url) && !digest.facebook_reel_id ? button('reel', digest.facebook_post_id ? 'Опублікувати Reel + Story' : 'Reel: спочатку опублікуйте Facebook-пост', locked || !digest.facebook_post_id) : ''}
-              ${digest.youtube_shorts_url && !digest.youtube_post_id ? button('youtube', 'Опублікувати на YouTube', locked) : ''}` : ''}
-            ${button('facebook-url', 'Вказати Facebook URL вручну', locked)}
-            ${button('delete', 'Видалити дайджест', locked, 'danger-action')}
+              ${!digest.facebook_post_id ? button('facebook', digest.image_url ? 'Facebook' : 'Facebook (лише текст)', locked) : ''}
+              ${(digest.video_url || digest.reel_url) && !digest.facebook_reel_id ? button('reel', digest.facebook_post_id ? 'Reel + Story' : 'Reel: потрібен Facebook-пост', locked || !digest.facebook_post_id) : ''}
+              ${digest.youtube_shorts_url && !digest.youtube_post_id ? button('youtube', 'YouTube', locked) : ''}` : ''}
+            ${button('facebook-url', 'Facebook URL вручну', locked)}
+            ${button('delete', 'Видалити', locked, 'danger-action')}
           </div>
         </details>
       </div>
     </div>
+    ${statusStrip}
   </article>`;
 }
