@@ -71,6 +71,17 @@ describe('digest cards', () => {
     expect(html).toContain('<details');
     expect(html).not.toContain('<select');
     expect(html).toContain('Переглянути текст');
+    expect(html).toContain('aria-label="Інші дії:');
+    expect(html).toContain('>Текст</button>');
+    expect(html).not.toContain('class="next-hint"');
+  });
+  it('shows status hint only for progress or failed jobs', () => {
+    const progress = renderDigestCard(draft, { videoJob: { status: 'running', progress: 40, message: 'Рендер' } });
+    expect(progress).toContain('class="next-hint"');
+    expect(progress).toContain('Можна продовжити роботу з іншими дайджестами.');
+    const failed = renderDigestCard(draft, { imageJob: { status: 'failed', progress: 0, message: 'Помилка' } });
+    expect(failed).toContain('class="next-hint"');
+    expect(failed).toContain('Генерація не вдалася');
   });
   it('escapes untrusted fields and rejects unsafe media links', () => {
     const html = renderDigestCard({ ...draft, date: '<img onerror=alert(1)>', image_url: 'javascript:alert(1)' });
@@ -89,9 +100,9 @@ describe('digest cards', () => {
   });
   it('labels only recorded publications as published and names media actions explicitly', () => {
     const html = renderDigestCard({ ...draft, facebook_post_id: '123', video_url: '/reel.mp4' });
-    expect(html).toContain('Facebook · опубліковано');
-    expect(html).toContain('Переглянути відео');
+    expect(html).toContain('>Facebook</a>');
+    expect(html).toContain('Відкрити відео');
     expect(html).toContain('Опублікувати Reel');
-    expect(html).not.toContain('Reel · опубліковано');
+    expect(html).not.toContain('>Reel</a>');
   });
 });

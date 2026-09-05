@@ -61,7 +61,20 @@ export function createDashboard({ imageJobs, videoJobs, pollImage, pollVideo, lo
     }
   }
 
+  function closeMoreMenus(except = null) {
+    for (const menu of document.querySelectorAll('#tbody .more-actions[open]')) {
+      if (menu !== except) menu.open = false;
+    }
+  }
+
+  document.addEventListener('toggle', event => {
+    const details = event.target;
+    if (!(details instanceof HTMLDetailsElement) || !details.classList.contains('more-actions') || !details.open) return;
+    closeMoreMenus(details);
+  }, true);
+
   document.addEventListener('click', async event => {
+    if (!event.target.closest('.more-actions')) closeMoreMenus();
     const filter = event.target.closest('[data-filter]');
     if (filter) { selectedFilter = filter.dataset.filter; render(); return; }
     const button = event.target.closest('[data-action]');
@@ -69,6 +82,7 @@ export function createDashboard({ imageJobs, videoJobs, pollImage, pollVideo, lo
     const { id, action } = button.dataset;
     const digest = cached.find(item => item.id === id);
     if (!digest || !actions[action]) return;
+    button.closest('details.more-actions')?.removeAttribute('open');
     if (action === 'review' || action === 'copy') return actions[action](digest, button);
     if (pending.has(id)) return;
     pending.add(id);
@@ -79,8 +93,8 @@ export function createDashboard({ imageJobs, videoJobs, pollImage, pollVideo, lo
 
   document.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return;
-    const open = document.activeElement?.closest('details[open]');
-    if (open) { open.open = false; open.querySelector('summary').focus(); }
+    const open = document.activeElement?.closest('details[open]') || document.querySelector('#tbody .more-actions[open]');
+    if (open) { open.open = false; open.querySelector('summary')?.focus(); }
   });
 
   return {
