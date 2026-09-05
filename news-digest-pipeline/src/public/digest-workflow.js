@@ -37,11 +37,12 @@ export function digestWorkflow(digest, { reviewed = false, videoJob, imageJob, b
   return { stage: 'published', label: 'Опубліковано', action: 'review', next: 'Переглянути дайджест', hint: 'Результати — нижче. Додаткові формати доступні в меню.' };
 }
 
-// Accepts both SQLite "2026-04-12 23:20:03" (UTC, no zone) and ISO strings.
+// Accepts SQLite "2026-04-12 23:20:03" (UTC, no zone), ISO strings, and plain "2026-04-12" dates.
 export function formatDateTime(value, { time = true } = {}) {
   if (!value) return '';
-  const raw = String(value);
-  const date = new Date(raw.includes('T') || /[zZ]|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : `${raw.replace(' ', 'T')}Z`);
+  const raw = String(value).trim();
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? new Date(`${raw}T00:00:00`)
+    : new Date(raw.includes('T') || /[zZ]|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : `${raw.replace(' ', 'T')}Z`);
   if (Number.isNaN(date.getTime())) return '';
   const pad = n => String(n).padStart(2, '0');
   const day = `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`;

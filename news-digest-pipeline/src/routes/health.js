@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getArticleCount } from '../db/index.js';
+import { appBuildDate, appVersion } from '../version.js';
 
 const router = Router();
 
@@ -13,6 +14,8 @@ router.get('/', (req, res) => {
 
     res.json({
       status: 'ok',
+      version: appVersion,
+      buildDate: appBuildDate,
       articles: stats,
       uptime: process.uptime(),
     });

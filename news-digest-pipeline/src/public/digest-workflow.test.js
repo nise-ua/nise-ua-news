@@ -43,6 +43,7 @@ describe('card metadata helpers', () => {
     expect(fromSqlite).toMatch(/^\d{2}\.\d{2}\.2026 \d{2}:\d{2}$/);
     expect(fromSqlite).toBe(fromIso);
     expect(formatDateTime('2026-04-12T23:20:03Z', { time: false })).toMatch(/^\d{2}\.\d{2}\.2026$/);
+    expect(formatDateTime('2026-09-04', { time: false })).toBe('04.09.2026');
     expect(formatDateTime(null)).toBe('');
     expect(formatDateTime('not a date')).toBe('');
   });
@@ -60,7 +61,8 @@ describe('digest cards', () => {
   it('keeps the dashboard inline module syntactically valid', () => {
     const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
     const script = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1];
-    const withoutImport = script.replace(/^\s*import .* from .*;$/m, '');
+    const withoutImport = script.replace(/^\s*import .* from .*;$/gm, '');
+    expect(withoutImport).not.toMatch(/^\s*import /m);
     expect(() => new Function(withoutImport)).not.toThrow();
   });
   it('renders one primary action and secondary actions in a disclosure', () => {
