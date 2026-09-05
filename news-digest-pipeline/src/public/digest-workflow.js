@@ -37,6 +37,25 @@ export function digestWorkflow(digest, { reviewed = false, videoJob, imageJob, b
   return { stage: 'published', label: 'Опубліковано', action: 'review', next: 'Переглянути дайджест', hint: 'Результати — нижче. Додаткові формати доступні в меню.' };
 }
 
+// Accepts both SQLite "2026-04-12 23:20:03" (UTC, no zone) and ISO strings.
+export function formatDateTime(value, { time = true } = {}) {
+  if (!value) return '';
+  const raw = String(value);
+  const date = new Date(raw.includes('T') || /[zZ]|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : `${raw.replace(' ', 'T')}Z`);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  const day = `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`;
+  return time ? `${day} ${pad(date.getHours())}:${pad(date.getMinutes())}` : day;
+}
+
+export function pluralizeArticles(count) {
+  const n = Math.abs(Number(count) || 0);
+  const mod10 = n % 10, mod100 = n % 100;
+  const word = mod10 === 1 && mod100 !== 11 ? 'стаття'
+    : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'статті' : 'статей';
+  return `${n} ${word}`;
+}
+
 export function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
@@ -80,11 +99,18 @@ export function renderDigestCard(digest, context = {}) {
       <span class="video-progress-track"><span class="video-progress-bar" style="width:${value}%"></span></span></div>`;
   }).join('');
   const title = `Дайджест ${digest.date || `#${digest.seq_number || digest.id}`}${digest.part > 1 ? ` · ч.${digest.part}` : ''}`;
-  const cost = digest.cost_usd == null ? '' : ` · $${Number(digest.cost_usd).toFixed(4)}`;
+  const created = formatDateTime(digest.created_at);
+  const publishedAt = formatDateTime(digest.published_at, { time: false });
+  const meta = [
+    pluralizeArticles(digest.articles_count),
+    digest.cost_usd == null ? '' : `$${Number(digest.cost_usd).toFixed(4)}`,
+    created ? `створено ${created}` : '',
+    publishedAt ? `опубліковано ${publishedAt}` : '',
+  ].filter(Boolean).map(escapeHtml).join(' · ');
   return `<article class="digest-card" data-digest-id="${id}" aria-label="${escapeHtml(title)}">
     <div class="card-identity">
       ${safeUrl(digest.image_url) ? link(digest.image_url, `<img src="${safeUrl(digest.image_url)}" alt="Обкладинка дайджесту" loading="lazy">`, 'digest-cover-thumb') : ''}
-      <div class="card-title"><h2>${escapeHtml(title)}</h2><p class="card-meta">${Number(digest.articles_count) || 0} статей${cost}</p></div>
+      <div class="card-title"><h2>${escapeHtml(title)}</h2><p class="card-meta">${meta}</p></div>
       <span class="workflow-badge stage-${state.stage}">${state.label}</span>
     </div>
     <div class="card-body"><div class="card-context"><p class="next-hint">${state.hint}</p>

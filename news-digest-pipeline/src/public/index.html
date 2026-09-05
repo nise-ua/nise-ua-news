@@ -94,83 +94,11 @@
       margin-bottom: 20px;
     }
 
-    /* Table as card list */
-    table {
-      width: 100%;
-      max-width: 100%;
-      table-layout: fixed;
-      border-collapse: separate;
-      border-spacing: 0 6px;
-    }
-    col.col-num { width: 40px; }
-    col.col-digest { width: 28%; }
-    col.col-pub { width: 110px; }
-    col.col-articles { width: 64px; }
-    col.col-cost { width: 88px; }
-    col.col-status { width: 132px; }
-    col.col-actions { width: auto; }
-    thead th {
-      text-align: left;
-      padding: 8px 16px;
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      color: #8a8580;
-      letter-spacing: 0.8px;
-      border: none;
-      background: transparent;
-    }
-    tbody tr {
-      background: #ffffff;
-      transition: all 0.2s ease;
-      border-radius: 10px;
-    }
-    tbody tr:hover {
-      background: #faf9f7;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    }
-    th, td { overflow: hidden; }
-    td {
-      padding: 12px 16px;
-      border: none;
-      font-size: 15px;
-      border-top: 1px solid #e8e4df;
-      border-bottom: 1px solid #e8e4df;
-      vertical-align: middle;
-      min-width: 0;
-    }
-    td.digest-cell { overflow: hidden; }
-    td.actions-cell { width: 34%; }
-    td:first-child {
-      border-left: 1px solid #e8e4df;
-      border-radius: 10px 0 0 10px;
-    }
-    td:last-child {
-      border-right: 1px solid #e8e4df;
-      border-radius: 0 10px 10px 0;
-    }
-
-    .date-main { font-weight: 500; color: #2d2a26; }
-    .date-sub { color: #b0aaa4; font-size: 13px; }
-    .digest-identity {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 2px;
-      min-width: 0;
-    }
-    .digest-identity-row {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      min-width: 0;
-      max-width: 100%;
-    }
     .digest-cover-thumb {
-      flex: 0 0 36px;
-      width: 36px;
-      height: 45px;
-      border-radius: 6px;
+      flex: 0 0 48px;
+      width: 48px;
+      height: 60px;
+      border-radius: 8px;
       overflow: hidden;
       background: #f0ede8;
       border: 1px solid #e8e4df;
@@ -181,20 +109,6 @@
       height: 100%;
       object-fit: cover;
       display: block;
-    }
-    .digest-name {
-      font-weight: 600;
-      color: #2d2a26;
-      font-size: 14px;
-      letter-spacing: -0.2px;
-      line-height: 1.3;
-      overflow-wrap: anywhere;
-      word-break: break-word;
-    }
-    .digest-meta {
-      color: #b0aaa4;
-      font-size: 12px;
-      line-height: 1.3;
     }
     .digest-stats {
       display: flex;
@@ -239,46 +153,6 @@
       max-width: 72px;
     }
     .stat-empty { color: #ccc; font-size: 13px; }
-    .pub-date { color: #22c55e; font-size: 14px; font-weight: 500; }
-    .no-pub { color: #ccc; font-size: 13px; }
-
-    /* Status select */
-    .status-select {
-      padding: 5px 10px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 500;
-      border: 1px solid #ddd8d0;
-      cursor: pointer;
-      outline: none;
-      background: #ffffff;
-      color: #2d2a26;
-      font-family: 'Inter', sans-serif;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      -webkit-appearance: none;
-      appearance: none;
-      padding-right: 24px;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238a8580' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 8px center;
-    }
-    .status-select:hover { border-color: #b0aaa4; }
-    .status-select:focus { border-color: #7c3aed; box-shadow: 0 0 0 2px rgba(124,58,237,0.15); }
-    .status-select option { background: #ffffff; color: #2d2a26; }
-
-    .status-select.is-draft {
-      background-color: rgba(245,158,11,0.08);
-      color: #d97706;
-      border-color: rgba(245,158,11,0.25);
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23f59e0b' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
-    }
-    .status-select.is-published {
-      background-color: rgba(34,197,94,0.08);
-      color: #16a34a;
-      border-color: rgba(34,197,94,0.25);
-      box-shadow: 0 0 8px rgba(34,197,94,0.06);
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2322c55e' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
-    }
 
     /* Buttons base (modal / shared) */
     .btn {
@@ -312,124 +186,6 @@
       box-shadow: 0 0 16px rgba(124,58,237,0.3);
       transform: translateY(-1px);
     }
-    .btn-published {
-      background: rgba(34,197,94,0.1);
-      color: #16a34a;
-      font-size: 13px;
-      padding: 6px 12px;
-      border: 1px solid rgba(34,197,94,0.2);
-    }
-
-    /* Action toolbar — one consistent button row */
-    .platform-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: stretch;
-      gap: 0;
-      width: 100%;
-      max-width: 100%;
-      min-width: 0;
-      overflow: hidden;
-      padding: 0;
-      border: 1px solid #ddd8d0;
-      border-radius: 8px;
-      background: #ffffff;
-    }
-    .platform-row::-webkit-scrollbar { height: 4px; }
-    .platform-row::-webkit-scrollbar-thumb { background: #ddd8d0; border-radius: 4px; }
-
-    .plat-btn,
-    .btn-preview,
-    .btn-copy,
-    .btn-delete {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      height: 32px;
-      min-height: 32px;
-      padding: 0 10px;
-      border-radius: 0;
-      border: none;
-      border-right: 1px solid #e8e4df;
-      background: transparent;
-      color: #5c574f;
-      cursor: pointer;
-      font-family: 'Inter', sans-serif;
-      font-size: 13px;
-      font-weight: 500;
-      line-height: 1;
-      white-space: nowrap;
-      text-decoration: none;
-      box-sizing: border-box;
-      transition: color 0.15s ease, background 0.15s ease;
-      flex: 0 0 auto;
-      margin: 0;
-      box-shadow: none;
-    }
-    .platform-row > :last-child {
-      border-right: none;
-    }
-    .plat-btn:hover,
-    .btn-preview:hover,
-    .btn-copy:hover {
-      border-color: transparent;
-      color: #2d2a26;
-      background: #f5f3ef;
-    }
-    .btn-preview:hover {
-      color: #7c3aed;
-      background: rgba(124,58,237,0.06);
-      box-shadow: none;
-    }
-    .btn-copied {
-      background: rgba(34,197,94,0.12);
-      color: #16a34a;
-      border-color: transparent;
-    }
-    .btn-delete {
-      color: #8a8580;
-      min-width: 32px;
-      padding: 0 8px;
-    }
-    .btn-delete:hover {
-      color: #ef4444;
-      border-color: transparent;
-      background: rgba(239,68,68,0.08);
-    }
-    .plat-btn[onclick*="telegram"] {
-      color: #0088cc;
-    }
-    .plat-btn[onclick*="telegram"]:hover {
-      background: rgba(0,136,204,0.08);
-      box-shadow: none;
-    }
-    .plat-btn[onclick*="facebook"],
-    .plat-btn[onclick*="Facebook"] {
-      color: #1877f2;
-    }
-    .plat-btn[onclick*="facebook"]:hover,
-    .plat-btn[onclick*="Facebook"]:hover {
-      background: rgba(24,119,242,0.08);
-      box-shadow: none;
-    }
-    .plat-btn.sent {
-      background: rgba(34,197,94,0.08);
-      color: #16a34a;
-      cursor: default;
-      box-shadow: none;
-    }
-    .plat-btn.busy {
-      color: #7c3aed;
-      background: rgba(124,58,237,0.06);
-      cursor: wait;
-    }
-    .plat-btn:disabled:not(.sent) {
-      opacity: 0.7;
-      cursor: not-allowed;
-    }
-
-    .empty { text-align: center; padding: 48px; color: #b0aaa4; font-size: 14px; }
     .refresh-note {
       text-align: right;
       font-size: 12px;
@@ -476,27 +232,6 @@
       background: linear-gradient(90deg, #7c3aed, #3b82f6);
       transition: width .3s ease;
       border-radius: 999px;
-    }
-
-    /* Row number */
-    .row-num {
-      color: #b0aaa4;
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-    }
-
-    /* Articles count */
-    .articles-count {
-      color: #8a8580;
-      font-variant-numeric: tabular-nums;
-    }
-
-    /* Cost */
-    .cost-val {
-      color: #2d2a26;
-      font-variant-numeric: tabular-nums;
-      font-weight: 500;
-      cursor: help;
     }
 
     /* Modal */
@@ -575,54 +310,12 @@
       body { padding: 14px; }
       h1 { font-size: 22px; }
       .container { max-width: 100%; }
-      table { border-spacing: 0 4px; }
-      td { padding: 10px 10px; font-size: 12px; }
-      thead th { padding: 6px 10px; font-size: 9px; }
-      .platform-row { gap: 0; width: 100%; max-width: 100%; }
-      .plat-btn,
-      .btn-preview,
-      .btn-copy,
-      .btn-delete {
-        height: 30px;
-        min-height: 30px;
-        padding: 0 8px;
-        font-size: 12px;
-      }
-      .btn-delete { min-width: 30px; padding: 0 6px; }
       .video-status { max-width: 100%; }
       .modal { width: 96%; max-height: 80vh; border-radius: 12px; }
     }
 
     @media (max-width: 480px) {
       .header { flex-direction: column; gap: 6px; }
-      thead { display: none; }
-      tbody tr { display: block; margin-bottom: 8px; border-radius: 10px; }
-      td { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; }
-      td:first-child { border-radius: 10px 10px 0 0; }
-      td:last-child { border-radius: 0 0 10px 10px; }
-      td.digest-cell {
-        display: block;
-        align-items: stretch;
-      }
-      td.digest-cell .digest-identity { width: 100%; }
-      td.digest-cell .digest-identity-row { width: 100%; }
-      td.actions-cell {
-        display: block;
-      }
-      td.actions-cell .platform-row {
-        display: flex;
-        width: 100%;
-        max-width: 100%;
-        flex-wrap: wrap;
-        overflow: hidden;
-      }
-      td::before {
-        font-size: 10px;
-        font-weight: 600;
-        text-transform: uppercase;
-        color: #8a8580;
-        letter-spacing: 0.5px;
-      }
     }
 
     /* Scrollbar for body */
@@ -674,17 +367,6 @@
 
   <script type="module">
     import { createDashboard } from './dashboard-controller.js';
-    function fmtDatetime(isoStr) {
-      if (!isoStr) return null;
-      // Handle both SQLite format "2026-04-12 23:20:03" and ISO "2026-04-12T23:20:03.649Z"
-      const normalized = isoStr.includes('T') ? isoStr : isoStr + 'Z';
-      const d = new Date(normalized);
-      const dd = String(d.getDate()).padStart(2, '0');
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const hh = String(d.getHours()).padStart(2, '0');
-      const mi = String(d.getMinutes()).padStart(2, '0');
-      return { date: `${dd}.${mm}.${d.getFullYear()}`, time: `${hh}:${mi}` };
-    }
 
     async function loadDigests() {
       try {
@@ -800,7 +482,7 @@
         : 'Опублікувати текст у Facebook? Обкладинки ще немає — пост буде без фото.';
       if (!confirm(confirmMsg)) return;
       btn.disabled = true;
-      btn.textContent = '⏳ Postiz...';
+      btn.textContent = 'Публікація…';
       try {
         const res = await fetch(`/api/postiz/digests/${id}/publish`, {
           method: 'POST',
@@ -811,22 +493,12 @@
         if (!res.ok) throw new Error(data.error || 'Server error');
 
         const result = data.published?.find((post) => post.postId || post.releaseURL);
-        if (result?.postId || result?.releaseURL) {
-          btn.className = 'plat-btn sent';
-          btn.textContent = '✓ FB';
-          btn.onclick = null;
-        } else {
-          const errorMsg = result?.error || 'Невідома помилка';
-          alert('Facebook: публікація не вдалася. ' + errorMsg);
-          btn.disabled = false;
-          btn.textContent = '📘 FB';
+        if (!(result?.postId || result?.releaseURL)) {
+          alert('Facebook: публікація не вдалася. ' + (result?.error || 'Невідома помилка'));
         }
-        setTimeout(loadDigests, 500);
       } catch (err) {
         console.error('Publish failed:', err);
         alert('Помилка публікації: ' + err.message);
-        btn.disabled = false;
-        btn.textContent = '📘 FB';
       }
     }
 
@@ -856,7 +528,7 @@
       }
       if (!confirm('Опублікувати Reel у Facebook і додати його в Stories?')) return;
       btn.disabled = true;
-      btn.textContent = '⏳...';
+      btn.textContent = 'Публікація…';
       try {
         const res = await fetch(`/api/digests/${id}/publish`, {
           method: 'POST',
@@ -869,24 +541,15 @@
         const result = data.published?.facebookReel;
         const story = data.published?.facebookStory;
         if (result?.reelId) {
-          btn.className = 'plat-btn sent';
-          btn.textContent = '✓ Reel';
-          btn.onclick = null;
           if (story?.error) {
             alert('Reel опубліковано, але Stories не вдалося: ' + story.error);
           }
         } else {
-          const errorMsg = result?.error || 'Невідома помилка';
-          alert('Facebook Reel: публікація не вдалася. ' + errorMsg);
-          btn.disabled = false;
-          btn.textContent = '📽️ Reel';
+          alert('Facebook Reel: публікація не вдалася. ' + (result?.error || 'Невідома помилка'));
         }
-        setTimeout(loadDigests, 500);
       } catch (err) {
         console.error('Publish Reel failed:', err);
         alert('Помилка публікації Reel: ' + err.message);
-        btn.disabled = false;
-        btn.textContent = '📽️ Reel';
       }
     }
 
@@ -907,7 +570,7 @@
         : 'Створити обкладинку без тексту з головної новини дайджесту?';
       if (!confirm(prompt)) return;
       btn.disabled = true;
-      btn.textContent = '⏳ Запуск…';
+      btn.textContent = 'Запуск…';
       try {
         const res = await fetch(`/api/digests/${id}/generate-image`, {
           method: 'POST',
@@ -929,18 +592,15 @@
           digestId: id,
         });
         await loadDigests();
-        const progress = document.querySelector(`[data-image-job="${job.id}"]`);
-        if (progress) await pollImageJob(job.id, progress);
+        await pollImageJob(job.id);
       } catch (err) {
         console.error('Cover generation failed:', err);
         activeImageJobs.delete(id);
         alert('Не вдалося створити обкладинку: ' + err.message);
-        btn.disabled = false;
-        btn.textContent = regenerate ? '🔄' : '🖼 Фото';
       }
     }
 
-    async function pollImageJob(jobId, progress) {
+    async function pollImageJob(jobId) {
       const active = [...activeImageJobs.values()].find(job => job.jobId === jobId);
       if (active?.polling) return;
       if (active) active.polling = true;
@@ -991,8 +651,7 @@
         : `Створити ${label} для цього дайджеста?`;
       if (!confirm(prompt)) return;
       btn.disabled = true;
-      btn.textContent = '⏳ Запуск…';
-      const original = btn.outerHTML;
+      btn.textContent = 'Запуск…';
       try {
         const res = await fetch(`/api/digests/${id}/generate-video`, {
           method: 'POST',
@@ -1006,23 +665,20 @@
           throw new Error((data.error || 'Помилка сервера') + suffix);
         }
         const job = data.job;
-        activeVideoJobs.set(id, { jobId: job.id, progress: job.progress, message: job.message, status: job.status || 'running', polling: false, original, digestId: id, format });
+        activeVideoJobs.set(id, { jobId: job.id, progress: job.progress, message: job.message, status: job.status || 'running', polling: false, digestId: id, format });
         await loadDigests();
-        const progress = document.querySelector(`[data-video-job="${job.id}"]`);
-        if (progress) await pollVideoJob(job.id, progress, original);
+        await pollVideoJob(job.id);
       } catch (err) {
         console.error('Video generation failed:', err);
         activeVideoJobs.delete(id);
         alert('Не вдалося створити відео: ' + err.message);
-        btn.disabled = false;
-        btn.textContent = regenerate ? '🔄' : `▶️ ${format === 'shorts' ? 'Shorts' : 'Video'}`;
       }
     }
 
     async function publishYouTube(id, btn) {
       if (!confirm('Опублікувати Shorts у YouTube?')) return;
       btn.disabled = true;
-      btn.textContent = '⏳...';
+      btn.textContent = 'Публікація…';
       try {
         const res = await fetch(`/api/digests/${id}/publish`, {
           method: 'POST',
@@ -1033,29 +689,20 @@
         if (!res.ok) throw new Error(data.error || 'Server error');
 
         const result = data.published?.youtube;
-        if (result?.videoId) {
-          btn.className = 'plat-btn sent';
-          btn.textContent = '✓ YT';
-          btn.onclick = null;
-        } else {
+        if (!result?.videoId) {
           const errorMsg = result?.error || 'Невідома помилка';
           const oauthHint = /OAuth2|refresh token|credentials/i.test(errorMsg)
             ? ' Відкрийте Налаштування → YouTube і запустіть scripts/youtube-oauth.js.'
             : '';
           alert('YouTube: публікація не вдалася. ' + errorMsg + oauthHint);
-          btn.disabled = false;
-          btn.textContent = '▶️ YouTube';
         }
-        setTimeout(loadDigests, 500);
       } catch (err) {
         console.error('Publish failed:', err);
         alert('Помилка публікації: ' + err.message);
-        btn.disabled = false;
-        btn.textContent = '▶️ YouTube';
       }
     }
 
-    async function pollVideoJob(jobId, progress, originalButtonHtml) {
+    async function pollVideoJob(jobId) {
       const active = [...activeVideoJobs.values()].find(job => job.jobId === jobId);
       if (active?.polling) return;
       if (active) active.polling = true;
