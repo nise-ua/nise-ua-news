@@ -72,7 +72,8 @@ describe('digest cards', () => {
     expect(html).not.toContain('<select');
     expect(html).toContain('Переглянути текст');
     expect(html).toContain('aria-label="Інші дії:');
-    expect(html).toContain('>Текст</button>');
+    expect(html).toContain('<span>Текст</span>');
+    expect(html).toContain('class="menu-icon"');
     expect(html).not.toContain('class="next-hint"');
   });
   it('shows status hint only for progress or failed jobs', () => {
