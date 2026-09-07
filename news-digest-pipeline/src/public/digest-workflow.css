@@ -130,7 +130,9 @@ a.channel-badge:hover { text-decoration: underline; }
   box-shadow: 0 10px 28px rgba(45, 42, 38, 0.14), 0 0 0 1px rgba(45, 42, 38, 0.04);
 }
 .action-menu button, .action-menu a {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   min-height: 36px;
   border: 0;
@@ -147,6 +149,15 @@ a.channel-badge:hover { text-decoration: underline; }
   cursor: pointer;
   overflow-wrap: anywhere;
 }
+.menu-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  opacity: .72;
+}
+.action-menu button:hover .menu-icon,
+.action-menu a:hover .menu-icon { opacity: 1; }
+.action-menu .danger-action .menu-icon { opacity: .85; }
 .action-menu button:hover, .action-menu a:hover { background: #f5f3ef; }
 .action-menu button:disabled { color: #8a8580; cursor: not-allowed; }
 .action-menu .danger-action { color: #b42318; border-top: 1px solid #e8e4df; margin-top: 2px; }
