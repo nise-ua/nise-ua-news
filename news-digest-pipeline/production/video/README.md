@@ -122,7 +122,7 @@ output paths, see
 | `ELEVENLABS_UKRAINIAN_VOICE_ID` | Explicit Ukrainian ElevenLabs voice ID | *(none → edge-tts)* |
 | `OPENROUTER_API_KEY` | OpenRouter image generation | *(none → image generation fails fast)* |
 | `OPENROUTER_BASE_URL` | OpenRouter-compatible base URL | `https://openrouter.ai/api/v1` |
-| `IMAGE_VENDOR` | `openrouter`, `openai`/`dalle`, or `fal` | auto-detect |
+| `IMAGE_VENDOR` | `cloudflare`, `openrouter`, `openai`/`dalle`, or `fal` | Cloudflare when API token is set |
 | `DALLE_MODEL` | Image model; OpenRouter example `qwen/qwen-image-3-pro` | `dall-e-3` for OpenAI |
 | `OPENAI_API_KEY` | AI storyboard + OpenAI Images (optional) | *(none → storyboard fallback)* |
 | `FAL_KEY` | fal/flux 9:16 backgrounds (optional) | *(none → image generation fails fast)* |

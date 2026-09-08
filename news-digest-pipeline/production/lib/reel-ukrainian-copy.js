@@ -177,6 +177,13 @@ export function countWords(text) {
     .filter(Boolean).length;
 }
 
+/** Two thoughts glued with a spaced dash or a semicolon. Hyphenated words stay. */
+export function splicesTwoThoughts(text) {
+  return /\s[—–-]\s|;\s+\S/.test(String(text || ''));
+}
+
+const CLAUSE_SPLIT_RE = /\s+[—–-]\s+|:\s+|;\s+|,\s+що\s+|,\s+щоб\s+/iu;
+
 function completeSentencesFrom(text) {
   const preserved = String(text || '').trim();
   const parts = preserved.split(/(?<=[.!?])\s+/).map((p) => p.trim()).filter(Boolean);
@@ -184,9 +191,12 @@ function completeSentencesFrom(text) {
   for (const part of parts) {
     if (!hasCyrillic(part)) continue;
     const finished = ensureTerminalPunctuation(part.replace(/[,:;—–-]+$/, ''));
-    if (finished && !looksUnfinishedSentence(finished) && !looksNonUkrainian(finished)) {
-      sentences.push(finished);
+    if (!finished || looksUnfinishedSentence(finished) || looksNonUkrainian(finished)) continue;
+    if (splicesTwoThoughts(finished)) {
+      sentences.push(...standaloneClausesFrom(finished));
+      continue;
     }
+    sentences.push(finished);
   }
   return sentences;
 }
@@ -204,6 +214,7 @@ function pickSentence(candidates, { min, max, exclude = [], hardMax } = {}) {
   const seen = new Set();
   for (const candidate of candidates) {
     if (!candidate || skip.has(candidate) || seen.has(candidate)) continue;
+    if (splicesTwoThoughts(candidate)) continue;
     seen.add(candidate);
     unique.push(candidate);
   }
@@ -238,9 +249,9 @@ function standaloneClausesFrom(sentence) {
   const body = String(sentence || '').replace(/[.!?…]+$/u, '').trim();
   if (!body) return [];
   return body
-    .split(/\s+[—–]\s+|:\s+|;\s+|,\s+що\s+|,\s+щоб\s+/iu)
+    .split(CLAUSE_SPLIT_RE)
     .map((chunk) => asFinishedUkrainianSentence(chunk))
-    .filter(Boolean);
+    .filter((chunk) => chunk && !splicesTwoThoughts(chunk));
 }
 
 function extractedDetailCandidatesFrom(...texts) {
@@ -275,7 +286,13 @@ function firstCompleteUkrainianSentence(text) {
 function finishOrReplace(text, spokenText, { allowEmpty = false } = {}) {
   const source = String(text || '').trim();
   const finished = source ? ensureTerminalPunctuation(source.replace(/[,:;—–-]+$/, '')) : '';
-  if (finished && !looksUnfinishedSentence(finished) && !looksNonUkrainian(finished)) {
+  if (finished && splicesTwoThoughts(finished)) {
+    const clause = standaloneClausesFrom(finished)[0];
+    if (clause && !looksUnfinishedSentence(clause) && !looksNonUkrainian(clause)) {
+      return clause;
+    }
+  }
+  if (finished && !looksUnfinishedSentence(finished) && !looksNonUkrainian(finished) && !splicesTwoThoughts(finished)) {
     return finished;
   }
   const fromSpoken = firstCompleteUkrainianSentence(spokenText);
@@ -322,13 +339,18 @@ export function ensureUkrainianOnScreenCopy(shot = {}) {
     hardMax: DETAIL_HARD_MAX,
     exclude: [headline],
   };
-  const detailText = pickSentence(
-    [...completeSentencesFrom(detailIn), ...completeSentencesFrom(spokenText)],
-    detailOptions,
-  ) || pickSentence(
-    extractedDetailCandidatesFrom(detailIn, spokenText),
-    detailOptions,
-  );
+  const detailSentenceCount = String(detailIn || '').trim().split(/(?<=[.!?])\s+/).filter(Boolean).length;
+  const preferSpokenDetail = splicesTwoThoughts(detailIn) || detailSentenceCount > 1;
+  let detailText = preferSpokenDetail
+    ? pickSentence(completeSentencesFrom(spokenText), detailOptions)
+    : '';
+  if (!detailText) {
+    const detailPool = preferSpokenDetail
+      ? [...completeSentencesFrom(spokenText), ...completeSentencesFrom(detailIn)]
+      : [...completeSentencesFrom(detailIn), ...completeSentencesFrom(spokenText)];
+    detailText = pickSentence(detailPool, detailOptions)
+      || pickSentence(extractedDetailCandidatesFrom(detailIn, spokenText), detailOptions);
+  }
 
   return {
     ...shot,
