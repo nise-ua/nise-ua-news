@@ -1,0 +1,10 @@
+{
+  "name": "News Digest Pipeline",
+  "install": "cd news-digest-pipeline && npm install && { [ -f .env ] || cp .env.example .env; }",
+  "terminals": [
+    {
+      "name": "server",
+      "command": "cd news-digest-pipeline && npm start"
+    }
+  ]
+}
