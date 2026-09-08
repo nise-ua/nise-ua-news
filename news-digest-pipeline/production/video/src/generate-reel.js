@@ -7,7 +7,7 @@
  * 1. Digest -> Storyboard (Anthropic/OpenAI when keys available; otherwise
  *    digest items parsed directly into shots with headline === spokenText).
  * 2. Generate a complete set of text-free 9:16 AI Background Images per shot
- *    (OpenRouter/OpenAI/fal). If any image is missing, stop before TTS/video
+ *    (Cloudflare / OpenRouter / OpenAI / fal). If any image is missing, stop before TTS/video
  *    generation; never reuse an older digest or create synthetic placeholders.
  * 3. Generate NATURAL Ukrainian TTS per shot (edge-tts uk-UA-OstapNeural via
  *    uvx — free, neural, human-quality; ElevenLabs used automatically when
@@ -44,6 +44,7 @@ import {
   resolveImageVendor,
   safeLogUrl,
   sleep,
+  usesMeteredImageRetry,
 } from '../../lib/image-backends.js';
 import {
   EDGE_VOICE,
@@ -183,12 +184,14 @@ async function generateBackgroundImagesForShots(shots) {
     log(`  Image ${i + 1}: "${(imagePrompt || '').slice(0, 60)}..."`);
     try {
       let imageUrl;
-      if (vendor === 'openrouter') {
+      if (usesMeteredImageRetry(vendor)) {
         imageUrl = await generateImageWithRetry(
           () => generateImage(imagePrompt, {
             ...imageDeps,
-            vendor: 'openrouter',
-            model: process.env.DALLE_MODEL || 'qwen/qwen-image-3-pro',
+            vendor,
+            ...(vendor === 'openrouter'
+              ? { model: process.env.DALLE_MODEL || 'qwen/qwen-image-3-pro' }
+              : {}),
           }),
           { log, label: `Image ${i + 1}` },
         );
@@ -202,7 +205,7 @@ async function generateBackgroundImagesForShots(shots) {
       failures.push(`shot ${i + 1}: ${err.message}`);
       results.push({ ...shot, imageUrl: null });
     }
-    if (vendor === 'openrouter' && i < shots.length - 1 && requestDelayMs > 0) {
+    if (usesMeteredImageRetry(vendor) && i < shots.length - 1 && requestDelayMs > 0) {
       await sleep(requestDelayMs);
     }
   }

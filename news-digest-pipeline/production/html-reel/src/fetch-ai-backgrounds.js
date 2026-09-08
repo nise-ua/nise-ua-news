@@ -13,6 +13,7 @@ import {
   resolveImageVendor,
   safeLogUrl,
   sleep,
+  usesMeteredImageRetry,
 } from '../../lib/image-backends.js';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy-key-for-init' });
@@ -68,12 +69,14 @@ export async function generateAiBackgroundsForShots(shots, { log = () => {} } = 
     log(`  AI bg ${i + 1}: "${(imagePrompt || '').slice(0, 60)}..."`);
     try {
       let backgroundImage;
-      if (vendor === 'openrouter') {
+      if (usesMeteredImageRetry(vendor)) {
         backgroundImage = await generateImageWithRetry(
           () => generateImage(imagePrompt, {
             ...imageDeps,
-            vendor: 'openrouter',
-            model: process.env.DALLE_MODEL || 'qwen/qwen-image-3-pro',
+            vendor,
+            ...(vendor === 'openrouter'
+              ? { model: process.env.DALLE_MODEL || 'qwen/qwen-image-3-pro' }
+              : {}),
           }),
           { log, label: `AI bg ${i + 1}` },
         );
@@ -87,7 +90,7 @@ export async function generateAiBackgroundsForShots(shots, { log = () => {} } = 
       failures.push(`shot ${i + 1}: ${err.message}`);
       results.push({ ...shot, backgroundImage: null });
     }
-    if (vendor === 'openrouter' && i < shots.length - 1 && requestDelayMs > 0) {
+    if (usesMeteredImageRetry(vendor) && i < shots.length - 1 && requestDelayMs > 0) {
       await sleep(requestDelayMs);
     }
   }

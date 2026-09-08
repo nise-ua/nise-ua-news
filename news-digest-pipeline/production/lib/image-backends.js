@@ -29,8 +29,15 @@ export function imageSizeForModel(model, aspect = '4:5') {
 
 export function resolveImageVendor(env = process.env) {
   const raw = String(env.IMAGE_VENDOR || '').trim().toLowerCase();
+  if (raw === 'cf' || raw === 'workers-ai' || raw === 'workersai') return 'cloudflare';
   if (raw) return raw;
+  if (hasCloudflareImageCredentials(env)) return 'cloudflare';
   return env.OPENAI_API_KEY ? 'dalle' : 'fal';
+}
+
+export function usesMeteredImageRetry(vendor) {
+  const resolved = String(vendor || '').trim().toLowerCase();
+  return resolved === 'openrouter' || resolved === 'cloudflare' || resolved === 'firefly';
 }
 
 export function hasCloudflareImageCredentials(env = process.env) {
@@ -39,7 +46,7 @@ export function hasCloudflareImageCredentials(env = process.env) {
   return Boolean(account && token);
 }
 
-/** Cover-only vendor. Cloudflare is primary when keys exist; reels still use IMAGE_VENDOR. */
+/** Cover-only vendor. Cloudflare is primary when keys exist; explicit COVER_IMAGE_VENDOR wins. */
 export function resolveCoverImageVendor(env = process.env) {
   const raw = String(env.COVER_IMAGE_VENDOR || '').trim().toLowerCase();
   if (raw === 'adobe' || raw === 'adobe-firefly') return 'firefly';

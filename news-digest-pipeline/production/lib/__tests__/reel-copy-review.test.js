@@ -37,6 +37,16 @@ describe('findCopyIssues', () => {
   it('passes in-band finished Ukrainian copy', () => {
     expect(findCopyIssues(goodShot)).toEqual([]);
   });
+
+  it('flags an otherwise in-band sentence that splices two thoughts', () => {
+    const issues = findCopyIssues({
+      ...goodShot,
+      headline: 'OpenAI зробила стажера — модель пише код сьогодні.',
+      detailText: 'Компанія запустила агента — він сам робить робочі завдання.',
+    });
+    expect(issues).toContain('headline splices two thoughts with a dash or semicolon');
+    expect(issues).toContain('detailText splices two thoughts with a dash or semicolon');
+  });
 });
 
 describe('formatCopyReviewTable', () => {
@@ -134,6 +144,21 @@ describe('reviewReelStoryboard', () => {
     expect(repaired.prompt).toBe('keep-this-prompt');
     expect(findCopyIssues(repaired)).toEqual([]);
     expect(repaired.headline).not.toMatch(/^Класика/i);
+  });
+
+  it('repairs in-band dash-spliced headline and detail without keeping the splice', () => {
+    const repaired = repairShotCopy({
+      shot: 1,
+      prompt: 'keep-this-prompt',
+      headline: 'OpenAI зробила стажера — модель пише код сьогодні.',
+      detailText: 'Компанія запустила агента — він сам робить робочі завдання.',
+      spokenText: 'OpenAI випустила внутрішнього агента для написання робочого коду.',
+      sourceText: 'OpenAI випустила внутрішнього агента для написання коду. Агент виконує робочі завдання в чаті без нагляду сьогодні.',
+    });
+    expect(repaired.prompt).toBe('keep-this-prompt');
+    expect(findCopyIssues(repaired)).toEqual([]);
+    expect(repaired.headline).not.toMatch(/\s[—–-]\s/);
+    expect(repaired.detailText).not.toMatch(/\s[—–-]\s/);
   });
 
   it('repairs stub copy when the critic is unavailable', async () => {

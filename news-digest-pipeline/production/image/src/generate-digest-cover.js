@@ -7,7 +7,7 @@
  * 4:5 photograph, and writes it for the Facebook feed post. No overlay text.
  *
  * Image vendor: Cloudflare Workers AI is primary for Facebook covers.
- * Override with COVER_IMAGE_VENDOR; reels still use IMAGE_VENDOR.
+ * Override with COVER_IMAGE_VENDOR; reel stills use IMAGE_VENDOR (Cloudflare when keys exist).
  *
  * Usage:
  *   node production/image/src/generate-digest-cover.js latest
@@ -36,6 +36,7 @@ import {
   resolveImageVendor,
   safeLogUrl,
 } from '../../lib/image-backends.js';
+import { completeCloudflareJsonText, shouldPreferCloudflareLlm } from '../../lib/cloudflare-llm.js';
 import { log, projectRoot, scriptDir } from '../../lib/logging.js';
 
 const __dirname = scriptDir(import.meta.url);
@@ -53,6 +54,9 @@ const OUTPUT_DIR = join(__dirname, '..', 'output');
 const DB_PATH = join(ROOT, 'data', 'news-digest.db');
 
 async function completeJson(systemPrompt, userPrompt) {
+  if (shouldPreferCloudflareLlm()) {
+    return completeCloudflareJsonText(systemPrompt, userPrompt);
+  }
   const vendor = String(process.env.LLM_VENDOR || '').trim().toLowerCase();
   let text;
 

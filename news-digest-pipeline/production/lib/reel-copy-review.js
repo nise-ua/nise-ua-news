@@ -6,6 +6,7 @@
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { completeCloudflareJson, shouldPreferCloudflareLlm } from './cloudflare-llm.js';
 import {
   DETAIL_HARD_MAX,
   DETAIL_WORD_MAX,
@@ -17,6 +18,7 @@ import {
   ensureUkrainianOnScreenCopy,
   hasCyrillic,
   looksUnfinishedSentence,
+  splicesTwoThoughts,
 } from './reel-ukrainian-copy.js';
 
 export const COPY_REVIEW_MAX_ROUNDS = 3;
@@ -29,7 +31,6 @@ export class ReelCopyReviewError extends Error {
 }
 
 const STUB_HEADLINE_RE = /^(класика|історія|революція|цікаво|ага|ну що|оце так)[.!?…]*$/iu;
-const DASH_SPLICE_RE = /\s[—–]\s|;\s+\S/;
 const SARCASTIC_LEAD_IN_RE = /^(знову\s+революція|оце так історія|ну що,|ага,)/iu;
 
 const COPY_FIELDS = ['headline', 'detailText', 'spokenText'];
@@ -60,7 +61,7 @@ export function findCopyIssues(shot = {}) {
     if (STUB_HEADLINE_RE.test(headline) || words < HEADLINE_WORD_MIN) {
       issues.push('headline is a stub, not a finished news sentence');
     }
-    if (DASH_SPLICE_RE.test(headline)) {
+    if (splicesTwoThoughts(headline)) {
       issues.push('headline splices two thoughts with a dash or semicolon');
     }
     if (SARCASTIC_LEAD_IN_RE.test(headline)) {
@@ -80,7 +81,7 @@ export function findCopyIssues(shot = {}) {
     if (words > DETAIL_HARD_MAX) {
       issues.push(`detailText is too long (${words} words)`);
     }
-    if (DASH_SPLICE_RE.test(detail)) {
+    if (splicesTwoThoughts(detail)) {
       issues.push('detailText splices two thoughts with a dash or semicolon');
     }
   }
@@ -90,12 +91,6 @@ export function findCopyIssues(shot = {}) {
   }
 
   const unique = [...new Set(issues)];
-  // #region agent log
-  const hugHit = /обійма/iu.test(`${headline} ${detail} ${spoken}`);
-  if (hugHit || unique.length === 0) {
-    fetch('http://127.0.0.1:7843/ingest/54259d7e-c2c3-4155-8081-aced12f3eded',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'152c50'},body:JSON.stringify({sessionId:'152c50',runId:'pre-fix',hypothesisId:hugHit?'A':'D',location:'reel-copy-review.js:findCopyIssues',message:'copy heuristic result',data:{hugHit,issueCount:unique.length,issues:unique,headline,detail,spoken,headlineWords:countWords(headline),detailWords:countWords(detail)},timestamp:Date.now()})}).catch(()=>{});
-  }
-  // #endregion
   return unique;
 }
 
@@ -141,20 +136,23 @@ function finishLine(text) {
   return finished;
 }
 
+function explodeCopyPieces(text) {
+  return String(text || '')
+    .split(/(?<=[.!?])\s+/)
+    .flatMap((sentence) => String(sentence).split(/\s+[—–-]\s+|:\s+|;\s+|,\s+що\s+|,\s+щоб\s+/iu))
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
 function copyUnitsFrom(shot = {}) {
   const pool = [shot.sourceText, shot.coreFact, shot.headline, shot.detailText, shot.spokenText]
     .map((value) => stripSarcasticLeadIn(value))
     .filter(Boolean);
-  const raw = pool.join(' ');
-  const sentences = raw.split(/(?<=[.!?])\s+/).map((part) => part.trim()).filter(Boolean);
-  const clauses = raw.split(/\s+[—–]\s+|:\s+|;\s+|,\s+що\s+|,\s+щоб\s+/iu)
-    .map((part) => part.trim())
-    .filter(Boolean);
   const unique = [];
   const seen = new Set();
-  for (const part of [...sentences, ...clauses]) {
+  for (const part of pool.flatMap(explodeCopyPieces)) {
     const finished = finishLine(part);
-    if (!finished || seen.has(finished)) continue;
+    if (!finished || splicesTwoThoughts(finished) || seen.has(finished)) continue;
     seen.add(finished);
     unique.push(finished);
   }
@@ -162,7 +160,7 @@ function copyUnitsFrom(shot = {}) {
 }
 
 function pickBand(units, min, max, exclude = new Set()) {
-  const scored = units.filter((unit) => !exclude.has(unit));
+  const scored = units.filter((unit) => !exclude.has(unit) && !splicesTwoThoughts(unit));
   const inBand = scored.filter((unit) => {
     const words = countWords(unit);
     return words >= min && words <= max;
@@ -182,6 +180,7 @@ function pickBand(units, min, max, exclude = new Set()) {
     }
     if (parts.length < min || parts.length > max) continue;
     const candidate = finishLine(parts.join(' '));
+    if (!candidate || splicesTwoThoughts(candidate)) continue;
     const words = countWords(candidate);
     if (candidate && words >= min && words <= max) return candidate;
   }
@@ -308,6 +307,9 @@ function localizeShot(shot) {
 }
 
 async function defaultCompleteJson(systemPrompt, userPrompt) {
+  if (shouldPreferCloudflareLlm()) {
+    return completeCloudflareJson(systemPrompt, userPrompt, { maxTokens: 2800 });
+  }
   const llmVendor = String(process.env.LLM_VENDOR || '').trim().toLowerCase();
   let text;
   if (llmVendor === 'openrouter' || process.env.OPENROUTER_API_KEY) {
@@ -402,9 +404,6 @@ export async function reviewReelStoryboard(storyboard = {}, options = {}) {
   for (let round = 0; round < maxRounds; round += 1) {
     const heuristicFails = shots.filter((shot) => findCopyIssues(shot).length > 0);
     const shouldCallLlm = round === 0 || heuristicFails.length > 0;
-    // #region agent log
-    fetch('http://127.0.0.1:7843/ingest/54259d7e-c2c3-4155-8081-aced12f3eded',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'152c50'},body:JSON.stringify({sessionId:'152c50',runId:'pre-fix',hypothesisId:'B',location:'reel-copy-review.js:reviewReelStoryboard',message:'review round gate',data:{round,shouldCallLlm,heuristicFailCount:heuristicFails.length,hugShots:shots.filter((s)=>/обійма/iu.test(`${s.headline} ${s.detailText} ${s.spokenText}`)).map((s)=>({shot:s.shot,headline:s.headline,detailText:s.detailText}))},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     if (!shouldCallLlm && !shotsNeedLlm(shots)) break;
 
     let llmPayload = null;
@@ -427,9 +426,6 @@ export async function reviewReelStoryboard(storyboard = {}, options = {}) {
         || {};
       const llmFailed = patch.pass === false || (Array.isArray(patch.issues) && patch.issues.length > 0);
       const heuristicFailed = findCopyIssues(shot).length > 0;
-      // #region agent log
-      fetch('http://127.0.0.1:7843/ingest/54259d7e-c2c3-4155-8081-aced12f3eded',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'152c50'},body:JSON.stringify({sessionId:'152c50',runId:'pre-fix',hypothesisId:'C',location:'reel-copy-review.js:applyPatch',message:'critic vs heuristic keep/rewrite',data:{shot:shot.shot||i+1,llmFailed,heuristicFailed,pass:patch.pass,patchIssues:patch.issues||[],keptHug:/обійма/iu.test(`${shot.headline} ${shot.detailText}`),willKeep:!llmFailed&&!heuristicFailed,detail:shot.detailText},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       if (!llmFailed && !heuristicFailed) return localizeShot(shot);
       return localizeShot(applyCopyFields(shot, patch));
     });

@@ -171,12 +171,14 @@ production/image/output/instagram_<timestamp>_NN.png
 
 The current working local configuration uses:
 
-- `LLM_VENDOR=openrouter` for storyboard/headline JSON generation.
-- `IMAGE_VENDOR=google` with `GOOGLE_MODEL=gemini-2.5-flash-image` for images.
+- Cloudflare Workers AI for storyboard JSON, overlay critic, and cover pick
+  when `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` are set
+  (`CLOUDFLARE_LLM=0` restores OpenRouter/OpenAI).
+- `IMAGE_VENDOR=cloudflare` (Flux Schnell) for covers and reel stills.
 
-OpenAI and OpenRouter image generation may fail when their account has no
-credits. Do not silently substitute old images or synthetic placeholders.
-The pipeline must fail before TTS if it cannot produce a complete fresh set.
+OpenAI and OpenRouter may fail when their account has no credits. Do not
+silently substitute old images or synthetic placeholders. The pipeline must
+fail before TTS if it cannot produce a complete fresh set.
 
 ## Dynamic shot count and language
 

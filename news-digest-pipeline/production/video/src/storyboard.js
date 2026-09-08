@@ -15,6 +15,7 @@ import { parseDigestItems } from '../../lib/digest.js';
 import { log, projectRoot } from '../../lib/logging.js';
 import { ensureUkrainianOnScreenCopy } from '../../lib/reel-ukrainian-copy.js';
 import { reviewReelStoryboard } from '../../lib/reel-copy-review.js';
+import { completeCloudflareJson, shouldPreferCloudflareLlm } from '../../lib/cloudflare-llm.js';
 
 const ROOT = projectRoot(import.meta.url);
 dotenvConfig({ path: join(ROOT, '.env'), override: true });
@@ -78,7 +79,10 @@ ${VISUAL_GROUNDING_RULES}
 
   let text;
   const llmVendor = String(process.env.LLM_VENDOR || '').trim().toLowerCase();
-  if (llmVendor === 'openrouter') {
+  if (shouldPreferCloudflareLlm()) {
+    const parsed = await completeCloudflareJson(systemPrompt, userPrompt, { maxTokens: 4096 });
+    text = JSON.stringify(parsed);
+  } else if (llmVendor === 'openrouter') {
     if (!process.env.OPENROUTER_API_KEY) {
       throw new Error('OPENROUTER_API_KEY missing in .env');
     }

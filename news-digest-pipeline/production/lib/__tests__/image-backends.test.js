@@ -61,15 +61,41 @@ describe('imageSizeForModel', () => {
 
 describe('resolveImageVendor', () => {
   it('normalizes IMAGE_VENDOR and defaults by OpenAI key', () => {
-    withEnv({ IMAGE_VENDOR: '  OpenRouter  ', OPENAI_API_KEY: undefined }, () => {
+    withEnv({
+      IMAGE_VENDOR: '  OpenRouter  ',
+      OPENAI_API_KEY: undefined,
+      CLOUDFLARE_ACCOUNT_ID: undefined,
+      CLOUDFLARE_API_TOKEN: undefined,
+    }, () => {
       expect(resolveImageVendor()).toBe('openrouter');
     });
-    withEnv({ IMAGE_VENDOR: undefined, OPENAI_API_KEY: 'sk-test' }, () => {
+    withEnv({
+      IMAGE_VENDOR: undefined,
+      OPENAI_API_KEY: 'sk-test',
+      CLOUDFLARE_ACCOUNT_ID: undefined,
+      CLOUDFLARE_API_TOKEN: undefined,
+    }, () => {
       expect(resolveImageVendor()).toBe('dalle');
     });
-    withEnv({ IMAGE_VENDOR: '', OPENAI_API_KEY: undefined }, () => {
+    withEnv({
+      IMAGE_VENDOR: '',
+      OPENAI_API_KEY: undefined,
+      CLOUDFLARE_ACCOUNT_ID: undefined,
+      CLOUDFLARE_API_TOKEN: undefined,
+    }, () => {
       expect(resolveImageVendor()).toBe('fal');
     });
+  });
+
+  it('defaults to cloudflare when keys exist and IMAGE_VENDOR is unset', () => {
+    expect(resolveImageVendor({
+      CLOUDFLARE_ACCOUNT_ID: 'acct',
+      CLOUDFLARE_API_TOKEN: 'token',
+    })).toBe('cloudflare');
+  });
+
+  it('maps cf aliases to cloudflare', () => {
+    expect(resolveImageVendor({ IMAGE_VENDOR: 'cf' })).toBe('cloudflare');
   });
 
   it('reads from an injected env object', () => {
