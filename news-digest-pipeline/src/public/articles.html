@@ -302,7 +302,8 @@
         const res = await fetch('/api/digests/generate', { method: 'POST' });
         const data = await res.json();
         if (res.ok) {
-          alert('Дайджест створюється! ID: ' + data.digestId);
+          alert('Дайджест створено! ID: ' + data.digestId
+            + (data.imageJob ? '\nОбкладинка генерується автоматично.' : ''));
           window.location.href = 'index.html';
         } else {
           alert('Помилка: ' + data.error);

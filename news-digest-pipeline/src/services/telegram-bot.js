@@ -91,7 +91,7 @@ async function handleGenerate(botToken, chatId, config) {
     const db = getDb();
 
     const digestId = await generateDigest(db, articles, config);
-    await sendMessage(botToken, chatId, `✅ Дайджест згенеровано (${articles.length} статей). ID: ${digestId}`);
+    await sendMessage(botToken, chatId, `✅ Дайджест згенеровано (${articles.length} статей). Обкладинка запускається автоматично. ID: ${digestId}`);
   } catch (err) {
     console.error('[telegram-bot] Generate error:', err);
     await sendMessage(botToken, chatId, `❌ Помилка генерації: ${err.message}`);

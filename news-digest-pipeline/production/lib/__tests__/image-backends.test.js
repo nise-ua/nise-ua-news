@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   falImageSize,
+  fireflyImageSize,
+  generateCloudflareImage,
+  generateFireflyImage,
   generateGoogleImage,
   generateImage,
   generateOpenRouterImage,
@@ -8,6 +11,7 @@ import {
   isHardImageQuotaError,
   isRetryableImageError,
   openRouterImageRequestBody,
+  resolveCoverImageVendor,
   resolveImageModel,
   resolveImageVendor,
   safeLogUrl,
@@ -70,6 +74,48 @@ describe('resolveImageVendor', () => {
 
   it('reads from an injected env object', () => {
     expect(resolveImageVendor({ IMAGE_VENDOR: 'Google', OPENAI_API_KEY: 'x' })).toBe('google');
+  });
+});
+
+describe('resolveCoverImageVendor', () => {
+  it('uses COVER_IMAGE_VENDOR without changing IMAGE_VENDOR', () => {
+    expect(resolveCoverImageVendor({
+      COVER_IMAGE_VENDOR: ' Firefly ',
+      IMAGE_VENDOR: 'openrouter',
+    })).toBe('firefly');
+  });
+
+  it('defaults to cloudflare when cover vendor is unset and CF keys exist', () => {
+    expect(resolveCoverImageVendor({
+      IMAGE_VENDOR: 'google',
+      CLOUDFLARE_ACCOUNT_ID: 'acct',
+      CLOUDFLARE_API_TOKEN: 'token',
+    })).toBe('cloudflare');
+  });
+
+  it('falls back to IMAGE_VENDOR when Cloudflare keys are missing', () => {
+    expect(resolveCoverImageVendor({
+      IMAGE_VENDOR: 'google',
+      CLOUDFLARE_ACCOUNT_ID: '',
+      CLOUDFLARE_API_TOKEN: '',
+    })).toBe('google');
+  });
+
+  it('maps adobe aliases to firefly', () => {
+    expect(resolveCoverImageVendor({ COVER_IMAGE_VENDOR: 'adobe-firefly' })).toBe('firefly');
+  });
+
+  it('maps cf aliases to cloudflare', () => {
+    expect(resolveCoverImageVendor({ COVER_IMAGE_VENDOR: 'cf' })).toBe('cloudflare');
+    expect(resolveCoverImageVendor({ COVER_IMAGE_VENDOR: 'workers-ai' })).toBe('cloudflare');
+  });
+});
+
+describe('fireflyImageSize', () => {
+  it('returns Firefly portrait sizes for cover and reel aspects', () => {
+    expect(fireflyImageSize('4:5')).toEqual({ width: 1792, height: 2304 });
+    expect(fireflyImageSize('9:16')).toEqual({ width: 1152, height: 2048 });
+    expect(fireflyImageSize()).toEqual({ width: 1792, height: 2304 });
   });
 });
 
@@ -221,6 +267,115 @@ describe('generateImage', () => {
     const body = JSON.parse(fetchFn.mock.calls[0][1].body);
     expect(body.aspect_ratio).toBe('9:16');
     expect(body.prompt).toMatch(/Portrait 9:16/i);
+  });
+
+  it('dispatches firefly with injected credentials', async () => {
+    const fetchFn = mockFetchResponses([
+      {
+        urlIncludes: 'ims-na1.adobelogin.com',
+        status: 200,
+        json: { access_token: 'ff-token' },
+      },
+      {
+        urlIncludes: '/v3/images/generate-async',
+        status: 200,
+        json: {
+          jobId: 'job-1',
+          statusUrl: 'https://firefly-api.adobe.io/v3/status/job-1',
+        },
+      },
+      {
+        urlIncludes: '/v3/status/',
+        status: 200,
+        json: {
+          status: 'succeeded',
+          result: { outputs: [{ image: { url: 'https://cdn.adobe/cover.jpg' } }] },
+        },
+      },
+    ]);
+
+    const url = await generateImage('news cover prompt', {
+      vendor: 'firefly',
+      aspect: '4:5',
+      fetchFn,
+      clientId: 'ff-id',
+      clientSecret: 'ff-secret',
+      sleepFn: async () => {},
+      log: () => {},
+    });
+
+    expect(url).toBe('https://cdn.adobe/cover.jpg');
+    const generateCall = fetchFn.mock.calls.find(([href]) => String(href).includes('generate-async'));
+    const body = JSON.parse(generateCall[1].body);
+    expect(body.contentClass).toBe('photo');
+    expect(body.size).toEqual({ width: 1792, height: 2304 });
+    expect(body.numVariations).toBe(1);
+  });
+
+  it('dispatches cloudflare Workers AI with injected credentials', async () => {
+    const fetchFn = mockFetchResponses({
+      urlIncludes: '/ai/run/',
+      status: 200,
+      json: { success: true, result: { image: 'abc123' } },
+    });
+
+    const url = await generateImage('news cover prompt', {
+      vendor: 'cloudflare',
+      aspect: '4:5',
+      fetchFn,
+      accountId: 'cf-account',
+      apiToken: 'cf-token',
+      log: () => {},
+    });
+
+    expect(url).toBe('data:image/jpeg;base64,abc123');
+    const [href, options] = fetchFn.mock.calls[0];
+    expect(href).toContain('/accounts/cf-account/ai/run/@cf/black-forest-labs/flux-1-schnell');
+    expect(options.headers.Authorization).toBe('Bearer cf-token');
+    const body = JSON.parse(options.body);
+    expect(body.prompt).toContain('news cover prompt');
+    expect(body.prompt).toMatch(/Portrait 4:5/i);
+    expect(body.steps).toBe(4);
+    expect(body.width).toBeUndefined();
+    expect(body.height).toBeUndefined();
+  });
+});
+
+describe('generateCloudflareImage', () => {
+  it('throws when Cloudflare credentials are missing', async () => {
+    const restore = withEnv({
+      CLOUDFLARE_ACCOUNT_ID: undefined,
+      CLOUDFLARE_API_TOKEN: undefined,
+      CF_ACCOUNT_ID: undefined,
+      CF_API_TOKEN: undefined,
+    });
+    try {
+      await expect(
+        generateCloudflareImage('prompt', { fetchFn: vi.fn(), log: () => {} }),
+      ).rejects.toThrow(/CLOUDFLARE_ACCOUNT_ID/);
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe('generateFireflyImage', () => {
+  it('throws when Firefly credentials are missing', async () => {
+    const restore = withEnv({
+      FIREFLY_SERVICES_CLIENT_ID: undefined,
+      FIREFLY_SERVICES_CLIENT_SECRET: undefined,
+      FIREFLY_CLIENT_ID: undefined,
+      FIREFLY_CLIENT_SECRET: undefined,
+      FIREFLY_SERVICES_ACCESS_TOKEN: undefined,
+      FIREFLY_ACCESS_TOKEN: undefined,
+    });
+    try {
+      await expect(
+        generateFireflyImage('prompt', { fetchFn: vi.fn(), log: () => {} }),
+      ).rejects.toThrow(/FIREFLY_SERVICES_CLIENT_ID/);
+    } finally {
+      restore();
+    }
   });
 });
 

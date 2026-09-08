@@ -5,6 +5,8 @@
 
 const DEFAULT_OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 const PORTRAIT_NOTE = 'Portrait 9:16 composition, native vertical image.';
+const COVER_NOTE = 'Portrait 4:5 composition, native portrait image.';
+const DEFAULT_CLOUDFLARE_IMAGE_MODEL = '@cf/black-forest-labs/flux-1-schnell';
 
 export function resolveImageModel(configuredModel) {
   let model = String(configuredModel || 'dall-e-3').trim();
@@ -29,6 +31,54 @@ export function resolveImageVendor(env = process.env) {
   const raw = String(env.IMAGE_VENDOR || '').trim().toLowerCase();
   if (raw) return raw;
   return env.OPENAI_API_KEY ? 'dalle' : 'fal';
+}
+
+export function hasCloudflareImageCredentials(env = process.env) {
+  const account = String(env.CLOUDFLARE_ACCOUNT_ID || env.CF_ACCOUNT_ID || '').trim();
+  const token = String(env.CLOUDFLARE_API_TOKEN || env.CF_API_TOKEN || '').trim();
+  return Boolean(account && token);
+}
+
+/** Cover-only vendor. Cloudflare is primary when keys exist; reels still use IMAGE_VENDOR. */
+export function resolveCoverImageVendor(env = process.env) {
+  const raw = String(env.COVER_IMAGE_VENDOR || '').trim().toLowerCase();
+  if (raw === 'adobe' || raw === 'adobe-firefly') return 'firefly';
+  if (raw === 'cf' || raw === 'workers-ai' || raw === 'workersai') return 'cloudflare';
+  if (raw) return raw;
+  if (hasCloudflareImageCredentials(env)) return 'cloudflare';
+  return resolveImageVendor(env);
+}
+
+export function cloudflareImageSize(aspect = '4:5') {
+  if (aspect === '9:16') return { width: 768, height: 1344 };
+  return { width: 1024, height: 1280 };
+}
+
+export function fireflyImageSize(aspect = '4:5') {
+  if (aspect === '9:16') return { width: 1152, height: 2048 };
+  return { width: 1792, height: 2304 };
+}
+
+function fireflyCredentials(options = {}, env = process.env) {
+  return {
+    clientId: options.clientId
+      || env.FIREFLY_SERVICES_CLIENT_ID
+      || env.FIREFLY_CLIENT_ID
+      || '',
+    clientSecret: options.clientSecret
+      || env.FIREFLY_SERVICES_CLIENT_SECRET
+      || env.FIREFLY_CLIENT_SECRET
+      || '',
+    accessToken: options.accessToken
+      || env.FIREFLY_SERVICES_ACCESS_TOKEN
+      || env.FIREFLY_ACCESS_TOKEN
+      || '',
+  };
+}
+
+function fireflyImageUrlFromPayload(payload) {
+  const result = payload?.result || payload;
+  return result?.outputs?.[0]?.image?.url || null;
 }
 
 export function isHardImageQuotaError(status, message) {
@@ -305,6 +355,205 @@ export async function generateOpenAIImage(prompt, {
   return imageUrl;
 }
 
+const FIREFLY_API_BASE = 'https://firefly-api.adobe.io';
+const FIREFLY_IMS_URL = 'https://ims-na1.adobelogin.com/ims/token/v3';
+const FIREFLY_SCOPE = 'openid,AdobeID,session,additional_info,read_organizations,firefly_api,ff_apis';
+
+export async function getFireflyAccessToken({
+  clientId,
+  clientSecret,
+  accessToken,
+  fetchFn = globalThis.fetch,
+} = {}) {
+  if (accessToken) return accessToken;
+  if (!clientId || !clientSecret) {
+    throw new Error('FIREFLY_SERVICES_CLIENT_ID and FIREFLY_SERVICES_CLIENT_SECRET missing in .env');
+  }
+
+  const response = await fetchFn(FIREFLY_IMS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: clientId,
+      client_secret: clientSecret,
+      scope: FIREFLY_SCOPE,
+    }).toString(),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload?.access_token) {
+    const message = payload?.error_description || payload?.error || `Firefly IMS token request failed (${response.status})`;
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
+  }
+  return payload.access_token;
+}
+
+export async function generateFireflyImage(prompt, {
+  aspect = '4:5',
+  fetchFn = globalThis.fetch,
+  clientId,
+  clientSecret,
+  accessToken,
+  sleepFn = sleep,
+  pollIntervalMs = 1000,
+  maxPolls = 60,
+  log = defaultLog,
+} = {}) {
+  const creds = fireflyCredentials({ clientId, clientSecret, accessToken });
+  if (!creds.clientId || (!creds.clientSecret && !creds.accessToken)) {
+    throw new Error('FIREFLY_SERVICES_CLIENT_ID and FIREFLY_SERVICES_CLIENT_SECRET missing in .env');
+  }
+
+  const token = await getFireflyAccessToken({
+    ...creds,
+    fetchFn,
+  });
+  const headers = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    'x-api-key': creds.clientId,
+    Authorization: `Bearer ${token}`,
+  };
+
+  const generateResponse = await fetchFn(`${FIREFLY_API_BASE}/v3/images/generate-async`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      prompt,
+      contentClass: 'photo',
+      numVariations: 1,
+      size: fireflyImageSize(aspect),
+    }),
+  });
+  const generatePayload = await generateResponse.json().catch(() => ({}));
+  if (!generateResponse.ok) {
+    const message = generatePayload?.error?.message
+      || generatePayload?.message
+      || `Firefly generate request failed (${generateResponse.status})`;
+    const error = new Error(message);
+    error.status = generateResponse.status;
+    throw error;
+  }
+
+  const immediateUrl = fireflyImageUrlFromPayload(generatePayload);
+  if (immediateUrl) return immediateUrl;
+
+  const statusUrl = generatePayload?.statusUrl;
+  if (!statusUrl) {
+    throw new Error('Firefly generate response did not contain an image or statusUrl');
+  }
+
+  for (let attempt = 0; attempt < maxPolls; attempt += 1) {
+    const statusResponse = await fetchFn(statusUrl, { headers });
+    const statusPayload = await statusResponse.json().catch(() => ({}));
+    const status = String(statusPayload?.status || '').toLowerCase();
+    if (status === 'succeeded') {
+      const url = fireflyImageUrlFromPayload(statusPayload);
+      if (!url) throw new Error('Firefly job succeeded but returned no image URL');
+      return url;
+    }
+    if (status === 'failed' || status === 'canceled' || status === 'cancelled') {
+      const message = statusPayload?.error?.message
+        || statusPayload?.message
+        || `Firefly job ${status}`;
+      throw new Error(message);
+    }
+    if (!statusResponse.ok) {
+      const error = new Error(statusPayload?.message || `Firefly status request failed (${statusResponse.status})`);
+      error.status = statusResponse.status;
+      throw error;
+    }
+    log(`  Firefly job ${status || 'pending'}; poll ${attempt + 1}/${maxPolls}`);
+    await sleepFn(pollIntervalMs);
+  }
+  throw new Error(`Firefly job timed out after ${maxPolls} polls`);
+}
+
+function cloudflareCredentials(options = {}, env = process.env) {
+  return {
+    accountId: options.accountId
+      || env.CLOUDFLARE_ACCOUNT_ID
+      || env.CF_ACCOUNT_ID
+      || '',
+    apiToken: options.apiToken
+      || env.CLOUDFLARE_API_TOKEN
+      || env.CF_API_TOKEN
+      || '',
+  };
+}
+
+function cloudflareImageFromPayload(payload) {
+  const b64 = payload?.result?.image
+    || payload?.result?.images?.[0]
+    || payload?.image;
+  if (!b64) return null;
+  const value = String(b64);
+  if (value.startsWith('data:')) return value;
+  return `data:image/jpeg;base64,${value}`;
+}
+
+export async function generateCloudflareImage(prompt, {
+  aspect = '4:5',
+  fetchFn = globalThis.fetch,
+  accountId,
+  apiToken,
+  model = process.env.CLOUDFLARE_IMAGE_MODEL || DEFAULT_CLOUDFLARE_IMAGE_MODEL,
+  log = defaultLog,
+} = {}) {
+  const creds = cloudflareCredentials({ accountId, apiToken });
+  if (!creds.accountId || !creds.apiToken) {
+    throw new Error('CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN missing in .env');
+  }
+
+  const size = cloudflareImageSize(aspect);
+  const finalPrompt = aspect === '9:16'
+    ? `${prompt}\n${PORTRAIT_NOTE}`
+    : `${prompt}\n${COVER_NOTE}`;
+  const requested = String(model || '').trim();
+  const modelPath = (requested.startsWith('@cf/')
+    ? requested
+    : (process.env.CLOUDFLARE_IMAGE_MODEL || DEFAULT_CLOUDFLARE_IMAGE_MODEL)
+  ).replace(/^\/+/, '');
+  const url = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(creds.accountId)}/ai/run/${modelPath}`;
+
+  const body = {
+    prompt: finalPrompt,
+    steps: 4,
+  };
+  if (!/flux-1-schnell/i.test(modelPath)) {
+    body.width = size.width;
+    body.height = size.height;
+  }
+
+  const response = await fetchFn(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${creds.apiToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.success === false) {
+    const message = payload?.errors?.[0]?.message
+      || payload?.error?.message
+      || payload?.errors?.[0]
+      || `Cloudflare Workers AI request failed (${response.status})`;
+    const error = new Error(typeof message === 'string' ? message : JSON.stringify(message));
+    error.status = response.status;
+    throw error;
+  }
+
+  const imageUrl = cloudflareImageFromPayload(payload);
+  if (!imageUrl) throw new Error('Cloudflare Workers AI response did not contain an image');
+  log(`  Cloudflare Workers AI: received data payload (${safeLogUrl(imageUrl)})`);
+  return imageUrl;
+}
+
 export async function generateFalImage(prompt, {
   fal,
   aspect = '4:5',
@@ -324,7 +573,7 @@ export async function generateFalImage(prompt, {
 
 /**
  * Dispatch image generation by vendor.
- * Supported: openrouter | dalle/openai | google | fal
+ * Supported: openrouter | dalle/openai | google | fal | firefly | cloudflare
  */
 export async function generateImage(prompt, {
   vendor,
@@ -340,6 +589,12 @@ export async function generateImage(prompt, {
   title,
   openRouterFallback,
   openaiFallback,
+  clientId,
+  clientSecret,
+  accessToken,
+  accountId,
+  apiToken,
+  sleepFn,
   log = defaultLog,
 } = {}) {
   const resolvedVendor = (vendor || resolveImageVendor()).trim().toLowerCase();
@@ -373,6 +628,29 @@ export async function generateImage(prompt, {
       genAI,
       openRouterFallback,
       openaiFallback,
+      log,
+    });
+  }
+
+  if (resolvedVendor === 'firefly' || resolvedVendor === 'adobe' || resolvedVendor === 'adobe-firefly') {
+    return generateFireflyImage(prompt, {
+      aspect,
+      fetchFn,
+      clientId,
+      clientSecret,
+      accessToken,
+      sleepFn,
+      log,
+    });
+  }
+
+  if (resolvedVendor === 'cloudflare' || resolvedVendor === 'cf' || resolvedVendor === 'workers-ai') {
+    return generateCloudflareImage(prompt, {
+      aspect,
+      fetchFn,
+      accountId,
+      apiToken,
+      model,
       log,
     });
   }

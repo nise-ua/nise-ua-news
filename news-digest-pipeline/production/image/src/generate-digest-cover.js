@@ -6,6 +6,9 @@
  * Picks the single most scroll-stopping news block, generates one text-free
  * 4:5 photograph, and writes it for the Facebook feed post. No overlay text.
  *
+ * Image vendor: Cloudflare Workers AI is primary for Facebook covers.
+ * Override with COVER_IMAGE_VENDOR; reels still use IMAGE_VENDOR.
+ *
  * Usage:
  *   node production/image/src/generate-digest-cover.js latest
  *   node production/image/src/generate-digest-cover.js <digest-id>
@@ -29,6 +32,7 @@ import {
 import {
   generateImage,
   generateImageWithRetry,
+  resolveCoverImageVendor,
   resolveImageVendor,
   safeLogUrl,
 } from '../../lib/image-backends.js';
@@ -140,6 +144,21 @@ async function persistCoverUrl(digestId, publicUrl) {
   }
 }
 
+async function generateCoverImage(prompt, vendor, imageDeps) {
+  const withRetry = vendor === 'openrouter' || vendor === 'firefly' || vendor === 'cloudflare';
+  const run = () => generateImage(prompt, {
+    ...imageDeps,
+    vendor,
+    ...(vendor === 'openrouter'
+      ? { model: process.env.DALLE_MODEL || 'qwen/qwen-image-3-pro' }
+      : {}),
+  });
+  if (withRetry) {
+    return generateImageWithRetry(run, { log: imageDeps.log, label: 'Cover' });
+  }
+  return run();
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const digestId = args.find((arg) => !arg.startsWith('--')) || 'latest';
@@ -155,8 +174,9 @@ async function main() {
   log(`  Fact: ${(cover.coreFact || '').slice(0, 120)}`);
   log(`  Subject: ${(cover.visualSubject || '').slice(0, 120)}`);
 
-  const vendor = resolveImageVendor();
-  log(`Generating text-free ${COVER_ASPECT} cover via ${vendor}...`);
+  const vendor = resolveCoverImageVendor();
+  const fallbackVendor = resolveImageVendor();
+  log(`Generating text-free ${COVER_ASPECT} cover via ${vendor} (primary)...`);
 
   const imageDeps = {
     aspect: COVER_ASPECT,
@@ -192,17 +212,14 @@ async function main() {
   };
 
   let imageUrl;
-  if (vendor === 'openrouter') {
-    imageUrl = await generateImageWithRetry(
-      () => generateImage(cover.prompt, {
-        ...imageDeps,
-        vendor: 'openrouter',
-        model: process.env.DALLE_MODEL || 'qwen/qwen-image-3-pro',
-      }),
-      { log, label: 'Cover' },
-    );
-  } else {
-    imageUrl = await generateImage(cover.prompt, { ...imageDeps, vendor });
+  let usedVendor = vendor;
+  try {
+    imageUrl = await generateCoverImage(cover.prompt, vendor, imageDeps);
+  } catch (err) {
+    if (!fallbackVendor || fallbackVendor === vendor) throw err;
+    log(`Cover ${vendor} failed (${err.message}); falling back to ${fallbackVendor}...`);
+    usedVendor = fallbackVendor;
+    imageUrl = await generateCoverImage(cover.prompt, fallbackVendor, imageDeps);
   }
 
   if (!imageUrl) {
@@ -223,6 +240,7 @@ async function main() {
     pickReason: cover.pickReason,
     fallback: cover.fallback,
     aspect: COVER_ASPECT,
+    vendor: usedVendor,
   };
   writeFileSync(filepath.replace(/\.png$/i, '.json'), `${JSON.stringify(sidecar, null, 2)}\n`);
 

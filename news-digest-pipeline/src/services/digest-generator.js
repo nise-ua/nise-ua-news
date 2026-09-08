@@ -455,6 +455,18 @@ export async function generateDigest(db, articles, config) {
     log.push(`Telegram source cleanup: deleted=${deleted}, failed=${failed}`);
   }
 
+  // Kick off Facebook cover as soon as the digest is confirmed valid.
+  // Failures here must not undo digest creation — cover can be retried from the UI.
+  if (digestOk) {
+    try {
+      const { startImageGeneration } = await import('./image-generator.js');
+      const job = startImageGeneration(digestId);
+      console.log(`[digest-generator] Auto cover started for ${digestId} (job ${job.id})`);
+    } catch (err) {
+      console.error(`[digest-generator] Auto cover start failed for ${digestId}:`, err.message);
+    }
+  }
+
   return digestId;
 }
 

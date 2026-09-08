@@ -12,8 +12,14 @@ import { getDb } from '../db/index.js';
 import config from '../config.js';
 
 import { getVideoJob, startVideoGeneration } from '../services/video-generator.js';
-import { getImageJob, startImageGeneration } from '../services/image-generator.js';
+import { findActiveImageJob, getImageJob, startImageGeneration } from '../services/image-generator.js';
 const router = Router();
+
+function withActiveJobs(digest) {
+  if (!digest) return digest;
+  const imageJob = findActiveImageJob(digest.id);
+  return imageJob ? { ...digest, active_image_job: imageJob } : digest;
+}
 
 // POST /api/digests/generate — manual trigger
 router.post('/generate', async (req, res) => {
@@ -38,7 +44,7 @@ router.post('/generate', async (req, res) => {
     const db = getDb();
     const digestId = await generateDigest(db, articles, config);
 
-    res.status(201).json({ digestId });
+    res.status(201).json({ digestId, imageJob: findActiveImageJob(digestId) });
   } catch (err) {
     console.error('[digests] POST /generate error:', err);
     res.status(500).json({ error: err.message });
@@ -52,7 +58,7 @@ router.get('/', (req, res) => {
     const filters = {};
     if (status) filters.status = status;
 
-    const digests = getDigests(filters);
+    const digests = getDigests(filters).map(withActiveJobs);
     res.json(digests);
   } catch (err) {
     console.error('[digests] GET / error:', err);
