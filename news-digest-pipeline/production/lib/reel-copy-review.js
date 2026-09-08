@@ -32,6 +32,15 @@ export class ReelCopyReviewError extends Error {
 
 const STUB_HEADLINE_RE = /^(класика|історія|революція|цікаво|ага|ну що|оце так)[.!?…]*$/iu;
 const SARCASTIC_LEAD_IN_RE = /^(знову\s+революція|оце так історія|ну що,|ага,)/iu;
+const COMMENTARY_OPENER_RE = /^(нарешті|іронія|звучить|класика|цікава математика|випадковість|прогрес|хоча чесно|отаке|згадуєте|начебто|не стільки|поки не згадаєш)/iu;
+const DETACHED_CLAUSE_RE = /^(того,?\s+хто|тієї,?\s+хто|тільки тепер воно|але тепер це подається|не дослідника|не вченого)/iu;
+const FACT_VERB_RE = /(зроби|запуск|знайш|влаштув|перезапуск|знає|пиш|випуст|зламал|плат|оцін|перевір|дав|працю|думає|викону|сидить|може|шука|вийш|підкид)/iu;
+const STOPWORDS = new Set([
+  'і', 'й', 'та', 'або', 'чи', 'а', 'але', 'що', 'щоб', 'як', 'коли', 'якщо',
+  'який', 'яка', 'яке', 'які', 'на', 'у', 'в', 'з', 'із', 'зі', 'до', 'для',
+  'про', 'від', 'по', 'при', 'без', 'над', 'під', 'через', 'між', 'цей', 'ця',
+  'це', 'ці', 'той', 'те', 'тепер', 'ще', 'вже', 'сам', 'сама', 'саме', 'не',
+]);
 
 const COPY_FIELDS = ['headline', 'detailText', 'spokenText'];
 
@@ -67,6 +76,7 @@ export function findCopyIssues(shot = {}) {
     if (SARCASTIC_LEAD_IN_RE.test(headline)) {
       issues.push('headline is a sarcastic lead-in, not the fact');
     }
+    issues.push(...contextIssues('headline', headline, shot));
   }
 
   if (!detail) {
@@ -84,10 +94,27 @@ export function findCopyIssues(shot = {}) {
     if (splicesTwoThoughts(detail)) {
       issues.push('detailText splices two thoughts with a dash or semicolon');
     }
+    issues.push(...contextIssues('detailText', detail, shot));
+    if (headline && copyTooSimilar(headline, detail)) {
+      issues.push('detailText repeats the headline instead of adding a fact');
+    }
   }
 
   if (spoken && looksUnfinishedSentence(spoken)) {
     issues.push('spokenText is unfinished');
+  }
+  if (spoken) {
+    issues.push(...contextIssues('spokenText', spoken, shot));
+    if (spokenIgnoresHeadline(headline, spoken)) {
+      issues.push('spokenText is a side comment, not the headline fact');
+    }
+    if (
+      detail
+      && copyTooSimilar(spoken, detail)
+      && !copyTooSimilar(spoken, headline)
+    ) {
+      issues.push('spokenText is a side comment, not the headline fact');
+    }
   }
 
   const unique = [...new Set(issues)];
@@ -108,7 +135,7 @@ export function stripSarcasticLeadIn(text) {
     /^\s*знову\s*[«"']?революція[»"']?\s*\??\s*/iu,
     /^\s*оце так історія\.?\s*/iu,
     /^\s*інтересненько[^.!?]*[.!?…]?\s*/iu,
-    /^\s*ага,?\s*/iu,
+    /^\s*звісно,?\s*/iu,
   ];
   for (let round = 0; round < 4; round += 1) {
     let next = result;
@@ -118,6 +145,215 @@ export function stripSarcasticLeadIn(text) {
     result = next;
   }
   return result;
+}
+
+export function looksLikeCommentary(text) {
+  const s = String(text || '').trim();
+  if (!s) return false;
+  if (/\?/.test(s)) return true;
+  if (COMMENTARY_OPENER_RE.test(s)) return true;
+  if (/^класичний\s+/iu.test(s)) return true;
+  if (/чи не плутає|паляниц|москалик/iu.test(s)) return true;
+  return false;
+}
+
+export function looksDetachedClause(text) {
+  return DETACHED_CLAUSE_RE.test(String(text || '').trim());
+}
+
+export function looksLikeNameDump(text) {
+  const source = String(text || '').trim();
+  const latinNames = source.match(/\b[A-Z][A-Za-z0-9]{3,}\b/g) || [];
+  if (latinNames.length < 2) return false;
+  if (FACT_VERB_RE.test(source)) return false;
+  const words = source.replace(/[.!?…]+$/u, '').split(/\s+/).filter(Boolean);
+  return !words.some((word) => /[а-яіїєґ]{3,}(ла|ли|ло|в|є|ає|ує|ить|ився|лася)$/iu.test(word));
+}
+
+function contentTokens(text) {
+  return String(text || '')
+    .toLocaleLowerCase('uk-UA')
+    .replace(/[^\p{L}\p{N}\s$]+/gu, ' ')
+    .split(/\s+/)
+    .filter((word) => word.length >= 3 && !STOPWORDS.has(word));
+}
+
+export function copyTooSimilar(a, b) {
+  const left = new Set(contentTokens(a).map((word) => word.slice(0, 4)));
+  const right = new Set(contentTokens(b).map((word) => word.slice(0, 4)));
+  if (left.size === 0 || right.size === 0) return false;
+  let inter = 0;
+  for (const word of left) {
+    if (right.has(word)) inter += 1;
+  }
+  const extra = [...right].filter((word) => !left.has(word)).length;
+  return (inter / Math.min(left.size, right.size)) >= 0.6 && extra < 4;
+}
+
+function splitLongFact(sentence) {
+  const finished = finishLine(sentence);
+  if (!finished) return [];
+  const words = countWords(finished);
+  if (words <= DETAIL_WORD_MAX) return [finished];
+  const body = finished.replace(/[.!?…]+$/u, '');
+  const chunks = [];
+  const firstCut = body.split(/\s+з\s+«|,\s+/)[0];
+  if (firstCut && firstCut !== body) {
+    const cut = finishLine(firstCut);
+    if (cut && countWords(cut) >= DETAIL_WORD_MIN && countWords(cut) <= DETAIL_WORD_MAX) {
+      chunks.push(cut);
+    }
+  }
+  const parts = body.split(/\s+і\s+/iu).map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    let acc = [];
+    for (const part of parts) {
+      const next = [...acc, part];
+      const joined = next.join(' і ');
+      if (acc.length > 0 && countWords(joined) > HEADLINE_WORD_MAX) {
+        const chunk = finishLine(acc.join(' і '));
+        if (chunk) chunks.push(chunk);
+        acc = [part];
+      } else {
+        acc = next;
+      }
+    }
+    if (acc.length > 0) {
+      const chunk = finishLine(acc.join(' і '));
+      if (chunk) chunks.push(chunk);
+    }
+  }
+  return [...new Set(chunks.filter((chunk) => chunk && !looksUnfinishedSentence(chunk)))];
+}
+
+export function extractFactualSentences(text) {
+  const source = stripSarcasticLeadIn(text);
+  const parts = String(source || '').split(/(?<=[.!?])\s+/).map((part) => part.trim()).filter(Boolean);
+  const unique = [];
+  const seen = new Set();
+  for (const part of parts) {
+    const finished = finishLine(part);
+    if (!finished) continue;
+    if (looksLikeCommentary(finished) || looksDetachedClause(finished) || looksLikeNameDump(finished)) continue;
+    if (splicesTwoThoughts(finished)) {
+      const bits = String(part).split(/\s+[—–-]\s+/).map((bit) => bit.trim()).filter(Boolean);
+      if (bits.length === 2) {
+        const joined = finishLine(`${bits[0].replace(/[.!?…]+$/u, '')} і ${bits[1]}`);
+        if (
+          joined
+          && countWords(joined) >= DETAIL_WORD_MIN
+          && countWords(joined) <= DETAIL_WORD_MAX
+          && !looksLikeCommentary(joined)
+          && !looksDetachedClause(joined)
+          && !seen.has(joined)
+        ) {
+          seen.add(joined);
+          unique.push(joined);
+        }
+      }
+      continue;
+    }
+    const pieces = countWords(finished) > DETAIL_WORD_MAX ? splitLongFact(finished) : [finished];
+    for (const piece of pieces) {
+      if (!piece || splicesTwoThoughts(piece) || seen.has(piece)) continue;
+      if (looksLikeCommentary(piece) || looksDetachedClause(piece) || looksLikeNameDump(piece)) continue;
+      seen.add(piece);
+      unique.push(piece);
+    }
+  }
+  return unique;
+}
+
+function factAnchor(shot = {}) {
+  return extractFactualSentences(shot.sourceText)[0]
+    || extractFactualSentences(shot.coreFact)[0]
+    || finishLine(shot.coreFact)
+    || '';
+}
+
+function namedAnchors(shot = {}, lead = '') {
+  const blobs = [lead, shot.coreFact, Array.isArray(shot.entities) ? shot.entities.join(' ') : ''];
+  const names = [];
+  for (const blob of blobs) {
+    const matches = String(blob || '').match(/\b[A-Z][A-Za-z0-9.+-]{1,}\b/g) || [];
+    for (const name of matches) names.push(name.toLowerCase());
+  }
+  return [...new Set(names)];
+}
+
+function spokenIgnoresHeadline(headline, spoken) {
+  const head = String(headline || '').trim();
+  const voice = String(spoken || '').trim();
+  if (!head || !voice) return false;
+  if (copyTooSimilar(head, voice)) return false;
+  const lower = voice.toLowerCase();
+  if (/^(говориш|питаєш|дивишся|згадай)\b/iu.test(voice)) return true;
+  for (const name of namedAnchors({}, head)) {
+    if (name.length >= 3 && lower.includes(name)) return false;
+  }
+  const headStems = new Set(contentTokens(head).map((word) => word.slice(0, 4)));
+  const voiceStems = new Set(contentTokens(voice).map((word) => word.slice(0, 4)));
+  let overlap = 0;
+  for (const stem of headStems) {
+    if (voiceStems.has(stem)) overlap += 1;
+  }
+  return overlap < 2;
+}
+
+export function alignSpokenToHeadline(shot = {}) {
+  const headline = finishLine(shot.headline) || String(shot.headline || '').trim();
+  const spoken = String(shot.spokenText || '').trim();
+  if (!headline) return shot;
+  if (!spoken || spokenIgnoresHeadline(headline, spoken) || spokenIsDetailAside(shot)) {
+    return { ...shot, spokenText: headline };
+  }
+  return shot;
+}
+
+function spokenIsDetailAside(shot = {}) {
+  const spoken = String(shot.spokenText || '').trim();
+  const headline = String(shot.headline || '').trim();
+  const detail = String(shot.detailText || '').trim();
+  if (!spoken || !detail) return false;
+  return copyTooSimilar(spoken, detail) && !copyTooSimilar(spoken, headline);
+}
+
+function missesFactAnchor(shot, text) {
+  const facts = extractFactualSentences(shot.sourceText);
+  const lead = factAnchor(shot);
+  if (!lead && facts.length === 0) return false;
+  const lower = String(text || '').toLowerCase();
+  if (facts.some((fact) => fact === finishLine(text) || copyTooSimilar(fact, text))) {
+    return false;
+  }
+  for (const name of namedAnchors(shot, lead)) {
+    if (name.length >= 3 && lower.includes(name)) return false;
+  }
+  const leadTokens = new Set(contentTokens(lead).map((word) => word.slice(0, 4)));
+  const textTokens = new Set(contentTokens(text).map((word) => word.slice(0, 4)));
+  let overlap = 0;
+  for (const token of leadTokens) {
+    if (textTokens.has(token)) overlap += 1;
+  }
+  if (overlap >= 2) return false;
+  if (facts.some((fact) => {
+    const tokens = new Set(contentTokens(fact).map((word) => word.slice(0, 4)));
+    let hit = 0;
+    for (const token of tokens) {
+      if (textTokens.has(token)) hit += 1;
+    }
+    return hit >= 2;
+  })) return false;
+  return true;
+}
+
+function contextIssues(field, text, shot) {
+  const issues = [];
+  if (looksLikeCommentary(text)) issues.push(`${field} is author commentary, not the news fact`);
+  if (looksDetachedClause(text)) issues.push(`${field} is a leftover clause without the news subject`);
+  if (looksLikeNameDump(text)) issues.push(`${field} is a name list, not a finished news sentence`);
+  if (missesFactAnchor(shot, text)) issues.push(`${field} is out of context for the digest fact`);
+  return issues;
 }
 
 function capitalizeUkrainian(text) {
@@ -139,20 +375,25 @@ function finishLine(text) {
 function explodeCopyPieces(text) {
   return String(text || '')
     .split(/(?<=[.!?])\s+/)
-    .flatMap((sentence) => String(sentence).split(/\s+[—–-]\s+|:\s+|;\s+|,\s+що\s+|,\s+щоб\s+/iu))
     .map((part) => part.trim())
     .filter(Boolean);
 }
 
 function copyUnitsFrom(shot = {}) {
-  const pool = [shot.sourceText, shot.coreFact, shot.headline, shot.detailText, shot.spokenText]
-    .map((value) => stripSarcasticLeadIn(value))
-    .filter(Boolean);
+  const overlayUnits = [shot.headline, shot.detailText, shot.spokenText]
+    .map((value) => finishLine(value))
+    .filter((value) => value && !looksLikeCommentary(value) && !looksDetachedClause(value) && !looksLikeNameDump(value));
+  const pool = [
+    ...extractFactualSentences(shot.sourceText),
+    ...extractFactualSentences(shot.coreFact),
+    ...overlayUnits,
+  ];
   const unique = [];
   const seen = new Set();
   for (const part of pool.flatMap(explodeCopyPieces)) {
     const finished = finishLine(part);
     if (!finished || splicesTwoThoughts(finished) || seen.has(finished)) continue;
+    if (looksLikeCommentary(finished) || looksDetachedClause(finished) || looksLikeNameDump(finished)) continue;
     seen.add(finished);
     unique.push(finished);
   }
@@ -165,41 +406,32 @@ function pickBand(units, min, max, exclude = new Set()) {
     const words = countWords(unit);
     return words >= min && words <= max;
   });
-  if (inBand.length > 0) return inBand[0];
-
-  for (let i = 0; i < scored.length; i += 1) {
-    const parts = scored[i].replace(/[.!?…]+$/u, '').split(/\s+/).filter(Boolean);
-    if (parts.length >= min) continue;
-    for (let j = i + 1; j < scored.length && parts.length < min; j += 1) {
-      const extra = scored[j].replace(/[.!?…]+$/u, '').split(/\s+/).filter(Boolean);
-      for (const word of extra) {
-        if (parts.length >= max) break;
-        parts.push(word);
-        if (parts.length >= min) break;
-      }
-    }
-    if (parts.length < min || parts.length > max) continue;
-    const candidate = finishLine(parts.join(' '));
-    if (!candidate || splicesTwoThoughts(candidate)) continue;
-    const words = countWords(candidate);
-    if (candidate && words >= min && words <= max) return candidate;
-  }
-  return '';
+  return inBand[0] || '';
 }
 
 /**
  * Deterministic in-band rewrite when the LLM critic is unavailable or stuck.
- * Does not change visual fields. Prefers whole clauses over mid-sentence cuts.
+ * Does not change visual fields. Uses whole factual sentences only.
  */
 export function repairShotCopy(shot = {}) {
   const units = copyUnitsFrom(shot);
-  const headline = pickBand(units, HEADLINE_WORD_MIN, HEADLINE_WORD_MAX)
+  const leadName = namedAnchors(shot, factAnchor(shot) || shot.sourceText)[0];
+  const namedUnits = leadName
+    ? units.filter((unit) => String(unit).toLowerCase().includes(String(leadName).toLowerCase()))
+    : [];
+  const headline = pickBand(namedUnits, HEADLINE_WORD_MIN, HEADLINE_WORD_MAX)
+    || pickBand(units, HEADLINE_WORD_MIN, HEADLINE_WORD_MAX)
     || finishLine(shot.headline);
-  const detail = pickBand(units, DETAIL_WORD_MIN, DETAIL_WORD_MAX, new Set([headline].filter(Boolean)))
-    || pickBand(units, DETAIL_WORD_MIN, DETAIL_HARD_MAX, new Set([headline].filter(Boolean)));
-  const spoken = pickBand(units, HEADLINE_WORD_MIN, 18, new Set())
-    || headline
-    || finishLine(shot.spokenText);
+  const exclude = new Set([headline].filter(Boolean));
+  let detail = pickBand(units, DETAIL_WORD_MIN, DETAIL_WORD_MAX, exclude);
+  if (detail && headline && copyTooSimilar(headline, detail)) {
+    detail = pickBand(units.filter((unit) => unit !== detail), DETAIL_WORD_MIN, DETAIL_WORD_MAX, exclude);
+  }
+  const spoken = pickBand(
+    namedUnits.filter((unit) => !copyTooSimilar(unit, detail) || copyTooSimilar(unit, headline)),
+    HEADLINE_WORD_MIN,
+    18,
+  ) || headline || finishLine(shot.spokenText);
   return {
     ...shot,
     headline,
@@ -272,16 +504,18 @@ export function readStoryboardFile(filepath) {
 }
 
 const CRITIC_SYSTEM = `Ти — редактор українських Reels/Shorts для NiSeNews.
-Перевір on-screen copy кожного shot проти coreFact.
+Перевір on-screen copy кожного shot проти coreFact і sourceLead (перше фактичне речення дайджесту).
 
 Заборонено: однослівні заголовки («Класика.»), саркастичні зачини,
 незавершені речення, два речення в detail, тире/крапка з комою, що склеюють дві думки.
+Заборонено авторські жарти, риторичні питання, обірвані підрядні («Того, хто наливає каву»),
+і рядки, які не називають ту саму подію, що coreFact/sourceLead.
 
 Обов'язково:
 - headline: РІВНО одне завершене українське речення, 6–11 слів, підмет + присудок + додаток.
 - detailText: РІВНО одне завершене українське речення, 8–12 слів, не повторює headline.
-- spokenText: одне завершене українське речення (факт, не сарказм).
-- Бренди латиницею: Meta, Nvidia, Google, AI, GPT, Llama.
+- spokenText: одне завершене українське речення з ТИМ САМИМ фактом, що headline (хто що зробив). Не читай detail, жарти, приклади «Говориш у Keep», «Анонс вийшов наступного дня» без суб'єкта новини.
+- Бренди латиницею: Meta, Nvidia, Google, AI, GPT, Llama, Claude, OpenAI.
 - Текст має читатися з першого погляду і чіпляти конкретним фактом (хто що зробив).
 
 Відповідай JSON:
@@ -379,6 +613,8 @@ function buildReviewUserPrompt(shots, round) {
   const payload = shots.map((shot, i) => ({
     shot: shot.shot || i + 1,
     coreFact: shot.coreFact || '',
+    sourceLead: extractFactualSentences(shot.sourceText)[0] || '',
+    sourceText: String(shot.sourceText || '').slice(0, 400),
     headline: shot.headline || '',
     detailText: shot.detailText || '',
     spokenText: shot.spokenText || '',
@@ -454,6 +690,6 @@ export async function reviewReelStoryboard(storyboard = {}, options = {}) {
     );
   }
 
-  shots = shots.map((shot) => assertFinishedReelCopy(ensureUkrainianOnScreenCopy(shot)));
+  shots = shots.map((shot) => assertFinishedReelCopy(ensureUkrainianOnScreenCopy(alignSpokenToHeadline(shot))));
   return { ...storyboard, shots };
 }

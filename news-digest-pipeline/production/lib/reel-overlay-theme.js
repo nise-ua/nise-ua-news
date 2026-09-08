@@ -74,7 +74,7 @@ export const TEXT_REGION = {
   top: 40,
   width: 920,
   brandHeight: 120,
-  headlineTop: 280,
+  headlineTop: 248,
   headlineHeight: 260,
   /** Detail sentence sits below the headline block in the upper safe zone. */
   detailTop: 540,

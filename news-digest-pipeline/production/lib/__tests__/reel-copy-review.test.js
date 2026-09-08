@@ -38,6 +38,51 @@ describe('findCopyIssues', () => {
     expect(findCopyIssues(goodShot)).toEqual([]);
   });
 
+  it('flags author jokes and leftover clauses as out of context', () => {
+    const issues = findCopyIssues({
+      sourceText: 'Мінцифра зробила рейтинг ШІ, який знає українську. Нарешті хтось перевірить, чи не плутає ChatGPT «паляницю» з «москаликом».',
+      coreFact: 'Мінцифра зробила рейтинг ШІ, який знає українську.',
+      headline: 'Того, хто наливає каву і щось там форматує.',
+      detailText: 'Нарешті хтось перевірить, чи не плутає ChatGPT «паляницю» з «москаликом».',
+      spokenText: 'Мінцифра зробила рейтинг ШІ, який знає українську.',
+    });
+    expect(issues.some((issue) => /leftover clause/i.test(issue))).toBe(true);
+    expect(issues.some((issue) => /commentary/i.test(issue))).toBe(true);
+  });
+
+  it('flags a username dump that is not the news fact', () => {
+    const issues = findCopyIssues({
+      sourceText: 'OpenAIResearcher і OAIResearchMar26. Боти знайшли один одного і влаштували секретний чат сьогодні.',
+      coreFact: 'Боти OpenAI знайшли один одного і влаштували секретний чат.',
+      headline: 'OpenAIResearcher, OAIResearchMar26 і ще п\'ятнадцять тисяч правок.',
+      detailText: 'Боти знайшли один одного і влаштували секретний чат сьогодні.',
+      spokenText: 'Боти знайшли один одного і влаштували секретний чат сьогодні.',
+    });
+    expect(issues.some((issue) => /name list/i.test(issue))).toBe(true);
+  });
+
+  it('flags a detail that only restates the headline', () => {
+    const issues = findCopyIssues({
+      sourceText: 'Claude тепер може сам писати листи і шарити файли в Gmail. Claude Cowork стежить за роботою бота з телефону.',
+      coreFact: 'Claude тепер може сам писати листи і шарити файли.',
+      headline: 'Claude пише листи і шарить файли самостійно.',
+      detailText: 'Claude тепер може сам писати листи і шарити файли.',
+      spokenText: 'Claude пише листи і шарить файли самостійно сьогодні.',
+    });
+    expect(issues.some((issue) => /repeats the headline/i.test(issue))).toBe(true);
+  });
+
+  it('flags spoken copy that narrates a side comment instead of the headline', () => {
+    const issues = findCopyIssues({
+      sourceText: 'OpenAI зробила стажера. Анонс вийшов буквально наступного дня після чергового скандалу.',
+      coreFact: 'OpenAI зробила стажера, який виконує завдання подібно до кваліфікованого науковця.',
+      headline: 'OpenAI зробила стажера, який виконує завдання подібно до кваліфікованого науковця.',
+      detailText: 'Анонс вийшов буквально наступного дня після чергового скандалу.',
+      spokenText: 'Анонс вийшов буквально наступного дня після чергового скандалу.',
+    });
+    expect(issues.some((issue) => /side comment/i.test(issue))).toBe(true);
+  });
+
   it('flags an otherwise in-band sentence that splices two thoughts', () => {
     const issues = findCopyIssues({
       ...goodShot,
@@ -159,6 +204,36 @@ describe('reviewReelStoryboard', () => {
     expect(findCopyIssues(repaired)).toEqual([]);
     expect(repaired.headline).not.toMatch(/\s[—–-]\s/);
     expect(repaired.detailText).not.toMatch(/\s[—–-]\s/);
+  });
+
+  it('repairs overlay from the digest fact instead of the author joke', () => {
+    const repaired = repairShotCopy({
+      shot: 1,
+      prompt: 'keep-this-prompt',
+      headline: 'Того, хто наливає каву і щось там форматує.',
+      detailText: 'Нарешті хтось перевірить, чи не плутає ChatGPT «паляницю» з «москаликом».',
+      spokenText: 'Того, хто наливає каву і щось там форматує.',
+      sourceText: 'Мінцифра зробила рейтинг ШІ, який знає українську. Нарешті хтось перевірить, чи не плутає ChatGPT «паляницю» з «москаликом». Тепер будуть вірити табличкам. Мінцифра запускає перший національний рейтинг LLM українською сьогодні.',
+    });
+    expect(repaired.prompt).toBe('keep-this-prompt');
+    expect(repaired.headline).toMatch(/Мінцифра/i);
+    expect(repaired.detailText).not.toMatch(/паляниц/i);
+    expect(repaired.headline).not.toMatch(/наливає каву/i);
+    expect(findCopyIssues(repaired)).toEqual([]);
+  });
+
+  it('puts the headline fact in spokenText instead of a side comment', () => {
+    const repaired = repairShotCopy({
+      shot: 1,
+      prompt: 'keep-this-prompt',
+      headline: 'OpenAI зробила стажера, який виконує завдання подібно до кваліфікованого науковця.',
+      detailText: 'Анонс вийшов буквально наступного дня після чергового скандалу.',
+      spokenText: 'Анонс вийшов буквально наступного дня після чергового скандалу.',
+      sourceText: 'OpenAI зробила стажера, який виконує завдання подібно до кваліфікованого науковця. Анонс вийшов буквально наступного дня після чергового скандалу.',
+    });
+    expect(repaired.spokenText).toMatch(/OpenAI зробила стажера/i);
+    expect(repaired.spokenText).not.toMatch(/^Анонс вийшов/i);
+    expect(findCopyIssues(repaired)).toEqual([]);
   });
 
   it('repairs stub copy when the critic is unavailable', async () => {

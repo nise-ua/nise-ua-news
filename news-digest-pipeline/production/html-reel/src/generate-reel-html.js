@@ -24,9 +24,11 @@ import { planShortsRuntime } from '../../video/src/shorts-runtime.js';
 import { ensureUkrainianOnScreenCopy, assertFinishedReelCopy } from '../../lib/reel-ukrainian-copy.js';
 import {
   ReelCopyReviewError,
+  alignSpokenToHeadline,
   findLatestStoryboardFile,
   formatCopyReviewTable,
   readStoryboardFile,
+  repairShotCopy,
   reviewReelStoryboard,
   stripSarcasticLeadIn,
   writeStoryboardFile,
@@ -35,7 +37,7 @@ import { generateShotClip } from '../../video/src/generate-clips.js';
 import { stitchClips, mergeShotVideoAndAudio } from '../../video/src/stitch.js';
 import { getDigestContent, parseDigestItemTexts } from '../../lib/digest.js';
 import { buildGroundedPrompt, inferNewsToneFromFact } from '../../lib/visual-grounding.js';
-import { EDGE_VOICE, completeClause, generatePerArticleAudio } from '../../lib/tts.js';
+import { EDGE_VOICE, generatePerArticleAudio } from '../../lib/tts.js';
 import { log, projectRoot, scriptDir } from '../../lib/logging.js';
 import { renderShotsToPngs } from './render-frame.js';
 import { generateAiBackgroundsForShots } from './fetch-ai-backgrounds.js';
@@ -74,19 +76,6 @@ function firstSentence(text) {
   return String(text || '').split(/(?<=[.!?])\s+/)[0].trim();
 }
 
-function buildFallbackTitle(text) {
-  const sentence = firstSentence(text).replace(/^[-–—:]+|[-–—:]+$/g, '').trim();
-  return completeClause(sentence, 16, 140);
-}
-
-function buildFallbackDetail(text) {
-  const source = String(text || '').trim();
-  const sentences = source.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
-  if (sentences.length > 1) return sentences.slice(1, 3).join(' ');
-  if (sentences.length === 1 && sentences[0]) return sentences[0];
-  return completeClause(source, 22, 150);
-}
-
 function fallbackStoryboard(digestText) {
   const items = parseDigestItemTexts(digestText);
   log(`Fallback storyboard: parsing ${items.length} digest items into shots.`);
@@ -95,16 +84,22 @@ function fallbackStoryboard(digestText) {
       const factual = stripSarcasticLeadIn(item) || item;
       const coreFact = firstSentence(factual);
       const newsTone = inferNewsToneFromFact(coreFact);
+      const copy = repairShotCopy({
+        shot: i + 1,
+        coreFact,
+        sourceText: factual,
+        headline: coreFact,
+        detailText: '',
+        spokenText: coreFact,
+      });
       return {
+        ...copy,
         shot: i + 1,
         coreFact,
         sourceText: factual,
         entities: [],
         newsTone,
         visualSubject: coreFact,
-        headline: buildFallbackTitle(factual),
-        detailText: buildFallbackDetail(factual),
-        spokenText: completeClause(factual, 16, 110),
         textPosition: 'upper',
         prompt: buildGroundedPrompt({
           visualSubject: coreFact,
@@ -169,7 +164,7 @@ async function main() {
       log(`Reusing copy-reviewed storyboard: ${reusePath}`);
       storyboard = readStoryboardFile(reusePath);
       storyboard.shots = (storyboard.shots || []).map((shot) => (
-        assertFinishedReelCopy(ensureUkrainianOnScreenCopy(shot))
+        assertFinishedReelCopy(ensureUkrainianOnScreenCopy(alignSpokenToHeadline(shot)))
       ));
     } else {
       storyboard = await createReviewedStoryboard();
