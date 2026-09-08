@@ -48,16 +48,17 @@ import {
 } from '../../lib/image-backends.js';
 import {
   EDGE_VOICE,
-  completeClause,
   generatePerArticleAudio,
 } from '../../lib/tts.js';
 import { log, projectRoot, scriptDir } from '../../lib/logging.js';
 import { assertFinishedReelCopy, ensureUkrainianOnScreenCopy } from '../../lib/reel-ukrainian-copy.js';
 import {
   ReelCopyReviewError,
+  alignSpokenToHeadline,
   findLatestStoryboardFile,
   formatCopyReviewTable,
   readStoryboardFile,
+  repairShotCopy,
   reviewReelStoryboard,
   stripSarcasticLeadIn,
   writeStoryboardFile,
@@ -102,37 +103,41 @@ function firstSentence(text) {
   return String(text || '').split(/(?<=[.!?])\s+/)[0].trim();
 }
 
-function buildFallbackTitle(text) {
-  const sentence = firstSentence(text).replace(/^[-–—:]+|[-–—:]+$/g, '').trim();
-  const lower = text.toLowerCase();
-  if (lower.includes('esp32') || lower.includes('мікроконтролер')) return 'Українець запустив LLM на мікроконтролері';
-  if (lower.includes('амодеї') || lower.includes('лояль') || lower.includes('місі')) return 'Фахівці більше не тримаються за одну компанію';
-  if (lower.includes('математик')) return 'ШІ наближається до рівня професійних математиків';
-  if (lower.includes('falcon 9') || lower.includes('місяц')) return 'Стара ракета Falcon 9 вріжеться в Місяць';
-  if (lower.includes('hugging face') || lower.includes('кібербезп')) return 'Автономний AI-агент атакував Hugging Face';
-  return completeClause(sentence, 16, 140);
-}
-
-function buildFallbackHook(text) {
-  const lower = text.toLowerCase();
-  if (lower.includes('esp32') || lower.includes('мікроконтролер')) return 'Український розробник запустив повноцінну LLM на чипі за десять доларів.';
-  if (lower.includes('амодеї') || lower.includes('лояль') || lower.includes('місі')) return 'Працівники приходять у компанію за грошима, а не за лояльністю.';
-  if (lower.includes('математик')) return 'ШІ вже наближається до рівня професійних математиків.';
-  if (lower.includes('falcon 9') || lower.includes('місяц')) return 'Стара ракета Falcon 9 незабаром вріжеться в Місяць.';
-  if (lower.includes('hugging face') || lower.includes('кібербезп')) return 'Hugging Face атакував автономний AI-агент без оператора.';
-  return completeClause(text, 16, 110);
-}
-
-function buildFallbackDetail(text) {
-  const source = String(text || '').trim();
-  const sentences = source.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
-  if (sentences.length > 1) {
-    return sentences.slice(1, 3).join(' ');
-  }
-  if (sentences.length === 1 && sentences[0]) {
-    return sentences[0];
-  }
-  return completeClause(source, 22, 150);
+function fallbackStoryboard(digestText) {
+  const items = parseDigestItemTexts(digestText);
+  log(`Fallback storyboard: parsing ${items.length} digest items into shots.`);
+  return {
+    shots: items.map((item, i) => {
+      const factual = stripSarcasticLeadIn(item) || item;
+      const coreFact = firstSentence(factual);
+      const newsTone = inferNewsToneFromFact(coreFact);
+      const copy = repairShotCopy({
+        shot: i + 1,
+        coreFact,
+        sourceText: factual,
+        headline: coreFact,
+        detailText: '',
+        spokenText: coreFact,
+      });
+      return {
+        ...copy,
+        shot: i + 1,
+        coreFact,
+        sourceText: factual,
+        entities: [],
+        newsTone,
+        visualSubject: coreFact,
+        textPosition: 'upper',
+        prompt: buildGroundedPrompt({
+          visualSubject: coreFact,
+          coreFact,
+          entities: [],
+          newsTone,
+          index: i,
+        }),
+      };
+    }),
+  };
 }
 
 async function generateBackgroundImagesForShots(shots) {
@@ -235,41 +240,6 @@ async function saveGeneratedImage(imageUrl, filepath) {
 }
 
 // ---------------------------------------------------------------------------
-// Digest -> storyboard (AI when available, otherwise direct item parsing)
-// ---------------------------------------------------------------------------
-
-function fallbackStoryboard(digestText) {
-  const items = parseDigestItemTexts(digestText);
-  log(`Fallback storyboard: parsing ${items.length} digest items into shots.`);
-  return {
-    shots: items.map((item, i) => {
-      const factual = stripSarcasticLeadIn(item) || item;
-      const coreFact = firstSentence(factual);
-      const newsTone = inferNewsToneFromFact(coreFact);
-      return {
-        shot: i + 1,
-        coreFact,
-        sourceText: factual,
-        entities: [],
-        newsTone,
-        visualSubject: coreFact,
-        headline: buildFallbackTitle(factual),
-        detailText: buildFallbackDetail(factual),
-        spokenText: buildFallbackHook(factual),
-        textPosition: 'upper',
-        prompt: buildGroundedPrompt({
-          visualSubject: coreFact,
-          coreFact,
-          entities: [],
-          newsTone,
-          index: i,
-        }),
-      };
-    }),
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -321,7 +291,7 @@ async function main() {
       log(`Reusing copy-reviewed storyboard: ${reusePath}`);
       storyboard = readStoryboardFile(reusePath);
       storyboard.shots = (storyboard.shots || []).map((shot) => (
-        assertFinishedReelCopy(ensureUkrainianOnScreenCopy(shot))
+        assertFinishedReelCopy(ensureUkrainianOnScreenCopy(alignSpokenToHeadline(shot)))
       ));
     } else {
       storyboard = await createReviewedStoryboard();

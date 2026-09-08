@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   finishHeadline,
+  headerRowBottom,
   layoutReelOverlayText,
   overlayTextHasEveryWord,
   sanitizeDetailText,
@@ -51,5 +52,20 @@ describe('layoutReelOverlayText', () => {
     });
     expect(overlayTextHasEveryWord(layout.headline, layout.headlineLines)).toBe(true);
     expect(layout.headlineLines.join(' ')).toContain('не випадковий.');
+  });
+
+  it('keeps the headline below the brand/dots and left of the grid', () => {
+    const headline = 'OpenAI зробила стажера, який виконує завдання подібно до кваліфікованого науковця.';
+    const layout = layoutReelOverlayText({
+      headline,
+      detailText: 'Анонс вийшов буквально наступного дня після чергового скандалу.',
+      textPosition: 'upper',
+    });
+    const headerBottom = headerRowBottom();
+    const headlineCapTop = layout.hy - Math.round(layout.headlineFontSize * 0.8);
+    expect(headlineCapTop - headerBottom).toBeGreaterThanOrEqual(72);
+    expect(layout.hy).toBeGreaterThan(headerBottom + 80);
+    const longest = Math.max(...layout.headlineLines.map((line) => line.length));
+    expect(longest).toBeLessThan(headline.length);
   });
 });

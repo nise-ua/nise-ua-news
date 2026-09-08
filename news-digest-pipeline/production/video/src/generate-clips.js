@@ -30,7 +30,7 @@ import { fal } from '@fal-ai/client';
 import { config as dotenvConfig } from 'dotenv';
 import ffmpegStatic from 'ffmpeg-static';
 import { getOverlayThemeColors, UPPER_READABILITY_BAND } from '../../lib/reel-overlay-theme.js';
-import { layoutReelOverlayText } from '../../lib/reel-overlay-text.js';
+import { layoutReelOverlayText, REEL_HEADER_LAYOUT } from '../../lib/reel-overlay-text.js';
 import { log, projectRoot, scriptDir } from '../../lib/logging.js';
 
 const FFMPEG = ffmpegStatic || 'ffmpeg';
@@ -81,7 +81,7 @@ async function fetchImageBuffer(urlOrDataUri) {
  */
 
 function createReelsOverlay(headline, detailText = '', textPosition = 'lower', width = 1080, height = 1920, overlayTheme = 'light') {
-  const margin = 80;
+  const margin = REEL_HEADER_LAYOUT.margin;
   const safeTextPosition = textPosition === 'upper' ? 'upper' : 'lower';
   // Upper reel layout always uses the locked Google-Earth-style dark band + white text.
   const colors = getOverlayThemeColors(safeTextPosition === 'upper' ? 'light' : overlayTheme);
@@ -131,14 +131,14 @@ function createReelsOverlay(headline, detailText = '', textPosition = 'lower', w
   }
 
   // Brand — top LEFT, flushed at the very top of the reel frame (enlarged)
-  svg += `<text x="${margin}" y="${margin + 48}" fill="${colors.brandNiSeFill}" font-family="Arial, sans-serif" font-size="48" font-weight="900">NiSe<tspan fill="${colors.brandNewsFill}">News</tspan></text>`;
+  svg += `<text x="${margin}" y="${margin + REEL_HEADER_LAYOUT.brandFontSize}" fill="${colors.brandNiSeFill}" font-family="Arial, sans-serif" font-size="${REEL_HEADER_LAYOUT.brandFontSize}" font-weight="900">NiSe<tspan fill="${colors.brandNewsFill}">News</tspan></text>`;
 
-  // Dots — top RIGHT, enlarged and spread across the upper band
-  const dotsX = width - margin - 150;
-  const dotsY = margin + 15;
-  for (let row = 0; row < 3; row++) {
-    for (let col = 0; col < 6; col++) {
-      svg += `<circle cx="${dotsX + col * 22}" cy="${dotsY + row * 22}" r="5" fill="${colors.dotsFill}" opacity="${colors.dotsOpacity}" />`;
+  // Dots — top RIGHT, kept above the headline wrap gutter
+  const dotsX = width - margin - REEL_HEADER_LAYOUT.dotsBlockWidth;
+  const dotsY = margin + REEL_HEADER_LAYOUT.dotsOffsetY;
+  for (let row = 0; row < REEL_HEADER_LAYOUT.dotsRows; row++) {
+    for (let col = 0; col < REEL_HEADER_LAYOUT.dotsCols; col++) {
+      svg += `<circle cx="${dotsX + col * REEL_HEADER_LAYOUT.dotsPitch}" cy="${dotsY + row * REEL_HEADER_LAYOUT.dotsPitch}" r="${REEL_HEADER_LAYOUT.dotsRadius}" fill="${colors.dotsFill}" opacity="${colors.dotsOpacity}" />`;
     }
   }
 

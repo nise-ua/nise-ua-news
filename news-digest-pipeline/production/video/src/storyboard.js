@@ -140,7 +140,10 @@ ${VISUAL_GROUNDING_RULES}
     if (grounded.prompt !== shot.prompt) {
       log(`  Shot ${i + 1}: rebuilt prompt from coreFact/entities (sarcasm/abstract rejected)`);
     }
-    const localized = ensureUkrainianOnScreenCopy(grounded);
+    const localized = ensureUkrainianOnScreenCopy({
+      ...grounded,
+      sourceText: shot.sourceText || articles[i]?.text || '',
+    });
     if (localized.detailText !== String(shot.detailText || '').trim()) {
       log(`  Shot ${i + 1}: detailText localized to Ukrainian (was non-UA or empty)`);
     }

@@ -3,6 +3,31 @@
  * on-screen sentences come from slicing wrap output, not from SVG.
  */
 
+/** Shared header geometry for SVG overlay (1080×1920). */
+export const REEL_HEADER_LAYOUT = {
+  margin: 80,
+  brandFontSize: 48,
+  dotsOffsetY: 15,
+  dotsRows: 3,
+  dotsCols: 6,
+  dotsPitch: 22,
+  dotsRadius: 5,
+  dotsBlockWidth: 150,
+  /** Clear air between the brand/dots row and the first headline baseline. */
+  gapAfterHeader: 80,
+  /** Keep wrapped copy left of the dot grid. */
+  rightGutter: 248,
+};
+
+export function headerRowBottom(margin = REEL_HEADER_LAYOUT.margin) {
+  const brandBaseline = margin + REEL_HEADER_LAYOUT.brandFontSize;
+  const dotsBottom = margin
+    + REEL_HEADER_LAYOUT.dotsOffsetY
+    + (REEL_HEADER_LAYOUT.dotsRows - 1) * REEL_HEADER_LAYOUT.dotsPitch
+    + REEL_HEADER_LAYOUT.dotsRadius;
+  return Math.max(brandBaseline, dotsBottom);
+}
+
 export function sanitizeDetailText(text) {
   let s = String(text || '').trim();
   if (!s) return '';
@@ -41,8 +66,8 @@ export function wrapWords(text, maxChars) {
   return lines;
 }
 
-export function charsPerLine(fontSize, frameWidth = 1080, margin = 80, charWidthEm = 0.52) {
-  const usable = Math.max(1, frameWidth - margin * 2);
+export function charsPerLine(fontSize, frameWidth = 1080, margin = 80, charWidthEm = 0.52, rightGutter = margin) {
+  const usable = Math.max(1, frameWidth - margin - rightGutter);
   const size = Math.max(8, Number(fontSize) || 8);
   return Math.max(10, Math.floor(usable / (size * charWidthEm)));
 }
@@ -62,12 +87,12 @@ export function layoutReelOverlayText({
   const cleanHeadline = finishHeadline(headline);
   const cleanDetail = sanitizeDetailText(detailText);
   const upper = textPosition === 'upper';
+  const rightGutter = upper ? REEL_HEADER_LAYOUT.rightGutter : margin;
 
   let headlineFontSize = 56;
   let detailFontSize = 36;
   const minHeadline = 36;
   const minDetail = 24;
-  const brandBottom = margin + 70;
   const solidHeight = Math.round(height * 0.26);
   const fadeHeight = Math.round(height * 0.07);
   const maxBottom = upper
@@ -77,8 +102,8 @@ export function layoutReelOverlayText({
   function tryLayout(hSize, dSize) {
     const headlineLineHeight = Math.round(hSize * 1.25);
     const detailLineHeight = Math.round(dSize * 1.28);
-    const headlineLines = wrapWords(cleanHeadline, charsPerLine(hSize, width, margin));
-    const detailLines = wrapWords(cleanDetail, charsPerLine(dSize, width, margin));
+    const headlineLines = wrapWords(cleanHeadline, charsPerLine(hSize, width, margin, 0.52, rightGutter));
+    const detailLines = wrapWords(cleanDetail, charsPerLine(dSize, width, margin, 0.52, rightGutter));
     const gapBetween = 16;
     const headlineTotalHeight = headlineLines.length
       ? (headlineLines.length - 1) * headlineLineHeight + hSize
@@ -89,7 +114,7 @@ export function layoutReelOverlayText({
 
     let hy;
     if (upper) {
-      hy = Math.max(brandBottom + 28, 188);
+      hy = headerRowBottom(margin) + REEL_HEADER_LAYOUT.gapAfterHeader + Math.round(hSize * 0.8);
     } else {
       const targetBottomY = height - 500;
       const totalBlockHeight = headlineTotalHeight
