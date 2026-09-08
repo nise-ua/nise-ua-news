@@ -389,6 +389,18 @@
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const digests = await res.json();
         if (!Array.isArray(digests)) throw new Error('Invalid digest response');
+        for (const digest of digests) {
+          const job = digest.active_image_job;
+          if (!job || activeImageJobs.has(digest.id)) continue;
+          activeImageJobs.set(digest.id, {
+            jobId: job.id,
+            progress: job.progress,
+            message: job.message,
+            status: job.status || 'running',
+            polling: false,
+            digestId: digest.id,
+          });
+        }
         dashboard.showError('');
         render(digests);
       } catch (err) {
