@@ -84,7 +84,7 @@ describe('groundDigestCover', () => {
     expect(first.prompt).not.toBe(third.prompt);
   });
 
-  it('rebuilds sarcastic visuals into a text-free grounded prompt', () => {
+  it('rebuilds unsafe LLM visuals into a sanitized coreFact prompt', () => {
     const grounded = groundDigestCover({
       articleIndex: 1,
       sourceText: 'Знову революція? OpenAI оновив ChatGPT.',
@@ -103,27 +103,48 @@ describe('groundDigestCover', () => {
     expect(grounded.prompt).toMatch(/ZERO TEXT|no text/i);
     expect(grounded.visualSubject.toLowerCase()).not.toMatch(/chatgpt ui|revolution/);
     expect(grounded.prompt.toLowerCase()).not.toMatch(/dark server aisle|documentary photography/);
-    expect(grounded.prompt.toLowerCase()).not.toMatch(/fiber optic|server rack|data center|network cable/);
-    expect(grounded.prompt).toMatch(/vivid|saturated|punchy|scroll|prism|stage|conference|coffee|presenter/i);
+    expect(grounded.prompt).toMatch(/vivid|saturated|punchy|scroll/i);
+  });
+
+  it('preserves a safe LLM-provided cover scene', () => {
+    const custom = 'Hands placing a passport beside colorful luggage on a bright travel desk';
+    const grounded = groundDigestCover({
+      articleIndex: 2,
+      sourceText: 'Meta Muse books travel.',
+      url: '',
+      coreFact: 'Meta released Muse, a personal AI agent that books travel.',
+      entities: ['Meta', 'Muse'],
+      newsTone: 'positive',
+      visualSubject: custom,
+      prompt: `${custom}. Vivid editorial cover photo.`,
+      pickReason: 'test',
+    });
+    expect(grounded.visualSubject).toMatch(/passport|luggage|travel desk/i);
+    expect(grounded.prompt).toMatch(/passport|luggage|travel desk/i);
   });
 });
 
 describe('selectDigestCover', () => {
-  it('uses the LLM pick when completeJson returns a valid block', async () => {
-    const completeJson = vi.fn().mockResolvedValue(JSON.stringify({
-      articleIndex: 3,
-      coreFact: 'ByteDance is developing a 10-trillion-parameter language model',
-      entities: ['ByteDance'],
-      newsTone: 'neutral',
-      visualSubject: 'Engineers walking past unmarked GPU server racks',
-      pickReason: 'Масштаб моделі.',
-    }));
+  it('uses the LLM pick and visual grounding when completeJson succeeds', async () => {
+    const completeJson = vi.fn()
+      .mockResolvedValueOnce(JSON.stringify({
+        articleIndex: 3,
+        coreFact: 'ByteDance is developing a 10-trillion-parameter language model',
+        entities: ['ByteDance'],
+        newsTone: 'neutral',
+        pickReason: 'Масштаб моделі.',
+      }))
+      .mockResolvedValueOnce(JSON.stringify({
+        visualSubject: 'Researchers reviewing colorful unmarked hardware modules on a bright lab table',
+        prompt: 'Bright editorial photo of researchers beside vivid unmarked hardware modules, no screens or labels.',
+      }));
 
     const cover = await selectDigestCover(SAMPLE_DIGEST, { completeJson, log: () => {} });
-    expect(completeJson).toHaveBeenCalledTimes(1);
+    expect(completeJson).toHaveBeenCalledTimes(2);
     expect(cover.articleIndex).toBe(3);
     expect(cover.sourceText).toContain('ByteDance');
     expect(cover.fallback).toBe(false);
+    expect(cover.visualSubject).toMatch(/researchers|hardware modules/i);
     expect(cover.prompt).toMatch(/ZERO TEXT|no text/i);
   });
 

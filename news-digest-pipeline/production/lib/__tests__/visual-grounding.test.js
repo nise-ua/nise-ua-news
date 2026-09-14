@@ -6,6 +6,7 @@ import {
   buildGroundedPrompt,
   buildSafeVisualSubject,
   containsCyrillic,
+  groundCoverVariant,
   groundVisualVariant,
   groundVisualList,
   inferNewsToneFromFact,
@@ -191,20 +192,21 @@ describe('groundVisualList', () => {
 });
 
 describe('cover visual variety', () => {
-  it('rotates cover fallback scenes by index without datacenter clichés', () => {
+  it('rotates cover atmosphere by index when the LLM subject is kept', () => {
     const base = {
-      visualSubject: 'ChatGPT UI with readable labels',
-      coreFact: 'OpenAI updates ChatGPT to GPT-5.6 Sol with features for better responses.',
+      coreFact: 'OpenAI updates ChatGPT with a reasoning-depth slider',
       entities: ['OpenAI', 'ChatGPT'],
+      newsTone: 'positive',
+      visualSubject: 'Hands adjusting unmarked analog sliders on a colorful hardware control panel with LED indicators only',
+      prompt: 'Bright studio photo of unmarked analog sliders with vivid LED accents, no screens or typography.',
       look: 'cover',
     };
-    const first = buildSafeVisualSubject({ ...base, index: 0 });
-    const second = buildSafeVisualSubject({ ...base, index: 1 });
-    expect(first).not.toBe(second);
-    expect(first).toMatch(/presenter|prism|coffee|conference|prototype/i);
-    expect(first).not.toMatch(/fiber optic|server rack|data center/i);
-    expect(second).toMatch(/presenter|prism|coffee|conference|prototype/i);
-    expect(second).not.toMatch(/fiber optic|server rack|data center/i);
+    const first = groundCoverVariant({ ...base }, 0);
+    const second = groundCoverVariant({ ...base }, 1);
+    expect(first.prompt).not.toBe(second.prompt);
+    expect(first.visualSubject).toBe(second.visualSubject);
+    expect(first.prompt).toMatch(/vivid|saturated|punchy|scroll/i);
+    expect(first.prompt).not.toMatch(/fiber optic|server rack|data center/i);
   });
 
   it('rejects datacenter clichés as custom cover subjects', () => {
@@ -215,19 +217,36 @@ describe('cover visual variety', () => {
     )).toBe(false);
   });
 
-  it('keeps a safe LLM-provided scene when no strong category template applies', () => {
+  it('falls back to sanitized coreFact when the LLM subject is unsafe', () => {
+    const grounded = groundCoverVariant({
+      coreFact: 'Meta released Muse, a personal AI agent that books travel and completes purchases.',
+      entities: ['Meta', 'Muse'],
+      newsTone: 'positive',
+      visualSubject: 'ChatGPT UI screen with readable labels on a laptop',
+      prompt: 'UI dashboard with readable text',
+      look: 'cover',
+    }, 0);
+
+    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/chatgpt|ui|readable labels/);
+    expect(grounded.prompt).toMatch(/ZERO TEXT|no text/i);
+    expect(containsCyrillic(grounded.prompt)).toBe(false);
+  });
+
+  it('keeps a safe LLM-provided scene without keyword templates', () => {
     const custom = 'Hands holding a vivid biodegradable material swatch against a bright studio backdrop';
-    expect(isSafeCustomVisualSubject(custom)).toBe(true);
-    const subject = buildSafeVisualSubject({
+    expect(isSafeCustomVisualSubject(custom, { look: 'cover' })).toBe(true);
+    const grounded = groundCoverVariant({
       visualSubject: custom,
       coreFact: 'A startup unveiled a new biodegradable material for phone cases.',
       entities: ['startup'],
-    });
-    expect(subject).toMatch(/biodegradable material swatch|studio backdrop/i);
-    expect(subject).not.toMatch(/server racks|fiber optic/i);
+      prompt: `${custom}. Editorial magazine still with saturated daylight.`,
+      look: 'cover',
+    }, 0);
+    expect(grounded.visualSubject).toMatch(/biodegradable material swatch|studio backdrop/i);
+    expect(grounded.prompt).not.toMatch(/server racks|fiber optic/i);
   });
 
-  it('maps chip stories to semiconductor visuals', () => {
+  it('maps chip stories to semiconductor visuals for reels only', () => {
     const subject = buildSafeVisualSubject({
       visualSubject: 'NVIDIA H100 die photo with readable markings',
       coreFact: 'TSMC began mass production of a new 2nm chip for AI accelerators.',
@@ -302,9 +321,9 @@ describe('colorful image palettes', () => {
 
   it('cover look forbids gloomy documentary language', () => {
     const prompt = buildGroundedPrompt({
-      visualSubject: 'Sunlit fiber optic light trails',
-      coreFact: 'OpenAI updates ChatGPT with a new response mode.',
-      entities: ['OpenAI'],
+      visualSubject: 'Sunlit travel desk with passport and colorful luggage tags without readable text',
+      coreFact: 'Meta released Muse, a personal AI agent that books travel.',
+      entities: ['Meta', 'Muse'],
       newsTone: 'positive',
       look: 'cover',
     });
@@ -312,23 +331,21 @@ describe('colorful image palettes', () => {
     expect(prompt).toMatch(/vivid|saturated|punchy|scroll/i);
   });
 
-  it('rebuilds Ukrainian cover subjects into English hardware scenes', () => {
+  it('rebuilds unsafe cover LLM output from coreFact instead of keyword templates', () => {
     const grounded = groundVisualVariant({
       articleIndex: 1,
-      coreFact: 'Meta розробила віртуального AI-агента Muse',
-      entities: ['Meta', 'Muse', 'AI-агент'],
+      sourceText: 'Meta викотила Muse — перший особистий AI-агент. Бот живе у віртуальній машині, сам бронює подорожі і закриває покупки.',
+      url: '',
+      coreFact: 'Meta released Muse, a personal AI agent that books travel and completes purchases.',
+      entities: ['Meta', 'Muse', 'AI agent'],
       newsTone: 'positive',
-      visualSubject: 'віртуальна машина, де живе AI-агент Muse, з підсвічуванням підсистем',
+      visualSubject: 'Compact modular computing workstation with colorful LED indicators on a bright studio desk',
       prompt: '',
       look: 'cover',
     }, 0);
 
     expect(containsCyrillic(grounded.prompt)).toBe(false);
-    expect(grounded.prompt).toMatch(/workstation|computer case|robot assistant|cable harness/i);
-    expect(grounded.prompt).not.toMatch(/\bportrait\b|native portrait/i);
-    expect(isSafeCustomVisualSubject(
-      'віртуальна машина, де живе AI-агент Muse, з підсвічуванням підсистем',
-      { look: 'cover' },
-    )).toBe(false);
+    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/compact modular computing|colorful LED indicators/i);
+    expect(grounded.prompt).toMatch(/ZERO TEXT|no text/i);
   });
 });

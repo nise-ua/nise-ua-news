@@ -54,6 +54,10 @@ const VERSION_NUMBER_RE = /\b\d+(?:\.\d+)+\b/g;
 export const GENERIC_IT_CLICHE_RE =
   /\b(fiber optic|server rack|server racks|data center|compute rack|server hall|server room|server blade|server cabinet|network room|telecom closet|patch panel|cable tray|cable bundle|GPU server|blinking LED|network cable|server aisle|cooling manifold|compute module)\b/i;
 
+/** Generic stock cover scenes the visual LLM is told to avoid — not topic routing. */
+const COVER_STOCK_CLICHE_RE =
+  /\b(computing workstation|modular computing|crystal prism|generic ai workstation|presenter on stage|coffee on desk|colorful LED indicators on a bright studio desk)\b/i;
+
 const SAFE_VISUAL_VARIANTS = {
   aiAssistantUpdate: [
     'Sunlit close-up of glowing amber, gold, and cyan fiber optic light trails in a bright glass-walled server hall, warm window light and vivid color bokeh only, no hardware faceplates no ports no stickers no letters no numbers no watermarks',
@@ -120,78 +124,13 @@ const SAFE_VISUAL_VARIANTS = {
   ],
 };
 
-/** Facebook cover fallbacks — editorial scenes, never datacenter cable shots. */
-const COVER_SAFE_VISUAL_VARIANTS = {
-  coverAiAgent: [
-    'Compact modular computing workstation with colorful LED indicators on a bright studio desk, shallow depth of field, no readable screens no logos no watermarks',
-    'Transparent computer case showing organized colorful hardware modules and coolant tubes, vivid studio lighting, no stickers no serial numbers no watermarks',
-    'Small autonomous robot assistant on a sunlit desk beside blank hardware modules, saturated accent lighting, no face screen text no watermarks',
-    'Hands connecting colorful cable harnesses inside an open compact computer chassis, macro editorial photo, no readable labels no watermarks',
-  ],
-  coverAiLaunch: [
-    'Silhouette of a tech presenter on a bright stage with vivid gradient backdrop and bokeh audience lights, no readable screens no logos no watermarks',
-    'Macro of stacked crystal prisms scattering saturated rainbow caustics on a white lab bench, warm daylight, no engravings no watermarks',
-    'Morning coffee beside a blank unmarked laptop on a sunlit wooden desk, shallow depth of field, no readable screen content no watermarks',
-    'Crowd seen from behind watching colorful abstract light projection on a conference wall, no text no logos no watermarks',
-    'Hands assembling a colorful hardware prototype on a bright workbench, vivid studio light, no screen typography no brand marks',
-  ],
-  coverAiDevelopment: [
-    'Researchers in white coats discussing beside blank glass boards in a bright modern lab, vivid accents, no readable writing no watermarks',
-    'Robotic transport cart carrying sealed metal cases through a colorful clean-room corridor, teal and amber light, no labels no screens',
-    'Close-up of polished silicon wafer catching rainbow reflections under bright clean-room lamps, no etched numbers no logos',
-    'Young engineer adjusting colorful analog knobs on a hardware prototype bench, studio lighting, no screen typography no watermarks',
-  ],
-  coverWebLaunch: [
-    'Colorful kite catching wind on a bright ocean beach at golden hour, action editorial photo, no logos no text no watermarks',
-    'Magnifying glass over a vivid paper map spread on a sunlit desk, no place names readable no watermarks',
-    'Vintage compass and blank travel notebook on a bright journal table, warm light, no readable handwriting no watermarks',
-  ],
-  mapFeatureRemoval: SAFE_VISUAL_VARIANTS.mapFeatureRemoval,
-  chipHardware: [
-    'Macro photograph of unmarked silicon wafers catching rainbow reflections under bright clean-room light, saturated color, no etched numbers no logos no watermarks',
-    'Robotic pick-and-place arm hovering over green circuit boards with unmarked components, vivid factory lighting, no readable silkscreen no part numbers no watermarks',
-    'Close-up of a heat sink and copper vapor chamber on a blank motherboard, shallow depth of field, warm daylight, no chip markings no serial text no watermarks',
-  ],
-  robotics: [
-    'Industrial robot arm welding sparks in a bright factory bay, saturated orange sparks against teal shadows, no control screens no labels no watermarks',
-    'Autonomous warehouse robot carrying a blank crate through vivid aisle lighting, motion blur on wheels, no barcode labels no signage no watermarks',
-    'Humanoid robot torso and arms on a test stand in a sunlit robotics lab, colorful accent lighting, no face screen no typography no watermarks',
-  ],
-  security: [
-    'Heavy vault door slightly ajar with warm light spilling out, dramatic teal and amber contrast, no combination dial numbers no engraved text no watermarks',
-    'Stack of blank metal security keys and a padlock on a bright desk, saturated reflections, no key markings no serial numbers no watermarks',
-    'Laser security grid crossing a vivid corridor with a silhouette figure, dramatic color contrast, no readable panels no watermarks',
-  ],
-  space: SAFE_VISUAL_VARIANTS.space,
-  automotive: SAFE_VISUAL_VARIANTS.automotive,
-  regulation: SAFE_VISUAL_VARIANTS.regulation,
-  energy: SAFE_VISUAL_VARIANTS.energy,
-  coverDefault: [
-    'Bright street scene with colorful umbrellas and motion blur, editorial magazine photo, no readable signs no watermarks',
-    'Hands planting a small green seedling in vivid soil against golden-hour light, shallow depth of field, no labels no watermarks',
-    'Modern glass atrium staircase with people silhouettes and saturated sunset through windows, no logos no watermarks',
-    'Close-up of vivid paint tubes and brushes on an artist table, macro editorial style, no text on tubes no watermarks',
-    'Fresh fruit and flowers on a sunlit market stall, saturated color, no price tags no readable signage no watermarks',
-  ],
-};
-
 /** @deprecated Use pickSafeVisualVariant — kept for tests that reference exact strings. */
 export const SAFE_VISUALS = Object.fromEntries(
   Object.entries(SAFE_VISUAL_VARIANTS).map(([key, variants]) => [key, variants[0]]),
 );
 
-const COVER_SAFE_VISUAL_VALUES = new Set(
-  Object.values(COVER_SAFE_VISUAL_VARIANTS).flatMap((variants) => variants),
-);
-
 function pickSafeVisualVariant(category, index = 0) {
   const variants = SAFE_VISUAL_VARIANTS[category] || SAFE_VISUAL_VARIANTS.default;
-  const i = Number.isFinite(index) ? Math.abs(Math.trunc(index)) : 0;
-  return variants[i % variants.length];
-}
-
-function pickCoverSafeVisualVariant(category, index = 0) {
-  const variants = COVER_SAFE_VISUAL_VARIANTS[category] || COVER_SAFE_VISUAL_VARIANTS.coverDefault;
   const i = Number.isFinite(index) ? Math.abs(Math.trunc(index)) : 0;
   return variants[i % variants.length];
 }
@@ -268,7 +207,7 @@ export function isSafeCustomVisualSubject(subject, { look = 'reel' } = {}) {
   if (!raw || raw.length < 20) return false;
   if (containsCyrillic(raw)) return false;
   if (normalizeVisualLook(look) === 'cover' && isGenericItCliche(raw)) return false;
-  if (isKnownSafeVisual(raw) || COVER_SAFE_VISUAL_VALUES.has(raw)) return true;
+  if (isKnownSafeVisual(raw)) return true;
   if (BANNED_RE.test(raw)) return false;
   if (matchesVisualSafetyPattern(UI_VISUAL_RE, raw)) return false;
   if (matchesVisualSafetyPattern(TEXT_PRONE_VISUAL_RE, raw)) return false;
@@ -277,112 +216,71 @@ export function isSafeCustomVisualSubject(subject, { look = 'reel' } = {}) {
   return sanitized.length >= 20;
 }
 
-function buildCoverSafeVisualSubject({ visualSubject, coreFact, entities = [], index = 0 } = {}) {
-  const fact = String(coreFact || '').trim();
-  const rawSubject = String(visualSubject || '').trim();
-  if (COVER_SAFE_VISUAL_VALUES.has(rawSubject)) return rawSubject;
+function stripCoverSafetyInstructions(text) {
+  return String(text || '')
+    .replace(/\b(no|without|never)\s+(readable\s+)?(text|labels?|typography|writing|words|logos?|watermarks?|captions?)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
-  if (isSafeCustomVisualSubject(rawSubject, { look: 'cover' })) {
-    return sanitizeTextForImagePrompt(rawSubject);
+function coverSubjectNeedsFallback(subject, prompt) {
+  const value = stripCoverSafetyInstructions(String(subject || '').trim());
+  const promptValue = stripCoverSafetyInstructions(String(prompt || '').trim());
+  if (!value || containsCyrillic(value) || containsCyrillic(promptValue)) return true;
+  if (promptHasBannedMetaphor(value) || promptHasBannedMetaphor(promptValue)) return true;
+  if (isGenericItCliche(value) || isGenericItCliche(promptValue)) return true;
+  if (COVER_STOCK_CLICHE_RE.test(value) || COVER_STOCK_CLICHE_RE.test(promptValue)) return true;
+  if (matchesVisualSafetyPattern(UI_VISUAL_RE, value) || matchesVisualSafetyPattern(UI_VISUAL_RE, promptValue)) {
+    return true;
+  }
+  if (matchesVisualSafetyPattern(TEXT_PRONE_VISUAL_RE, value)
+    || matchesVisualSafetyPattern(TEXT_PRONE_VISUAL_RE, promptValue)) {
+    return true;
+  }
+  return false;
+}
+
+/** Facebook cover: trust the visual LLM, only sanitize and append atmosphere. */
+export function groundCoverVariant(variant, index = 0) {
+  if (!variant || typeof variant !== 'object') return variant;
+
+  const entities = Array.isArray(variant.entities)
+    ? variant.entities.map((item) => String(item || '').trim()).filter(Boolean)
+    : [];
+  const coreFact = String(variant.coreFact || '').trim();
+  const newsTone = resolveNewsTone({ newsTone: variant.newsTone, coreFact });
+  let visualSubject = String(variant.visualSubject || '').trim();
+  let prompt = String(variant.prompt || '').trim();
+
+  if (coverSubjectNeedsFallback(visualSubject, prompt)) {
+    visualSubject = sanitizeTextForImagePrompt(coreFact || visualSubject);
+    prompt = '';
+  } else {
+    visualSubject = sanitizeTextForImagePrompt(visualSubject);
   }
 
-  const subject = sanitizeTextForImagePrompt(rawSubject);
-  const entityText = (Array.isArray(entities) ? entities : []).join(' ').toLowerCase();
-
-  if (
-    factMatches(/\b(earth|satellite|map overlay|cartograph|geospatial|google earth)\b/i, fact)
-    || (factMatches(/\b(discontinu|removed|shut\s?down|deprecated|killed)\b/i, fact)
-      && factMatches(/\b(earth|satellite|maps?)\b/i, fact))
-    || factMatches(/\b(earth|maps?)\b/i, entityText)
-  ) {
-    return pickCoverSafeVisualVariant('mapFeatureRemoval', index);
+  if (!prompt) {
+    prompt = buildGroundedPrompt({
+      visualSubject,
+      coreFact,
+      entities,
+      newsTone,
+      index,
+      look: 'cover',
+    });
+  } else {
+    prompt = finalizeImagePrompt(prompt, { newsTone, coreFact, index, look: 'cover' });
   }
 
-  if (
-    factMatches(/\b(chip|semiconductor|wafer|gpu|cpu|processor|foundry|tsmc|nvidia|intel|amd)\b/i, fact)
-    || factMatches(/\b(chip|semiconductor|wafer|gpu|cpu|processor)\b/i, entityText)
-  ) {
-    return pickCoverSafeVisualVariant('chipHardware', index);
-  }
-
-  if (
-    factMatches(/\b(robot|robotics|humanoid|drone|autonomous vehicle|self-driving|warehouse bot)\b/i, fact)
-    || factMatches(/\b(robot|robotics|humanoid|drone)\b/i, entityText)
-  ) {
-    return pickCoverSafeVisualVariant('robotics', index);
-  }
-
-  if (
-    factMatches(/\b(breach|hack|ransomware|cyber|security|vulnerability|exploit|malware)\b/i, fact)
-    || factMatches(/\b(security|cyber|breach|hack)\b/i, entityText)
-  ) {
-    return pickCoverSafeVisualVariant('security', index);
-  }
-
-  if (
-    factMatches(/\b(rocket|launch pad|orbit|spacecraft|satellite constellation|nasa|spacex)\b/i, fact)
-    || factMatches(/\b(rocket|orbit|spacecraft|satellite)\b/i, entityText)
-  ) {
-    return pickCoverSafeVisualVariant('space', index);
-  }
-
-  if (
-    factMatches(/\b(electric vehicle|ev\b|charging station|automotive|car maker|tesla|byd)\b/i, fact)
-    || factMatches(/\b(ev|electric vehicle|automotive|charging)\b/i, entityText)
-  ) {
-    return pickCoverSafeVisualVariant('automotive', index);
-  }
-
-  if (
-    factMatches(/\b(lawsuit|regulator|regulation|court|antitrust|fine\b|ban\b|legislation|congress|parliament|eu commission|tariff)\b/i, fact)
-    || factMatches(/\b(regulation|lawsuit|court|antitrust)\b/i, entityText)
-  ) {
-    return pickCoverSafeVisualVariant('regulation', index);
-  }
-
-  if (
-    factMatches(/\b(solar|wind turbine|battery storage|renewable|nuclear plant|power grid|energy)\b/i, fact)
-    || factMatches(/\b(solar|wind|battery|renewable|energy)\b/i, entityText)
-  ) {
-    return pickCoverSafeVisualVariant('energy', index);
-  }
-
-  if (
-    factMatches(/\b(language model|llm|parameters|training model|developing a .* model|bytedance|trillion)\b/i, fact)
-    || factMatches(/\b(llm|language model|bytedance)\b/i, entityText)
-  ) {
-    return pickCoverSafeVisualVariant('coverAiDevelopment', index);
-  }
-
-  if (
-    factMatches(/\b(browser|surf the internet|kitesurf|web agent|cloudflare)\b/i, fact)
-    || factMatches(/\b(browser|kitesurf|cloudflare)\b/i, entityText)
-  ) {
-    return pickCoverSafeVisualVariant('coverWebLaunch', index);
-  }
-
-  if (
-    factMatches(/\b(ai agent|virtual assistant|personal assistant|autonomous agent|virtual machine|digital assistant|muse)\b/i, fact)
-    || factMatches(/\b(агент|віртуальн|асистент|штучн)\b/i, fact)
-    || factMatches(/\b(ai agent|virtual assistant|muse)\b/i, entityText)
-  ) {
-    return pickCoverSafeVisualVariant('coverAiAgent', index);
-  }
-
-  if (
-    factMatches(/\b(chatgpt|gpt|openai|reasoning|adaptiv|direct response|subscription|pricing|tariff)\b/i, fact)
-    || factMatches(/\b(chatgpt|gpt|openai|reasoning)\b/i, entityText)
-  ) {
-    return pickCoverSafeVisualVariant('coverAiLaunch', index);
-  }
-
-  if (!subject || isGenericItCliche(subject)
-    || matchesVisualSafetyPattern(UI_VISUAL_RE, subject)
-    || matchesVisualSafetyPattern(TEXT_PRONE_VISUAL_RE, subject)) {
-    return pickCoverSafeVisualVariant('coverDefault', index);
-  }
-
-  return subject;
+  return {
+    ...variant,
+    coreFact,
+    entities,
+    visualSubject,
+    newsTone,
+    look: 'cover',
+    prompt,
+  };
 }
 
 /** Pick a text-free visual subject from the factual news content. */
@@ -393,10 +291,6 @@ export function buildSafeVisualSubject({
   index = 0,
   look = 'reel',
 } = {}) {
-  if (normalizeVisualLook(look) === 'cover') {
-    return buildCoverSafeVisualSubject({ visualSubject, coreFact, entities, index });
-  }
-
   const fact = String(coreFact || '').trim();
   const rawSubject = String(visualSubject || '').trim();
   if (isKnownSafeVisual(rawSubject)) return rawSubject;
@@ -656,12 +550,16 @@ export function promptHasBannedMetaphor(prompt) {
   return BANNED_RE.test(String(prompt || ''));
 }
 
-export function buildGroundedPrompt({ visualSubject, coreFact, entities = [], newsTone, index = 0, look = 'reel' } = {}) {
+export function buildGroundedPrompt({
+  visualSubject, coreFact, entities = [], newsTone, index = 0, look = 'reel',
+} = {}) {
   const fact = String(coreFact || '').trim();
-  const safeSubject = buildSafeVisualSubject({ visualSubject, coreFact: fact, entities, index, look });
+  const visualLook = normalizeVisualLook(look);
+  const safeSubject = visualLook === 'cover'
+    ? sanitizeTextForImagePrompt(String(visualSubject || fact || '').trim())
+    : buildSafeVisualSubject({ visualSubject, coreFact: fact, entities, index, look: visualLook });
   const factClause = buildImageFactClause(fact);
   const tone = resolveNewsTone({ newsTone, coreFact: fact });
-  const visualLook = normalizeVisualLook(look);
 
   return (
     `${safeSubject}.${factClause} ` +
@@ -707,6 +605,9 @@ const UI_TEXT_RE = UI_VISUAL_RE;
 
 export function groundVisualVariant(variant, index = 0) {
   if (!variant || typeof variant !== 'object') return variant;
+  if (normalizeVisualLook(variant.look) === 'cover') {
+    return groundCoverVariant(variant, index);
+  }
 
   const entities = Array.isArray(variant.entities)
     ? variant.entities.map(e => String(e || '').trim()).filter(Boolean)
@@ -727,18 +628,18 @@ export function groundVisualVariant(variant, index = 0) {
         || subjectLower.includes(key)
         || factLower.includes(key);
     });
-  const safeSubject = buildSafeVisualSubject({ visualSubject, coreFact, entities, index, look });
+  const safeSubject = buildSafeVisualSubject({
+    visualSubject, coreFact, entities, index, look,
+  });
   const sanitizedSubject = sanitizeTextForImagePrompt(visualSubject);
   const coverCliche = look === 'cover' && (
     isGenericItCliche(prompt)
     || isGenericItCliche(visualSubject)
     || isGenericItCliche(safeSubject)
   );
-  const nonEnglishCover = look === 'cover' && (containsCyrillic(prompt) || containsCyrillic(visualSubject));
   const needsRebuild = !prompt
     || promptHasBannedMetaphor(prompt)
     || promptHasBannedMetaphor(visualSubject)
-    || nonEnglishCover
     || coverCliche
     || (!isSemanticallyGrounded && !isSafeCustomVisualSubject(visualSubject, { look }))
     || matchesVisualSafetyPattern(UI_TEXT_RE, prompt)
@@ -750,7 +651,9 @@ export function groundVisualVariant(variant, index = 0) {
     || /abstract (ai |digital )?(vortex|background|swirl|eye)/i.test(prompt);
 
   if (needsRebuild) {
-    prompt = buildGroundedPrompt({ visualSubject: safeSubject, coreFact, entities, newsTone, index, look });
+    prompt = buildGroundedPrompt({
+      visualSubject: safeSubject, coreFact, entities, newsTone, index, look,
+    });
   } else {
     prompt = finalizeImagePrompt(prompt, { newsTone, coreFact, index, look });
   }
