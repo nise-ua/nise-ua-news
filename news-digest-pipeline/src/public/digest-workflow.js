@@ -126,7 +126,7 @@ export function renderDigestCard(digest, context = {}) {
   const progress = [[context.imageJob, 'image'], [context.videoJob, 'video']].filter(([job]) => job).map(([job, type]) => {
     const value = Math.max(0, Math.min(100, Number(job.progress) || 0));
     return `<div class="video-status${job.status === 'failed' ? ' is-failed' : ''}" data-${type}-job="${escapeHtml(job.jobId)}" data-digest-id="${id}">
-      <span class="video-progress-label">${escapeHtml(job.message || 'Підготовка…')} (${value}%)</span>
+      <span class="video-progress-label">${job.status === 'failed' ? '❌ ' : ''}${escapeHtml(job.error || job.message || 'Підготовка…')} (${value}%)</span>
       <span class="video-progress-track"><span class="video-progress-bar" style="width:${value}%"></span></span></div>`;
   }).join('');
   const title = `Дайджест ${digest.date || `#${digest.seq_number || digest.id}`}${digest.part > 1 ? ` · ч.${digest.part}` : ''}`;
@@ -148,7 +148,9 @@ export function renderDigestCard(digest, context = {}) {
         <div class="card-title-row"><h2>${escapeHtml(title)}</h2><span class="workflow-badge stage-${state.stage}">${state.label}</span></div>
         <p class="card-meta">${meta}</p>
         <div class="channel-results" aria-label="Результати публікацій">${publication}</div>
-        <div class="digest-stats" data-digest-stats="${id}"><span class="stat-empty">—</span></div>
+        ${digest.facebook_post_id || digest.facebook_reel_id || digest.postiz_posts
+          ? `<div class="digest-stats" data-digest-stats="${id}"><span class="stat-empty">—</span></div>`
+          : ''}
       </div>
       <div class="card-actions">${state.action === 'articles' ? '<a class="next-action" href="articles.html">Перейти до статей</a>' : button(state.action, state.next, locked, 'next-action')}
         <details class="more-actions" data-id="${id}"><summary aria-label="Інші дії: ${escapeHtml(title)}"><span aria-hidden="true">⋯</span></summary>

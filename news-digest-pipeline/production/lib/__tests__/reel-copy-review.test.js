@@ -4,14 +4,17 @@ import { join } from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ReelCopyReviewError,
+  extractFactualSentences,
   findCopyIssues,
   findLatestStoryboardFile,
+  formatCopyReviewFailure,
   formatCopyReviewTable,
   readStoryboardFile,
   repairShotCopy,
   reviewReelStoryboard,
   writeStoryboardFile,
 } from '../reel-copy-review.js';
+import { looksUnfinishedSentence } from '../reel-ukrainian-copy.js';
 
 const goodShot = {
   shot: 1,
@@ -103,6 +106,20 @@ describe('formatCopyReviewTable', () => {
     expect(table).toMatch(/Shot 1/);
     expect(table).toMatch(/headline \(1w\): Класика\./);
     expect(table).toMatch(/issues:/);
+  });
+});
+
+describe('formatCopyReviewFailure', () => {
+  it('lists only shots that still have issues', () => {
+    const summary = formatCopyReviewFailure({
+      shots: [
+        { ...goodShot, shot: 1, headline: 'Класика.', detailText: '' },
+        goodShot,
+      ],
+    });
+    expect(summary).toMatch(/^Shot 1:/);
+    expect(summary).toMatch(/detailText is missing|stub|out of band/i);
+    expect(summary).not.toMatch(/Shot 2:/);
   });
 });
 
@@ -279,4 +296,51 @@ describe('reviewReelStoryboard', () => {
     expect(completeJson).toHaveBeenCalledTimes(2);
     expect(findCopyIssues(reviewed.shots[0])).toEqual([]);
   });
+
+  it('repairs sarcastic dash-spliced digest items into in-band overlay copy', async () => {
+    const google = "Google нарешті зрозуміла, що найдешевший спосіб прив'язати людей до екосистеми — подарувати студентам рік Google AI Plus. Gemini, хмара на сотні гігабайт, конспекти, картки, тести — усе зібрали в одному хабі, ніби їм раптом стало небайдуже до вашої сесії, а не до retention. Гарна новина, якщо не згадувати, що через 12 місяців картка сама почне списувати гроші за звичку, яку вам акуратно присадили.";
+    const molecule = 'ШІ намалював молекулу, яка нібито відмотує біологічний вік — звучить як трейлер, який закінчиться дрібним шрифтом «результати попередні». Шість «годинників старіння» одразу кивають у потрібному напрямку, Insilico радіє, Nature Biotechnology публікує — красива картинка. А може просто знову продають вічну молодість пачками, поки клінічні тести ще не договорили.';
+    const facts = extractFactualSentences(google);
+    expect(facts.some((line) => /Google/i.test(line) && countWordsSafe(line) <= 11)).toBe(true);
+
+    const reviewed = await reviewReelStoryboard({
+      shots: [
+        {
+          ...goodShot,
+          shot: 1,
+          sourceText: google,
+          coreFact: 'Google is giving students a year of Google AI Plus.',
+          headline: google.split('. ')[0],
+          detailText: '',
+          spokenText: google.split('. ')[0],
+        },
+        {
+          ...goodShot,
+          shot: 2,
+          sourceText: molecule,
+          coreFact: 'AI generated a molecule that appears to reverse biological age.',
+          headline: 'А може просто знову продають вічну молодість пачками.',
+          detailText: 'Клінічні тести ще не договорили сьогодні ввечері.',
+          spokenText: 'А може просто знову продають вічну молодість пачками.',
+        },
+      ],
+    }, {
+      completeJson: async () => {
+        throw new Error('no credits');
+      },
+      log: () => {},
+    });
+
+    expect(findCopyIssues(reviewed.shots[0])).toEqual([]);
+    expect(findCopyIssues(reviewed.shots[1])).toEqual([]);
+    expect(looksUnfinishedSentence(reviewed.shots[0].headline)).toBe(false);
+    expect(reviewed.shots[0].headline).not.toMatch(/,\s+що\s+/i);
+    expect(reviewed.shots[0].detailText.trim()).not.toBe('');
+    expect(reviewed.shots[1].headline).not.toMatch(/^А може/i);
+    expect(reviewed.shots[1].detailText).not.toMatch(/клінічні тести ще не договорили/i);
+  });
 });
+
+function countWordsSafe(text) {
+  return String(text || '').replace(/[.!?…]+$/u, '').split(/\s+/).filter(Boolean).length;
+}

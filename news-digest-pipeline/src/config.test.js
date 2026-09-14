@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { normalizePublishBackend, normalizeReelFrameMode, parseConfigMd, parsePostizChannelIds } from './config.js';
+import { normalizePublishBackend, normalizeReelFrameMode, parseConfigMd, parsePostizChannelIds, resolveLlmModel } from './config.js';
+
+describe('resolveLlmModel', () => {
+  it('prefers LLM_MODEL over the legacy CLAUDE_MODEL alias', () => {
+    expect(resolveLlmModel({ LLM_MODEL: 'composer-2', CLAUDE_MODEL: 'gpt-5.4-mini' })).toBe('composer-2');
+    expect(resolveLlmModel({ CLAUDE_MODEL: 'kimi-k2.6' })).toBe('kimi-k2.6');
+    expect(resolveLlmModel({})).toBe('gpt-5.4-mini');
+  });
+});
 
 describe('normalizeReelFrameMode', () => {
   it('defaults to ai', () => {

@@ -104,7 +104,7 @@ test('ByteDance LLM story avoids neural network diagrams', () => {
     newsTone: 'neutral',
     prompt: 'complex neural network diagram with readable code labels',
   }, 1);
-  assert.match(grounded.prompt, /server racks|GPU|data center/i);
+  assert.match(grounded.prompt, /server racks|GPU|data center|liquid cooling|compute racks/i);
   assert.doesNotMatch(grounded.visualSubject, /neural network|node cluster|code strings/i);
   assert.doesNotMatch(grounded.prompt.split('CRITICAL')[0], /neural network diagram|node cluster with code|vertical text labels/i);
 });

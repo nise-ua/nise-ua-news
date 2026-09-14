@@ -3,6 +3,7 @@
  *
  * API:
  * - log(msg, { console, now }) — `[HH:MM:SS] message` (ISO time slice 11..19)
+ * - reportFatal(err, { console }) — `Fatal:` first line, then the rest of the message
  * - scriptDir(importMetaUrl) — dirname of the calling module
  * - projectRoot(importMetaUrl, up=3) — pipeline root from production/{image,video,audio}/src/
  *   (pass up=2 when calling from production/lib/)
@@ -24,6 +25,19 @@ export const ROOT = join(__dirname, '..', '..');
 export function log(msg, { console: cons = console, now = () => new Date() } = {}) {
   const ts = now().toISOString().slice(11, 19);
   cons.log(`[${ts}] ${msg}`);
+}
+
+/**
+ * Print a CLI failure so parent processes can pick a useful Fatal: line.
+ * Multi-line messages (copy-review tables) keep the summary on line one.
+ */
+export function reportFatal(err, { console: cons = console } = {}) {
+  const raw = String(err?.message || err || 'Unknown error').trim();
+  const lines = raw.split(/\r?\n/).map((line) => line.trimEnd());
+  const head = (lines[0] || 'Unknown error').replace(/^Fatal:\s*/i, '').trim() || 'Unknown error';
+  cons.error(`Fatal: ${head}`);
+  const rest = lines.slice(1).filter((line) => String(line).trim());
+  if (rest.length) cons.error(rest.join('\n'));
 }
 
 /** Directory containing the module identified by import.meta.url. */

@@ -181,8 +181,12 @@ describe('ensureUkrainianOnScreenCopy', () => {
 
 describe('looksUnfinishedSentence', () => {
   it('flags missing objects and dangling last words', () => {
+    expect(looksUnfinishedSentence('Фірма заявила, що оптимальний шлях утримати клієнтів.')).toBe(true);
+    expect(looksUnfinishedSentence('Фірма заявила, що клієнти отримують рік підписки.')).toBe(false);
+    expect(looksUnfinishedSentence('Відкрити доступ студентам на рік безплатно.')).toBe(true);
     expect(looksUnfinishedSentence('Amazon починав з продажу книжок, а тепер ріже.')).toBe(true);
     expect(looksUnfinishedSentence('Claude ледь не дав ще один шанс.')).toBe(true);
+    expect(looksUnfinishedSentence("Google нарешті зрозуміла, що найдешевший спосіб прив'язати людей до екосистеми.")).toBe(true);
     expect(looksUnfinishedSentence('Фінальне рішення залишається за людиною.')).toBe(false);
   });
 });

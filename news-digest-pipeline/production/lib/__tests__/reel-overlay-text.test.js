@@ -3,6 +3,7 @@ import {
   finishHeadline,
   headerRowBottom,
   layoutReelOverlayText,
+  overlayCopyTop,
   overlayTextHasEveryWord,
   sanitizeDetailText,
   wrapWords,
@@ -63,8 +64,10 @@ describe('layoutReelOverlayText', () => {
     });
     const headerBottom = headerRowBottom();
     const headlineCapTop = layout.hy - Math.round(layout.headlineFontSize * 0.8);
-    expect(headlineCapTop - headerBottom).toBeGreaterThanOrEqual(72);
-    expect(layout.hy).toBeGreaterThan(headerBottom + 80);
+    const gap = headlineCapTop - headerBottom;
+    expect(gap).toBeGreaterThanOrEqual(16);
+    expect(gap).toBeLessThanOrEqual(40);
+    expect(headlineCapTop).toBe(overlayCopyTop());
     const longest = Math.max(...layout.headlineLines.map((line) => line.length));
     expect(longest).toBeLessThan(headline.length);
   });

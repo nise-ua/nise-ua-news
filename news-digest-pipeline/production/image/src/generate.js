@@ -59,7 +59,8 @@ function rand(min, max) {
 // --- Step 2: Generate headlines + image prompts via AI (Anthropic, OpenAI or Google) ---
 
 async function generateHeadlinesAndPrompts(digestText) {
-  const vendor = process.env.LLM_VENDOR || (process.env.OPENAI_API_KEY ? 'openai' : (process.env.GOOGLE_API_KEY ? 'google' : 'anthropic'));
+  let vendor = process.env.LLM_VENDOR || (process.env.OPENAI_API_KEY ? 'openai' : (process.env.GOOGLE_API_KEY ? 'google' : 'anthropic'));
+  if (vendor === 'cursor') vendor = process.env.OPENAI_API_KEY ? 'openai' : (process.env.ANTHROPIC_API_KEY ? 'anthropic' : vendor);
   log(`Generating headlines and image prompts via ${vendor}...`);
 
   // First parse articles with URLs
@@ -292,7 +293,8 @@ async function pickBestVariant(variants) {
     return variants[0];
   }
 
-  const vendor = process.env.LLM_VENDOR || (process.env.OPENAI_API_KEY ? 'openai' : (process.env.GOOGLE_API_KEY ? 'google' : 'anthropic'));
+  let vendor = process.env.LLM_VENDOR || (process.env.OPENAI_API_KEY ? 'openai' : (process.env.GOOGLE_API_KEY ? 'google' : 'anthropic'));
+  if (vendor === 'cursor') vendor = process.env.OPENAI_API_KEY ? 'openai' : (process.env.ANTHROPIC_API_KEY ? 'anthropic' : vendor);
   log(`Selecting best variant via ${vendor} Vision for ${variants.length} variants...`);
 
   // Download/load images for vision analysis

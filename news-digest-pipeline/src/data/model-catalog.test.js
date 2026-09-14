@@ -6,6 +6,7 @@ import { MODEL_CATALOG, priceFor } from './model-catalog.js';
      expect(MODEL_CATALOG.anthropic).toHaveLength(7);
      expect(MODEL_CATALOG.openai).toHaveLength(8);
      expect(MODEL_CATALOG.openrouter).toHaveLength(2);
+     expect(MODEL_CATALOG.cursor).toHaveLength(1);
    });
 
   it('every model has id, label and numeric input/output pricing', () => {
@@ -40,6 +41,10 @@ describe('priceFor', () => {
    it('returns base prices for a known OpenRouter DeepSeek model', () => {
      expect(priceFor('deepseek/deepseek-chat')).toEqual({ input: 0.27, output: 1.1 });
      expect(priceFor('deepseek/deepseek-reasoner')).toEqual({ input: 0.55, output: 2.19 });
+   });
+
+   it('returns base prices for Composer 2 (Cursor Cloud Agents)', () => {
+     expect(priceFor('composer-2.5')).toEqual({ input: 0.5, output: 2.5 });
    });
 
   it('returns null for an unknown model', () => {

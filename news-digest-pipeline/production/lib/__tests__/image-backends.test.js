@@ -10,7 +10,9 @@ import {
   imageSizeForModel,
   isHardImageQuotaError,
   isRetryableImageError,
+  isTransientNetworkError,
   openRouterImageRequestBody,
+  resolveCoverImageFallbackVendors,
   resolveCoverImageVendor,
   resolveImageModel,
   resolveImageVendor,
@@ -137,6 +139,20 @@ describe('resolveCoverImageVendor', () => {
   });
 });
 
+describe('resolveCoverImageFallbackVendors', () => {
+  it('returns openrouter and openai fallbacks but skips the primary vendor', () => {
+    expect(resolveCoverImageFallbackVendors('cloudflare', {
+      OPENROUTER_API_KEY: 'or-key',
+      OPENAI_API_KEY: 'oa-key',
+      FAL_KEY: '',
+    })).toEqual(['openrouter', 'openai']);
+  });
+
+  it('returns an empty list when no alternate keys are configured', () => {
+    expect(resolveCoverImageFallbackVendors('cloudflare', {})).toEqual([]);
+  });
+});
+
 describe('fireflyImageSize', () => {
   it('returns Firefly portrait sizes for cover and reel aspects', () => {
     expect(fireflyImageSize('4:5')).toEqual({ width: 1792, height: 2304 });
@@ -153,6 +169,17 @@ describe('isRetryableImageError', () => {
     expect(isRetryableImageError(new Error('temporarily unavailable'))).toBe(true);
     expect(isRetryableImageError(new Error('please try again later'))).toBe(true);
     expect(isRetryableImageError(new Error('invalid prompt'))).toBe(false);
+  });
+
+  it('retries transient network failures', () => {
+    expect(isTransientNetworkError(new Error('fetch failed'))).toBe(true);
+    expect(isTransientNetworkError(Object.assign(new Error('fetch failed'), {
+      cause: { code: 'ECONNRESET' },
+    }))).toBe(true);
+    expect(isRetryableImageError(new Error('fetch failed'))).toBe(true);
+    expect(isRetryableImageError(Object.assign(new Error('fetch failed'), {
+      cause: { code: 'ECONNREFUSED' },
+    }))).toBe(true);
   });
 
   it('does not retry billing or spend-cap failures', () => {
@@ -360,7 +387,7 @@ describe('generateImage', () => {
     expect(options.headers.Authorization).toBe('Bearer cf-token');
     const body = JSON.parse(options.body);
     expect(body.prompt).toContain('news cover prompt');
-    expect(body.prompt).toMatch(/Portrait 4:5/i);
+    expect(body.prompt).toMatch(/Vertical 4:5 aspect ratio/i);
     expect(body.steps).toBe(4);
     expect(body.width).toBeUndefined();
     expect(body.height).toBeUndefined();

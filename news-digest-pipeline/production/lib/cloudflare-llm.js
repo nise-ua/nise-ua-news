@@ -1,4 +1,5 @@
-import { hasCloudflareImageCredentials } from './image-backends.js';
+import './prefer-ipv4.js';
+import { formatServiceFetchError, hasCloudflareImageCredentials } from './image-backends.js';
 
 export const DEFAULT_CLOUDFLARE_LLM_MODEL = '@cf/meta/llama-3.1-8b-instruct';
 
@@ -46,14 +47,21 @@ function cloudflareError(payload, status) {
 }
 
 async function postCloudflare(fetchFn, url, token, body) {
-  const res = await fetchFn(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+  let res;
+  try {
+    res = await fetchFn(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    const wrapped = new Error(formatServiceFetchError(err, 'Cloudflare LLM'));
+    wrapped.cause = err?.cause || err;
+    throw wrapped;
+  }
   const payload = await res.json().catch(() => ({}));
   return { res, payload };
 }

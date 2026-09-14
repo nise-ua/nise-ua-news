@@ -9,6 +9,7 @@ import {
   normalizeAnalytics,
   postizPostsForDigest,
   publishPostizDigest,
+  resolvePostizEntriesForDigest,
 } from '../services/publishers/postiz.js';
 import { resolveLatestMatchingFeedPost } from '../services/publishers/facebook-page-match.js';
 import { verifyPublishedFacebookPost } from '../services/publishers/facebook-visibility.js';
@@ -105,9 +106,15 @@ router.get('/digests/:id/stats', async (req, res) => {
     const digest = getDigest(req.params.id);
     if (!digest) return res.status(404).json({ error: 'Digest not found' });
     const days = Math.min(90, Math.max(1, Number(req.query.days) || 7));
-    const entries = Object.entries(postizPostsForDigest(digest)).flatMap(([kind, posts]) =>
-      (Array.isArray(posts) ? posts : []).map((post) => ({ ...post, kind })),
-    ).filter((post) => post.postId);
+    const client = await getClient();
+    const { entries, backfill } = await resolvePostizEntriesForDigest(digest, client);
+    if (backfill) {
+      let merged = postizPostsForDigest(digest);
+      for (const [kind, posts] of Object.entries(backfill)) {
+        merged = mergePostizPosts({ postiz_posts: merged }, kind, posts);
+      }
+      updateDigest(digest.id, { postiz_posts: JSON.stringify(merged) });
+    }
     const now = Date.now();
     const channels = [];
     for (const post of entries) {
@@ -117,14 +124,25 @@ router.get('/digests/:id/stats', async (req, res) => {
         if (post.releaseURL === 'missing') {
           metrics = { unavailable: true, metrics: [] };
         } else {
-          metrics = { unavailable: false, metrics: normalizeAnalytics(await (await getClient()).postAnalytics(post.postId, days)) };
+          const raw = await client.postAnalytics(post.postId, days);
+          metrics = {
+            unavailable: Boolean(raw && typeof raw === 'object' && !Array.isArray(raw) && raw.missing === true),
+            metrics: normalizeAnalytics(raw),
+          };
         }
         statsCache.set(key, { ...metrics, cachedAt: now });
       }
       channels.push({ integrationId: post.integrationId, kind: post.kind, postId: post.postId, releaseURL: post.releaseURL, ...metrics });
     }
     const series = aggregatePostizAnalytics(channels, ['text', 'story']);
-    res.json({ digestId: digest.id, days, series, channels });
+    res.json({
+      digestId: digest.id,
+      days,
+      series,
+      channels,
+      linked: entries.length > 0,
+      linkable: Boolean(digest.facebook_post_id || digest.facebook_reel_id || digest.facebook_story_id || digest.postiz_posts),
+    });
   } catch (err) {
     console.error('[postiz] stats error:', err);
     res.status(502).json({ error: err.message });

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { readFileSync, writeFileSync, renameSync, existsSync } from 'fs';
 import { randomBytes } from 'crypto';
-import config, { paths, reloadConfig } from '../config.js';
+import config, { paths, reloadConfig, LLM_VENDORS } from '../config.js';
 import { MODEL_CATALOG } from '../data/model-catalog.js';
 
 const router = Router();
@@ -11,7 +11,7 @@ const MAX_TEXT_BYTES = 100 * 1024; // ~100KB per text field
     // .env keys that this API is allowed to write. Everything else is preserved
     // untouched. Secrets are deliberately NOT in this list.
      const ENV_WRITABLE = {
-       claudeModel: 'CLAUDE_MODEL',
+       llmModel: 'LLM_MODEL',
        llmVendor: 'LLM_VENDOR',
        anthropicBaseUrl: 'ANTHROPIC_BASE_URL',
        openaiBaseUrl: 'OPENAI_BASE_URL',
@@ -25,7 +25,6 @@ const MAX_TEXT_BYTES = 100 * 1024; // ~100KB per text field
        reelFrameMode: 'REEL_FRAME_MODE',
      };
   
-     const LLM_VENDORS = ['anthropic', 'openai', 'openrouter', 'moonshot'];
      const REEL_FRAME_MODES = ['ai', 'html'];
 
 // Suggested model ids per vendor come from the shared catalog
@@ -67,9 +66,8 @@ function buildSettingsPayload() {
   return {
     general: {
       llmVendor: { value: config.llmVendor, editable: true },
-      model: { value: config.claudeModel, editable: true },
-      // kept for backwards compatibility; UI uses `model`
-      claudeModel: { value: config.claudeModel, editable: true },
+      llmModel: { value: config.llmModel, editable: true },
+      model: { value: config.llmModel, editable: true },
       anthropicBaseUrl: {
         value: config.anthropicBaseUrl,
         editable: true,
@@ -145,6 +143,7 @@ function buildSettingsPayload() {
        openaiApiKey: maskSecret(config.openaiApiKey),
         openrouterApiKey: maskSecret(config.openrouterApiKey),
         moonshotApiKey: maskSecret(config.moonshotApiKey),
+        cursorApiKey: maskSecret(config.cursorApiKey),
         falKey: maskSecret(config.falKey),
       // Planned integrations — pipelines not implemented yet, status only.
       // Secrets are not editable via API (only via .env), like all other secrets.
@@ -212,6 +211,10 @@ function updateEnvFile(updates) {
         remaining.delete(key);
         return `${m[1]}${key}=${updates[key]}`;
       }
+      if (key === 'CLAUDE_MODEL' && remaining.has('LLM_MODEL')) {
+        remaining.delete('LLM_MODEL');
+        return `${m[1]}LLM_MODEL=${updates.LLM_MODEL}`;
+      }
     }
     return line;
   });
@@ -243,21 +246,21 @@ function validatePatch(body) {
   const files = []; // [{ path, contents }]
 
   // --- .env scalar fields ---
-  // Model id: accept both `model` and `claudeModel` as aliases (UI sends the
-  // selected/custom id). Both write to CLAUDE_MODEL.
-  const modelValue = body.model !== undefined ? body.model
+  // Model id: `llmModel` (preferred), plus `model` / `claudeModel` aliases.
+  const modelValue = body.llmModel !== undefined ? body.llmModel
+    : body.model !== undefined ? body.model
     : body.claudeModel !== undefined ? body.claudeModel
     : undefined;
   if (modelValue !== undefined) {
     const v = modelValue;
     if (typeof v !== 'string' || v.trim().length === 0) {
-      errors.push('claudeModel: має бути непорожнім рядком');
+      errors.push('llmModel: має бути непорожнім рядком');
     } else if (v.length > 200) {
-      errors.push('claudeModel: занадто довгий рядок (макс. 200 символів)');
+      errors.push('llmModel: занадто довгий рядок (макс. 200 символів)');
     } else if (/[\n\r]/.test(v)) {
-      errors.push('claudeModel: не повинна містити переносів рядків');
+      errors.push('llmModel: не повинна містити переносів рядків');
     } else {
-      env[ENV_WRITABLE.claudeModel] = v.trim();
+      env[ENV_WRITABLE.llmModel] = v.trim();
     }
   }
 

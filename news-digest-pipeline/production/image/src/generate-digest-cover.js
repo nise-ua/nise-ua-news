@@ -32,12 +32,12 @@ import {
 import {
   generateImage,
   generateImageWithRetry,
+  resolveCoverImageFallbackVendors,
   resolveCoverImageVendor,
-  resolveImageVendor,
   safeLogUrl,
 } from '../../lib/image-backends.js';
 import { completeCloudflareJsonText, shouldPreferCloudflareLlm } from '../../lib/cloudflare-llm.js';
-import { log, projectRoot, scriptDir } from '../../lib/logging.js';
+import { log, projectRoot, reportFatal, scriptDir } from '../../lib/logging.js';
 
 const __dirname = scriptDir(import.meta.url);
 const ROOT = projectRoot(import.meta.url);
@@ -150,6 +150,9 @@ async function persistCoverUrl(digestId, publicUrl) {
 
 async function generateCoverImage(prompt, vendor, imageDeps) {
   const withRetry = vendor === 'openrouter' || vendor === 'firefly' || vendor === 'cloudflare';
+  const maxRetries = vendor === 'cloudflare'
+    ? Math.max(3, Number(process.env.COVER_IMAGE_MAX_RETRIES || process.env.IMAGE_MAX_RETRIES || 5))
+    : Math.max(0, Number(process.env.IMAGE_MAX_RETRIES || 3));
   const run = () => generateImage(prompt, {
     ...imageDeps,
     vendor,
@@ -158,7 +161,7 @@ async function generateCoverImage(prompt, vendor, imageDeps) {
       : {}),
   });
   if (withRetry) {
-    return generateImageWithRetry(run, { log: imageDeps.log, label: 'Cover' });
+    return generateImageWithRetry(run, { log: imageDeps.log, label: 'Cover', maxRetries });
   }
   return run();
 }
@@ -179,8 +182,11 @@ async function main() {
   log(`  Subject: ${(cover.visualSubject || '').slice(0, 120)}`);
 
   const vendor = resolveCoverImageVendor();
-  const fallbackVendor = resolveImageVendor();
-  log(`Generating text-free ${COVER_ASPECT} cover via ${vendor} (primary)...`);
+  const allowFallback = String(process.env.COVER_IMAGE_ALLOW_FALLBACK || '').trim() === '1';
+  const vendorChain = allowFallback
+    ? [vendor, ...resolveCoverImageFallbackVendors(vendor)]
+    : [vendor];
+  log(`Generating text-free ${COVER_ASPECT} cover via ${vendorChain.join(' → ')}...`);
 
   const imageDeps = {
     aspect: COVER_ASPECT,
@@ -217,14 +223,24 @@ async function main() {
 
   let imageUrl;
   let usedVendor = vendor;
-  try {
-    imageUrl = await generateCoverImage(cover.prompt, vendor, imageDeps);
-  } catch (err) {
-    if (!fallbackVendor || fallbackVendor === vendor) throw err;
-    log(`Cover ${vendor} failed (${err.message}); falling back to ${fallbackVendor}...`);
-    usedVendor = fallbackVendor;
-    imageUrl = await generateCoverImage(cover.prompt, fallbackVendor, imageDeps);
+  let lastError;
+  for (const currentVendor of vendorChain) {
+    try {
+      imageUrl = await generateCoverImage(cover.prompt, currentVendor, imageDeps);
+      usedVendor = currentVendor;
+      if (currentVendor !== vendor) {
+        log(`Cover OK via fallback vendor ${currentVendor}`);
+      }
+      break;
+    } catch (err) {
+      lastError = err;
+      const nextVendor = vendorChain[vendorChain.indexOf(currentVendor) + 1];
+      if (nextVendor) {
+        log(`Cover ${currentVendor} failed (${err.message}); trying ${nextVendor}...`);
+      }
+    }
   }
+  if (!imageUrl && lastError) throw lastError;
 
   if (!imageUrl) {
     throw new Error('Cover image generation returned no payload');
@@ -258,6 +274,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(`Fatal: ${err.message}`);
+  reportFatal(err);
   process.exit(1);
 });

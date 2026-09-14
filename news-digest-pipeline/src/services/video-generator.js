@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto';
 import { updateDigest } from '../db/index.js';
 import { digestVideoUpdateFields } from '../db/digest-video-fields.js';
 import config, { normalizeReelFrameMode } from '../config.js';
+import { summarizeCliFailure } from './cli-failure.js';
 
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -171,8 +172,8 @@ export function startVideoGeneration(digestId, { format = 'facebook' } = {}) {
   child.on('error', (error) => finishVideoJob(job, error));
   child.on('close', (code) => {
     if (code !== 0) {
-      const detail = stderr.trim().split(/\r?\n/).filter(Boolean).at(-1) || stdout.trim().split(/\r?\n/).filter(Boolean).at(-1);
-      finishVideoJob(job, new Error(detail || `Відеопайплайн завершився з кодом ${code}`));
+      const detail = summarizeCliFailure(stderr, stdout, `Відеопайплайн завершився з кодом ${code}`);
+      finishVideoJob(job, new Error(detail));
       return;
     }
     // Try to extract the explicit path printed by the script.
@@ -205,8 +206,14 @@ export function startVideoGeneration(digestId, { format = 'facebook' } = {}) {
 }
 
 function finishVideoJob(job, error) {
-  console.error(`[video-generator] ${job.digestId}:`, error);
-  updateJob(job, { status: 'failed', stage: 'failed', message: 'Створення відео завершилося з помилкою', error: error.message });
+  const detail = String(error?.message || error || 'Невідома помилка').trim();
+  console.error(`[video-generator] ${job.digestId}:`, detail);
+  updateJob(job, {
+    status: 'failed',
+    stage: 'failed',
+    message: detail,
+    error: detail,
+  });
   scheduleJobCleanup(job.id);
 }
 
@@ -226,10 +233,11 @@ export async function generateVideoForDigest(digestId, { format = 'facebook' } =
     let stderr = '';
     child.stdout.on('data', chunk => { stdout += chunk.toString(); });
     child.stderr.on('data', chunk => { stderr += chunk.toString(); });
+    child.on('error', (error) => reject(error));
     child.on('close', code => {
-      const error = code === 0 ? null : new Error(stderr.trim() || `Video generation failed (${code})`);
-      if (error) {
-        console.error('[video-generator] exec error:', error);
+      if (code !== 0) {
+        const error = new Error(summarizeCliFailure(stderr, stdout, `Video generation failed (${code})`));
+        console.error('[video-generator] exec error:', error.message);
         return reject(error);
       }
       // Extract the final path from stdout (line containing '.mp4')

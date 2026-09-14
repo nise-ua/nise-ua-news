@@ -41,6 +41,7 @@ secrets/
 # --- IDE / workspace configs ---
 News.code-workspace
 news-digest-pipeline/News.code-workspace
+.cursor/*.log
 
 # --- Operational / runtime artifacts ---
 dockerd-fix-prompt.txt

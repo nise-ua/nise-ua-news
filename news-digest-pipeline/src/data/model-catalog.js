@@ -42,6 +42,9 @@ export const MODEL_CATALOG = {
     { id: 'kimi-k3', label: 'Kimi K3', pricing: { input: 2.0, output: 8.0 } },
     { id: 'kimi-k2.7-code-highspeed', label: 'Kimi K2.7 Code Highspeed', pricing: { input: 1.0, output: 4.0 } },
   ],
+  cursor: [
+    { id: 'composer-2.5', label: 'Composer 2.5', pricing: { input: 0.5, output: 2.5 } },
+  ],
 };
 
 /**

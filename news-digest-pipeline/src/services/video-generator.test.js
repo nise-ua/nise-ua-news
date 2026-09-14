@@ -167,6 +167,32 @@ describe('startVideoGeneration', () => {
     expect(updateDigestMock).not.toHaveBeenCalled();
   });
 
+  it('surfaces copy-review shot issues instead of the last issues: none line', async () => {
+    const child = mockChild();
+    spawnMock.mockReturnValue(child);
+
+    const job = startVideoGeneration('digest-copy-fail');
+    child.stderr.emit('data', Buffer.from(`Fatal: Reel copy review could not finish in-band copy. Shot 1: detailText is missing
+Final copy for review:
+  Shot 1
+    headline (6w): Найдешевший спосіб прив'язати людей до екосистеми.
+    issues: detailText is missing
+  Shot 2
+    headline (9w): GPT-6 Astra за добу пройшла Portal.
+    issues: none
+`));
+    child.emit('close', 1);
+
+    await vi.waitFor(() => {
+      expect(getVideoJob(job.id)?.status).toBe('failed');
+    });
+
+    const finished = getVideoJob(job.id);
+    expect(finished.error).not.toMatch(/issues:\s*none/i);
+    expect(finished.error).toMatch(/detailText is missing/);
+    expect(finished.message).toMatch(/detailText is missing/);
+  });
+
   it('reuses an active running job instead of spawning again', () => {
     const child = mockChild();
     spawnMock.mockReturnValue(child);

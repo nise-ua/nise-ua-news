@@ -43,6 +43,16 @@ function readFileOrWarn(filePath, label) {
 
 export const REEL_FRAME_MODES = ['ai', 'html'];
 export const PUBLISH_BACKENDS = ['legacy', 'postiz'];
+export const LLM_VENDORS = ['anthropic', 'openai', 'openrouter', 'moonshot', 'cursor'];
+
+/** Resolve the digest LLM id from LLM_MODEL, with CLAUDE_MODEL as a legacy alias. */
+export function resolveLlmModel(env = process.env) {
+  const fromNew = String(env.LLM_MODEL || '').trim();
+  if (fromNew) return fromNew;
+  const fromLegacy = String(env.CLAUDE_MODEL || '').trim();
+  if (fromLegacy) return fromLegacy;
+  return 'gpt-5.4-mini';
+}
 
 /** Normalize REEL_FRAME_MODE to 'ai' | 'html' (default ai). */
 export function normalizeReelFrameMode(value) {
@@ -127,11 +137,10 @@ function buildConfig() {
     port: parseInt(process.env.PORT || '3000', 10),
     anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
     falKey: process.env.FAL_KEY || '',
-    claudeModel: process.env.CLAUDE_MODEL || 'gpt-5.4-mini',
+    llmModel: resolveLlmModel(),
 
-    // LLM vendor selection. claudeModel above is the active model id, shared by
-    // both vendors (it just holds whatever model id the user picked).
-    llmVendor: process.env.LLM_VENDOR || 'openai', // 'anthropic' | 'openai' | 'openrouter' | 'moonshot'
+    // LLM vendor selection. llmModel above is the active model id for every vendor.
+    llmVendor: process.env.LLM_VENDOR || 'openai', // 'anthropic' | 'openai' | 'openrouter' | 'moonshot' | 'cursor'
     anthropicBaseUrl: process.env.ANTHROPIC_BASE_URL || '',
     openaiBaseUrl: process.env.OPENAI_BASE_URL || '',
     openaiApiKey: process.env.OPENAI_API_KEY || '', // secret
@@ -139,6 +148,7 @@ function buildConfig() {
     openrouterApiKey: process.env.OPENROUTER_API_KEY || '', // secret
     moonshotBaseUrl: process.env.MOONSHOT_BASE_URL || '',
     moonshotApiKey: process.env.MOONSHOT_API_KEY || '', // secret
+    cursorApiKey: process.env.CURSOR_API_KEY || '', // secret — Cloud Agents for digest text
     geminiApiKey: process.env.GEMINI_API_KEY || '', // secret (planned integrations)
   // Use an absolute path for the SQLite DB to avoid cwd issues when the server is started from a subdirectory.
   dbPath: process.env.DB_PATH || join(__dirname, '..', 'data', 'news-digest.db'),

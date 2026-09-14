@@ -32,7 +32,7 @@ export class ReelCopyReviewError extends Error {
 
 const STUB_HEADLINE_RE = /^(класика|історія|революція|цікаво|ага|ну що|оце так)[.!?…]*$/iu;
 const SARCASTIC_LEAD_IN_RE = /^(знову\s+революція|оце так історія|ну що,|ага,)/iu;
-const COMMENTARY_OPENER_RE = /^(нарешті|іронія|звучить|класика|цікава математика|випадковість|прогрес|хоча чесно|отаке|згадуєте|начебто|не стільки|поки не згадаєш)/iu;
+const COMMENTARY_OPENER_RE = /^(нарешті|іронія|звучить|класика|цікава математика|випадковість|прогрес|хоча чесно|отаке|згадуєте|начебто|не стільки|поки не згадаєш|а може|гарн(?:а|о) новина)/iu;
 const DETACHED_CLAUSE_RE = /^(того,?\s+хто|тієї,?\s+хто|тільки тепер воно|але тепер це подається|не дослідника|не вченого)/iu;
 const FACT_VERB_RE = /(зроби|запуск|знайш|влаштув|перезапуск|знає|пиш|випуст|зламал|плат|оцін|перевір|дав|працю|думає|викону|сидить|може|шука|вийш|підкид)/iu;
 const STOPWORDS = new Set([
@@ -167,7 +167,7 @@ export function looksLikeNameDump(text) {
   if (latinNames.length < 2) return false;
   if (FACT_VERB_RE.test(source)) return false;
   const words = source.replace(/[.!?…]+$/u, '').split(/\s+/).filter(Boolean);
-  return !words.some((word) => /[а-яіїєґ]{3,}(ла|ли|ло|в|є|ає|ує|ить|ився|лася)$/iu.test(word));
+  return !words.some((word) => /[а-яіїєґ]{3,}(ла|ли|ло|в|є|ає|ує|ить|ився|лася|ти|тися)$/iu.test(word));
 }
 
 function contentTokens(text) {
@@ -226,16 +226,43 @@ function splitLongFact(sentence) {
   return [...new Set(chunks.filter((chunk) => chunk && !looksUnfinishedSentence(chunk)))];
 }
 
+function latinNamesFrom(text) {
+  return String(text || '').match(/\b[A-Z][A-Za-z0-9.+-]{2,}\b/g) || [];
+}
+
+function finiteFromInfinitive(verb) {
+  const v = String(verb || '').toLocaleLowerCase('uk-UA');
+  if (/увати$/u.test(v)) return v.replace(/увати$/u, 'ує');
+  if (/ювати$/u.test(v)) return v.replace(/ювати$/u, 'ює');
+  if (/вати$/u.test(v)) return v.replace(/вати$/u, 'є');
+  if (/ити$/u.test(v)) return v.replace(/ити$/u, 'ить');
+  if (/іти$/u.test(v)) return v.replace(/іти$/u, 'іть');
+  if (/ати$/u.test(v)) return v.replace(/ати$/u, 'ає');
+  if (/яти$/u.test(v)) return v.replace(/яти$/u, 'яє');
+  if (/ти$/u.test(v)) return v.replace(/ти$/u, 'є');
+  return '';
+}
+
+/** Turn a same-sentence infinitive clause into a finite line using names already in the source. */
+function promoteInfinitiveClause(bit, source) {
+  const stripped = String(bit || '').trim().replace(/[.!?…]+$/u, '');
+  const match = stripped.match(/^(\p{L}+['’]?\p{L}*ти)\s+(.+)$/u);
+  if (!match) return '';
+  const name = latinNamesFrom(source).find((item) => item.length >= 3);
+  if (!name) return '';
+  const finite = finiteFromInfinitive(match[1]);
+  if (!finite) return '';
+  return finishLine(`${name} ${finite} ${match[2]}`);
+}
+
 export function extractFactualSentences(text) {
   const source = stripSarcasticLeadIn(text);
   const parts = String(source || '').split(/(?<=[.!?])\s+/).map((part) => part.trim()).filter(Boolean);
   const unique = [];
   const seen = new Set();
   for (const part of parts) {
-    const finished = finishLine(part);
-    if (!finished) continue;
-    if (looksLikeCommentary(finished) || looksDetachedClause(finished) || looksLikeNameDump(finished)) continue;
-    if (splicesTwoThoughts(finished)) {
+    const isDash = splicesTwoThoughts(part) || /\s+[—–-]\s+/.test(part);
+    if (isDash) {
       const bits = String(part).split(/\s+[—–-]\s+/).map((bit) => bit.trim()).filter(Boolean);
       if (bits.length === 2) {
         const joined = finishLine(`${bits[0].replace(/[.!?…]+$/u, '')} і ${bits[1]}`);
@@ -251,8 +278,23 @@ export function extractFactualSentences(text) {
           unique.push(joined);
         }
       }
+      for (const bit of bits) {
+        const piece = promoteInfinitiveClause(bit, part) || finishLine(bit);
+        if (!piece || splicesTwoThoughts(piece) || seen.has(piece)) continue;
+        if (looksLikeCommentary(piece) || looksDetachedClause(piece) || looksLikeNameDump(piece)) continue;
+        const pieces = countWords(piece) > DETAIL_WORD_MAX ? splitLongFact(piece) : [piece];
+        for (const split of pieces) {
+          if (!split || splicesTwoThoughts(split) || seen.has(split)) continue;
+          if (looksLikeCommentary(split) || looksDetachedClause(split) || looksLikeNameDump(split)) continue;
+          seen.add(split);
+          unique.push(split);
+        }
+      }
       continue;
     }
+    const finished = finishLine(part);
+    if (!finished) continue;
+    if (looksLikeCommentary(finished) || looksDetachedClause(finished) || looksLikeNameDump(finished)) continue;
     const pieces = countWords(finished) > DETAIL_WORD_MAX ? splitLongFact(finished) : [finished];
     for (const piece of pieces) {
       if (!piece || splicesTwoThoughts(piece) || seen.has(piece)) continue;
@@ -374,9 +416,87 @@ function finishLine(text) {
 
 function explodeCopyPieces(text) {
   return String(text || '')
-    .split(/(?<=[.!?])\s+/)
+    .split(/(?<=[.!?])\s+|\s+[—–-]\s+/)
     .map((part) => part.trim())
     .filter(Boolean);
+}
+
+function tokenOverlap(a, b) {
+  const left = new Set(contentTokens(a).map((word) => word.slice(0, 4)));
+  const right = new Set(contentTokens(b).map((word) => word.slice(0, 4)));
+  let hit = 0;
+  for (const token of left) {
+    if (right.has(token)) hit += 1;
+  }
+  return hit;
+}
+
+function pickBand(units, min, max, exclude = new Set()) {
+  const scored = units.filter((unit) => (
+    !exclude.has(unit)
+    && !splicesTwoThoughts(unit)
+    && !looksLikeCommentary(unit)
+    && !looksUnfinishedSentence(unit)
+  ));
+  const inBand = scored.filter((unit) => {
+    const words = countWords(unit);
+    return words >= min && words <= max;
+  });
+  return inBand[0] || '';
+}
+
+/**
+ * Deterministic in-band rewrite when the LLM critic is unavailable or stuck.
+ * Does not change visual fields. Uses whole factual sentences only.
+ */
+export function repairShotCopy(shot = {}) {
+  const units = copyUnitsFrom(shot);
+  const lead = factAnchor(shot);
+  const leadUnits = lead
+    ? units.filter((unit) => copyTooSimilar(unit, lead) || tokenOverlap(unit, lead) >= 2)
+    : [];
+  const names = namedAnchors(shot, `${lead} ${shot.sourceText || ''}`);
+  const namedUnits = units.filter((unit) => {
+    const lower = String(unit).toLowerCase();
+    return names.some((name) => name.length >= 3 && lower.includes(name));
+  });
+  const headline = pickBand(leadUnits, HEADLINE_WORD_MIN, HEADLINE_WORD_MAX)
+    || pickBand(namedUnits, HEADLINE_WORD_MIN, HEADLINE_WORD_MAX)
+    || pickBand(units, HEADLINE_WORD_MIN, HEADLINE_WORD_MAX)
+    || finishLine(shot.headline);
+  const exclude = new Set([headline].filter(Boolean));
+  const detailPool = units.filter((unit) => !copyTooSimilar(unit, headline));
+  let detail = pickBand(detailPool, DETAIL_WORD_MIN, DETAIL_WORD_MAX, exclude);
+  if (!detail) {
+    for (const unit of [...detailPool, ...extractFactualSentences(shot.sourceText)]) {
+      if (exclude.has(unit) || copyTooSimilar(headline, unit)) continue;
+      for (const piece of [unit, ...splitLongFact(unit)]) {
+        const words = countWords(piece);
+        if (
+          words >= DETAIL_WORD_MIN
+          && words <= DETAIL_WORD_MAX
+          && !looksLikeCommentary(piece)
+          && !splicesTwoThoughts(piece)
+          && !copyTooSimilar(headline, piece)
+        ) {
+          detail = finishLine(piece);
+          break;
+        }
+      }
+      if (detail) break;
+    }
+  }
+  const spoken = pickBand(
+    leadUnits.filter((unit) => !copyTooSimilar(unit, detail) || copyTooSimilar(unit, headline)),
+    HEADLINE_WORD_MIN,
+    18,
+  ) || headline || finishLine(shot.spokenText);
+  return {
+    ...shot,
+    headline,
+    detailText: detail,
+    spokenText: spoken,
+  };
 }
 
 function copyUnitsFrom(shot = {}) {
@@ -400,46 +520,6 @@ function copyUnitsFrom(shot = {}) {
   return unique;
 }
 
-function pickBand(units, min, max, exclude = new Set()) {
-  const scored = units.filter((unit) => !exclude.has(unit) && !splicesTwoThoughts(unit));
-  const inBand = scored.filter((unit) => {
-    const words = countWords(unit);
-    return words >= min && words <= max;
-  });
-  return inBand[0] || '';
-}
-
-/**
- * Deterministic in-band rewrite when the LLM critic is unavailable or stuck.
- * Does not change visual fields. Uses whole factual sentences only.
- */
-export function repairShotCopy(shot = {}) {
-  const units = copyUnitsFrom(shot);
-  const leadName = namedAnchors(shot, factAnchor(shot) || shot.sourceText)[0];
-  const namedUnits = leadName
-    ? units.filter((unit) => String(unit).toLowerCase().includes(String(leadName).toLowerCase()))
-    : [];
-  const headline = pickBand(namedUnits, HEADLINE_WORD_MIN, HEADLINE_WORD_MAX)
-    || pickBand(units, HEADLINE_WORD_MIN, HEADLINE_WORD_MAX)
-    || finishLine(shot.headline);
-  const exclude = new Set([headline].filter(Boolean));
-  let detail = pickBand(units, DETAIL_WORD_MIN, DETAIL_WORD_MAX, exclude);
-  if (detail && headline && copyTooSimilar(headline, detail)) {
-    detail = pickBand(units.filter((unit) => unit !== detail), DETAIL_WORD_MIN, DETAIL_WORD_MAX, exclude);
-  }
-  const spoken = pickBand(
-    namedUnits.filter((unit) => !copyTooSimilar(unit, detail) || copyTooSimilar(unit, headline)),
-    HEADLINE_WORD_MIN,
-    18,
-  ) || headline || finishLine(shot.spokenText);
-  return {
-    ...shot,
-    headline,
-    detailText: detail || headline,
-    spokenText: spoken,
-  };
-}
-
 export function formatCopyReviewTable(storyboard = {}) {
   const shots = storyboard.shots || [];
   const lines = ['Final copy for review:'];
@@ -456,6 +536,18 @@ export function formatCopyReviewTable(storyboard = {}) {
     lines.push(`    issues: ${issues.length ? issues.join('; ') : 'none'}`);
   });
   return lines.join('\n');
+}
+
+/** One-line failing-shot summary for Fatal:/UI (skips shots with no issues). */
+export function formatCopyReviewFailure(storyboard = {}) {
+  return (storyboard.shots || [])
+    .map((shot, i) => {
+      const issues = findCopyIssues(shot);
+      if (!issues.length) return '';
+      return `Shot ${shot.shot || i + 1}: ${issues.join('; ')}`;
+    })
+    .filter(Boolean)
+    .join(' ');
 }
 
 export function digestStoryboardSlug(digestId) {
@@ -533,10 +625,14 @@ function applyCopyFields(shot, patch = {}) {
 }
 
 function localizeShot(shot) {
+  const uk = ensureUkrainianOnScreenCopy(shot);
+  const next = String(uk.detailText || '').trim()
+    ? uk
+    : { ...uk, detailText: String(shot.detailText || '').trim() };
   try {
-    return assertFinishedReelCopy(ensureUkrainianOnScreenCopy(shot));
+    return assertFinishedReelCopy(next);
   } catch {
-    return ensureUkrainianOnScreenCopy(shot);
+    return next;
   }
 }
 
@@ -685,8 +781,9 @@ export async function reviewReelStoryboard(storyboard = {}, options = {}) {
   const stillFailed = shots.filter((shot) => findCopyIssues(shot).length > 0);
   if (stillFailed.length > 0) {
     const reviewed = { ...storyboard, shots };
+    const summary = formatCopyReviewFailure(reviewed);
     throw new ReelCopyReviewError(
-      `Reel copy review could not finish in-band copy.\n${formatCopyReviewTable(reviewed)}`,
+      `Reel copy review could not finish in-band copy. ${summary}\n${formatCopyReviewTable(reviewed)}`.trim(),
     );
   }
 

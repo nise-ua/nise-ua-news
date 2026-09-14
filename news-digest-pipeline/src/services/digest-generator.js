@@ -14,6 +14,12 @@ import {
 } from '../db/index.js';
 import { priceFor } from '../data/model-catalog.js';
 import { DEFAULT_OPENING_HASHTAG, normalizeDigestFormat } from './digest-format.js';
+import {
+  buildCursorDigestPrompt,
+  isCursorLlmVendor,
+  parseCursorDigestPayload,
+  runCursorCloudAgent,
+} from './cursor-cloud-agent.js';
 
 const MAX_CONTENT_LENGTH = 3000;
 const RETRY_ATTEMPTS = 8;
@@ -115,15 +121,19 @@ export function completionWasTruncated(resp) {
  * Vendor-agnostic single-shot model call. Routes to Anthropic, OpenAI or
  * OpenRouter based on config.llmVendor. Returns text plus token usage.
  *
- * @param {Object} config App config (llmVendor, claudeModel, *BaseUrl, *ApiKey)
+ * @param {Object} config App config (llmVendor, llmModel, *BaseUrl, *ApiKey)
  * @param {{system:string, user:string, maxTokens:number}} opts
  * @returns {Promise<{text:string, inputTokens:number, outputTokens:number}>}
  */
 async function callModel(config, { system, user, maxTokens, timeoutMs, disableThinking }, phaseName = 'model') {
   const vendor = config.llmVendor || 'anthropic';
+  if (isCursorLlmVendor(vendor)) {
+    throw new Error('Cursor digest uses a single Cloud Agent run, not callModel');
+  }
+  const modelId = config.llmModel || config.claudeModel;
   const callTimeoutMs = timeoutMs || MODEL_CALL_TIMEOUT_MS;
   const callStart = Date.now();
-  console.log(`[digest-generator] ${phaseName}: LLM call started at ${new Date().toISOString()} (vendor=${vendor}, model=${config.claudeModel}, timeout=${callTimeoutMs}ms)`);
+  console.log(`[digest-generator] ${phaseName}: LLM call started at ${new Date().toISOString()} (vendor=${vendor}, model=${modelId}, timeout=${callTimeoutMs}ms)`);
 
   // OpenAI-compatible callers: OpenAI (native), OpenRouter (OpenAI-compatible
   // API with DeepSeek & other routed models), and Moonshot (Kimi). The `openai`
@@ -153,11 +163,11 @@ async function callModel(config, { system, user, maxTokens, timeoutMs, disableTh
       baseURL: baseUrl || undefined,
     });
     const vendorLabel = vendor === 'openrouter' ? 'OpenRouter' : vendor === 'moonshot' ? 'Moonshot' : 'OpenAI';
-    console.log(`[callModel] Calling ${vendorLabel} with model: ${config.claudeModel}`);
+    console.log(`[callModel] Calling ${vendorLabel} with model: ${modelId}`);
     let resp;
     try {
       const completionParams = {
-        model: config.claudeModel,
+        model: modelId,
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: user },
@@ -168,7 +178,7 @@ async function callModel(config, { system, user, maxTokens, timeoutMs, disableTh
         completionParams.max_tokens = maxTokens;
         // openai-node has no extra_body (that's the Python SDK). Put Moonshot
         // fields on the JSON body so K2.6 actually disables thinking.
-        const extra = moonshotExtraBody(config.claudeModel, { disableThinking });
+        const extra = moonshotExtraBody(modelId, { disableThinking });
         if (extra) Object.assign(completionParams, extra);
       } else {
         completionParams.max_completion_tokens = maxTokens;
@@ -210,7 +220,7 @@ async function callModel(config, { system, user, maxTokens, timeoutMs, disableTh
     resp = await withLlmLock(async () => {
       try {
         return await withRetry(() => client.messages.create({
-          model: config.claudeModel,
+          model: modelId,
           max_tokens: maxTokens,
           system,
           messages: [{ role: 'user', content: user }],
@@ -242,14 +252,8 @@ export async function generateDigest(db, articles, config) {
   const genStart = Date.now();
   console.log(`[digest-generator] generateDigest START: ${articles.length} article(s) at ${new Date().toISOString()}`);
 
-  // Token accounting across every successful model call (Phase A + Phase B).
-  let totalInputTokens = 0;
-  let totalOutputTokens = 0;
-
   log.push(`Starting digest generation for ${articles.length} articles`);
 
-  // Select Phase A system prompt by active scenario. Assembly (Phase B) is
-  // scenario-independent and always uses config.assemblyPrompt.
   const scenario = config.activeScenario || 'sarcastic';
   let commentarySystem = scenario === 'architect' ? config.deepPrompt : config.commentaryPrompt;
   if (scenario === 'architect' && (!config.deepPrompt || !config.deepPrompt.trim())) {
@@ -258,6 +262,18 @@ export async function generateDigest(db, articles, config) {
   } else {
     log.push(`Scenario: ${scenario}`);
   }
+
+  if (isCursorLlmVendor(config.llmVendor)) {
+    return generateDigestCursor(db, articles, config, {
+      commentarySystem,
+      log,
+      genStart,
+    });
+  }
+
+  // Token accounting across every successful model call (Phase A + Phase B).
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
 
   // Phase A: Generate commentary for each article
   for (const article of articles) {
@@ -317,9 +333,6 @@ export async function generateDigest(db, articles, config) {
   }
 
   // Phase B: Assembly
-  const today = new Date().toISOString().slice(0, 10);
-
-  // Build the user message for assembly
   const commentaryList = articlesWithCommentary
     .map((a, i) => `${i + 1}. ${a.commentary}\n${a.url}`)
     .join('\n\n');
@@ -373,8 +386,87 @@ export async function generateDigest(db, articles, config) {
   totalInputTokens += assemblyRes.inputTokens;
   totalOutputTokens += assemblyRes.outputTokens;
 
-  // Drop LLM preamble / leaked hashtag instructions, force `#новини 1.` opening,
-  // and never append auto-generated trailing tags.
+  return finalizeAssembledDigest({
+    db,
+    articles: articlesWithCommentary,
+    digestContent,
+    config,
+    log,
+    genStart,
+    totalInputTokens,
+    totalOutputTokens,
+  });
+}
+
+function rollbackProcessingArticles(db, articles) {
+  const rollbackStmt = db.prepare(
+    `UPDATE articles SET status = 'new', updated_at = datetime('now') WHERE id = ? AND status = 'processing'`
+  );
+  for (const a of articles) {
+    rollbackStmt.run(a.id);
+  }
+}
+
+async function generateDigestCursor(db, articles, config, { commentarySystem, log, genStart }) {
+  log.push('Vendor: cursor (single-shot Cloud Agent)');
+  const openingHashtag = config.hashtag || DEFAULT_OPENING_HASHTAG;
+  const toGenerate = articles.filter((a) => !a.commentary);
+  for (const article of toGenerate) {
+    updateArticleStatus(article.id, 'processing');
+  }
+
+  try {
+    const prompt = buildCursorDigestPrompt(articles, {
+      commentarySystem,
+      assemblyPrompt: config.assemblyPrompt,
+      hashtag: openingHashtag,
+      boundaryIntent: config.boundaryIntent,
+    });
+    const runAgent = config.cursorAgentRun || runCursorCloudAgent;
+    const run = await runAgent({
+      apiKey: config.cursorApiKey,
+      modelId: config.llmModel || config.claudeModel,
+      prompt,
+      name: 'News digest',
+    });
+    log.push(`Cursor agent ${run.agentId} run ${run.runId}${run.durationMs ? ` (${run.durationMs}ms)` : ''}`);
+    const payload = parseCursorDigestPayload(run.result, articles.map((a) => a.id));
+    for (const article of articles) {
+      const commentary = payload.commentariesById.get(String(article.id));
+      updateArticleCommentary(article.id, commentary);
+      article.commentary = commentary;
+      log.push(`Stored commentary for article ${article.id}: ${commentary.slice(0, 60)}...`);
+    }
+    return finalizeAssembledDigest({
+      db,
+      articles,
+      digestContent: payload.digest,
+      config,
+      log,
+      genStart,
+      totalInputTokens: 0,
+      totalOutputTokens: 0,
+    });
+  } catch (err) {
+    rollbackProcessingArticles(db, toGenerate);
+    log.push(`Cursor digest failed — reset ${toGenerate.length} article(s) back to 'new': ${err.message}`);
+    console.error('[digest-generator] Cursor digest failed:', err);
+    throw err;
+  }
+}
+
+async function finalizeAssembledDigest({
+  db,
+  articles,
+  digestContent,
+  config,
+  log,
+  genStart,
+  totalInputTokens,
+  totalOutputTokens,
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const openingHashtag = config.hashtag || DEFAULT_OPENING_HASHTAG;
   const beforeNormalize = digestContent;
   digestContent = normalizeDigestFormat(digestContent, openingHashtag);
   if (config.boundaryIntent && !digestContent.includes(config.boundaryIntent)) {
@@ -384,54 +476,44 @@ export async function generateDigest(db, articles, config) {
     log.push('Normalized digest opening/footer');
   }
 
-  const activeHashtag = openingHashtag;
-
-  // Create digest record
   const digestId = createDigest({
     date: today,
     part: 1,
-    articlesCount: articlesWithCommentary.length,
+    articlesCount: articles.length,
   });
 
-  // Compute cost from accumulated token usage and the model's base pricing.
-  const p = priceFor(config.claudeModel);
+  const modelId = config.llmModel || config.claudeModel;
+  const p = priceFor(modelId);
   let costUsd = null;
-  if (p) {
+  if (p && (totalInputTokens || totalOutputTokens)) {
     const raw = (totalInputTokens / 1e6) * p.input + (totalOutputTokens / 1e6) * p.output;
     costUsd = Math.round(raw * 1e6) / 1e6;
   }
 
   const costLabel = costUsd === null ? 'n/a' : `$${costUsd}`;
-  log.push(`Tokens: in=${totalInputTokens} out=${totalOutputTokens} | Model: ${config.claudeModel} | Cost: ${costLabel}`);
+  log.push(`Tokens: in=${totalInputTokens} out=${totalOutputTokens} | Model: ${modelId} | Cost: ${costLabel}`);
 
   updateDigest(digestId, {
     content: digestContent,
     status: 'draft',
     generation_log: log.join('\n'),
-    model: config.claudeModel,
+    model: modelId,
     input_tokens: totalInputTokens,
     output_tokens: totalOutputTokens,
     cost_usd: costUsd,
   });
 
-  // Assign articles to digest
-  const articleIds = articlesWithCommentary.map((a) => a.id);
-  assignArticlesToDigest(articleIds, digestId);
+  assignArticlesToDigest(articles.map((a) => a.id), digestId);
   console.log(`[digest-generator] Digest ${digestId} created & articles assigned in ${Date.now() - genStart}ms`);
 
-  // Save digest as .txt file
   const filePath = saveDigestToFile(today, digestContent);
   log.push(`Digest saved to file: ${filePath}`);
   log.push(`Digest created: ${digestId}`);
 
-  // Clean up source Telegram messages ONLY after confirming the digest was
-  // assembled successfully: digest row exists, content is non-empty, and the
-  // configured hashtag marker is present (if any). If anything looks off, skip 
-  // cleanup so the source messages remain available for retry.
   const saved = getDigest(digestId);
   const digestOk = saved && typeof saved.content === 'string'
     && saved.content.length > 100
-    && (!activeHashtag || saved.content.includes(activeHashtag));
+    && (!openingHashtag || saved.content.includes(openingHashtag));
 
   if (!digestOk) {
     log.push('Skipping source cleanup: digest not confirmed valid');
@@ -440,7 +522,7 @@ export async function generateDigest(db, articles, config) {
     const seen = new Set();
     let deleted = 0;
     let failed = 0;
-    for (const a of articlesWithCommentary) {
+    for (const a of articles) {
       if (!a.source_chat_id || !a.source_message_id) continue;
       const key = `${a.source_chat_id}:${a.source_message_id}`;
       if (seen.has(key)) continue;
@@ -455,8 +537,6 @@ export async function generateDigest(db, articles, config) {
     log.push(`Telegram source cleanup: deleted=${deleted}, failed=${failed}`);
   }
 
-  // Kick off Facebook cover as soon as the digest is confirmed valid.
-  // Failures here must not undo digest creation — cover can be retried from the UI.
   if (digestOk) {
     try {
       const { startImageGeneration } = await import('./image-generator.js');
@@ -467,6 +547,7 @@ export async function generateDigest(db, articles, config) {
     }
   }
 
+  updateDigest(digestId, { generation_log: log.join('\n') });
   return digestId;
 }
 

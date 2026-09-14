@@ -3,11 +3,15 @@ import {
   promptHasBannedMetaphor,
   BANNED_VISUAL_TERMS,
   sanitizeTextForImagePrompt,
-  buildSafeVisualSubject,
   buildGroundedPrompt,
+  buildSafeVisualSubject,
+  containsCyrillic,
   groundVisualVariant,
   groundVisualList,
   inferNewsToneFromFact,
+  isGenericItCliche,
+  isSafeCustomVisualSubject,
+  pickCoverPhotographyStyle,
   pickVisualPalette,
 } from '../visual-grounding.js';
 
@@ -98,7 +102,7 @@ describe('groundVisualVariant — banned metaphor rebuild', () => {
     expect(grounded.prompt).toMatch(/server racks|GPU|data center/i);
   });
 
-  it('treats abstract vortex prompts as needing a rebuild (no-text clause is added)', () => {
+  it('rebuilds abstract vortex prompts into a concrete chip-hardware scene', () => {
     const originalPrompt = 'abstract digital vortex background with a cosmic eye';
     const grounded = groundVisualVariant({
       visualSubject: 'abstract AI vortex swirling in cosmic eye',
@@ -109,10 +113,8 @@ describe('groundVisualVariant — banned metaphor rebuild', () => {
 
     expect(grounded.prompt).not.toBe(originalPrompt);
     expect(grounded.prompt).toMatch(/zero readable characters|ZERO TEXT/i);
-    // Current limitation: rebuild reuses the vortex subject when coreFact
-    // does not map to a known SAFE_VISUAL. Locked here so a later refactor
-    // can replace the subject without silently changing this path.
-    expect(grounded.visualSubject).toMatch(/vortex/i);
+    expect(grounded.visualSubject).toMatch(/wafer|circuit board|heat sink|silicon/i);
+    expect(grounded.visualSubject).not.toMatch(/vortex/i);
   });
 });
 
@@ -149,8 +151,8 @@ describe('groundVisualVariant — entity mention checks', () => {
     expect(grounded.headline).toBe('Лабораторія про охолодження чипів');
     expect(grounded.url).toBe('https://example.com/cooling');
     expect(grounded.spokenText).toBe('Лабораторія опублікувала дослідження про охолодження чипів.');
-    expect(grounded.visualSubject).toMatch(/unmarked server hardware/i);
-    expect(grounded.prompt).toMatch(/unmarked server hardware/i);
+    expect(grounded.visualSubject).toMatch(/wafer|circuit board|heat sink|silicon|server hardware/i);
+    expect(grounded.prompt).toMatch(/wafer|circuit board|heat sink|silicon|server hardware/i);
     expect(grounded.prompt).toMatch(/ZERO TEXT|zero readable characters/i);
   });
 });
@@ -185,6 +187,61 @@ describe('groundVisualList', () => {
     expect(list[1].prompt).toMatch(/push pins|desk sphere|blank blue/i);
     expect(groundVisualList(null)).toBeNull();
     expect(groundVisualList({ shots: [] })).toEqual({ shots: [] });
+  });
+});
+
+describe('cover visual variety', () => {
+  it('rotates cover fallback scenes by index without datacenter clichés', () => {
+    const base = {
+      visualSubject: 'ChatGPT UI with readable labels',
+      coreFact: 'OpenAI updates ChatGPT to GPT-5.6 Sol with features for better responses.',
+      entities: ['OpenAI', 'ChatGPT'],
+      look: 'cover',
+    };
+    const first = buildSafeVisualSubject({ ...base, index: 0 });
+    const second = buildSafeVisualSubject({ ...base, index: 1 });
+    expect(first).not.toBe(second);
+    expect(first).toMatch(/presenter|prism|coffee|conference|prototype/i);
+    expect(first).not.toMatch(/fiber optic|server rack|data center/i);
+    expect(second).toMatch(/presenter|prism|coffee|conference|prototype/i);
+    expect(second).not.toMatch(/fiber optic|server rack|data center/i);
+  });
+
+  it('rejects datacenter clichés as custom cover subjects', () => {
+    expect(isGenericItCliche('Glowing fiber optic cables in a server room')).toBe(true);
+    expect(isSafeCustomVisualSubject(
+      'Glowing fiber optic cables in a bright server hall with amber bokeh',
+      { look: 'cover' },
+    )).toBe(false);
+  });
+
+  it('keeps a safe LLM-provided scene when no strong category template applies', () => {
+    const custom = 'Hands holding a vivid biodegradable material swatch against a bright studio backdrop';
+    expect(isSafeCustomVisualSubject(custom)).toBe(true);
+    const subject = buildSafeVisualSubject({
+      visualSubject: custom,
+      coreFact: 'A startup unveiled a new biodegradable material for phone cases.',
+      entities: ['startup'],
+    });
+    expect(subject).toMatch(/biodegradable material swatch|studio backdrop/i);
+    expect(subject).not.toMatch(/server racks|fiber optic/i);
+  });
+
+  it('maps chip stories to semiconductor visuals', () => {
+    const subject = buildSafeVisualSubject({
+      visualSubject: 'NVIDIA H100 die photo with readable markings',
+      coreFact: 'TSMC began mass production of a new 2nm chip for AI accelerators.',
+      entities: ['TSMC', 'NVIDIA'],
+      index: 0,
+    });
+    expect(subject).toMatch(/wafer|circuit board|heat sink|silicon/i);
+    expect(subject).not.toMatch(/server racks walking/i);
+  });
+
+  it('rotates cover photography style by index', () => {
+    expect(pickCoverPhotographyStyle(0)).not.toBe(pickCoverPhotographyStyle(1));
+    expect(pickCoverPhotographyStyle(0)).toMatch(/editorial cover photo/i);
+    expect(pickCoverPhotographyStyle(1)).not.toMatch(/\bportrait\b/i);
   });
 });
 
@@ -253,5 +310,25 @@ describe('colorful image palettes', () => {
     });
     expect(prompt).not.toMatch(/dark server aisle|photorealistic documentary photography|upper third of the frame empty and darker/i);
     expect(prompt).toMatch(/vivid|saturated|punchy|scroll/i);
+  });
+
+  it('rebuilds Ukrainian cover subjects into English hardware scenes', () => {
+    const grounded = groundVisualVariant({
+      articleIndex: 1,
+      coreFact: 'Meta розробила віртуального AI-агента Muse',
+      entities: ['Meta', 'Muse', 'AI-агент'],
+      newsTone: 'positive',
+      visualSubject: 'віртуальна машина, де живе AI-агент Muse, з підсвічуванням підсистем',
+      prompt: '',
+      look: 'cover',
+    }, 0);
+
+    expect(containsCyrillic(grounded.prompt)).toBe(false);
+    expect(grounded.prompt).toMatch(/workstation|computer case|robot assistant|cable harness/i);
+    expect(grounded.prompt).not.toMatch(/\bportrait\b|native portrait/i);
+    expect(isSafeCustomVisualSubject(
+      'віртуальна машина, де живе AI-агент Muse, з підсвічуванням підсистем',
+      { look: 'cover' },
+    )).toBe(false);
   });
 });

@@ -22,6 +22,14 @@ When delegating to a subagent:
 
 Goal: maximum parallelism and minimal user waiting time.
 
+### File deletion policy
+
+Never permanently delete project files. When retiring code, docs, configs, or
+other artifacts, move them to `.archive/` instead, preserving the original
+relative path under the archive root (see
+`news-digest-pipeline/.archive/README.md`). Do not use `rm`, `git rm`, or
+permanent delete tools for cleanup — archive first.
+
 ### Dashboard UI
 
 All pages in `news-digest-pipeline/src/public/` must fit the screen width. No horizontal page overflow: constrain the viewport, wrap long URLs and titles, and keep tables/toolbars inside the screen.
