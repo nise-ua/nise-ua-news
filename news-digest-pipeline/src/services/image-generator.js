@@ -8,11 +8,13 @@ import { join, dirname } from 'path';
 import { readdirSync, statSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
+import { config as dotenvConfig } from 'dotenv';
 import { updateDigest } from '../db/index.js';
 import { summarizeCliFailure } from './cli-failure.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PIPELINE_ROOT = join(__dirname, '../..');
+dotenvConfig({ path: join(PIPELINE_ROOT, '.env'), override: true });
 const SCRIPT_PATH = join(PIPELINE_ROOT, 'production/image/src/generate-digest-cover.js');
 const OUTPUT_DIR = join(PIPELINE_ROOT, 'production/image/output');
 
@@ -40,6 +42,8 @@ function stageFromOutput(line) {
   if (/Fetching digest|Loaded newest digest|Digest:/i.test(line)) return ['loading', 10];
   if (/Selecting top news|Cover pick|Cover selection/i.test(line)) return ['selecting', 30];
   if (/Generating text-free|Cover image|Image vendor/i.test(line)) return ['images', 65];
+  if (/Cover .* failed|trying .*\.{3}|Cover: .*retry/i.test(line)) return ['images', 75];
+  if (/Cover OK via fallback|OpenRouter|OpenAI/i.test(line)) return ['images', 85];
   if (/Digest cover saved|Stored cover URL/i.test(line)) return ['saving', 90];
   return null;
 }
@@ -126,6 +130,9 @@ export function startImageGeneration(digestId) {
   child.on('close', (code) => {
     if (code !== 0) {
       const detail = summarizeCliFailure(stderr, stdout, `Пайплайн обкладинки завершився з кодом ${code}`);
+      if (stderr.trim()) {
+        console.error(`[image-generator] stderr for ${digestId}:\n${stderr.trim().slice(-2000)}`);
+      }
       finishImageJob(job, new Error(detail));
       return;
     }

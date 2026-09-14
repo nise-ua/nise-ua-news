@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import '../../lib/prefer-ipv4.js';
+
 /**
  * Facebook digest cover image.
  *
@@ -148,10 +150,19 @@ async function persistCoverUrl(digestId, publicUrl) {
   }
 }
 
-async function generateCoverImage(prompt, vendor, imageDeps) {
+function coverFallbackEnabled(primaryVendor) {
+  const raw = String(process.env.COVER_IMAGE_ALLOW_FALLBACK ?? '').trim().toLowerCase();
+  if (raw === '0' || raw === 'false' || raw === 'no') return false;
+  if (raw === '1' || raw === 'true' || raw === 'yes') return true;
+  return resolveCoverImageFallbackVendors(primaryVendor).length > 0;
+}
+
+async function generateCoverImage(prompt, vendor, imageDeps, { allowFallback = false } = {}) {
   const withRetry = vendor === 'openrouter' || vendor === 'firefly' || vendor === 'cloudflare';
   const maxRetries = vendor === 'cloudflare'
-    ? Math.max(3, Number(process.env.COVER_IMAGE_MAX_RETRIES || process.env.IMAGE_MAX_RETRIES || 5))
+    ? (allowFallback
+      ? Math.max(1, Number(process.env.COVER_IMAGE_MAX_RETRIES || 1))
+      : Math.max(3, Number(process.env.COVER_IMAGE_MAX_RETRIES || process.env.IMAGE_MAX_RETRIES || 5)))
     : Math.max(0, Number(process.env.IMAGE_MAX_RETRIES || 3));
   const run = () => generateImage(prompt, {
     ...imageDeps,
@@ -182,7 +193,7 @@ async function main() {
   log(`  Subject: ${(cover.visualSubject || '').slice(0, 120)}`);
 
   const vendor = resolveCoverImageVendor();
-  const allowFallback = String(process.env.COVER_IMAGE_ALLOW_FALLBACK || '').trim() === '1';
+  const allowFallback = coverFallbackEnabled(vendor);
   const vendorChain = allowFallback
     ? [vendor, ...resolveCoverImageFallbackVendors(vendor)]
     : [vendor];
@@ -226,7 +237,7 @@ async function main() {
   let lastError;
   for (const currentVendor of vendorChain) {
     try {
-      imageUrl = await generateCoverImage(cover.prompt, currentVendor, imageDeps);
+      imageUrl = await generateCoverImage(cover.prompt, currentVendor, imageDeps, { allowFallback });
       usedVendor = currentVendor;
       if (currentVendor !== vendor) {
         log(`Cover OK via fallback vendor ${currentVendor}`);

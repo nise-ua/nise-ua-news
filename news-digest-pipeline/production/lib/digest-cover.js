@@ -8,7 +8,7 @@ import { parseDigestArticles } from './digest.js';
 import {
   VISUAL_GROUNDING_RULES,
   coverRotationIndex,
-  groundVisualVariant,
+  groundCoverVariant,
   inferNewsToneFromFact,
 } from './visual-grounding.js';
 
@@ -23,24 +23,15 @@ export const COVER_SELECTION_SYSTEM_PROMPT = `Ти обираєш ОДНУ но�
 2. Сцену можна сфотографувати без UI, логотипів, екранів і написів.
 3. Ігноруй авторський сарказм («революція?», «історія», «ага») — обирай факт, не тон.
 4. Не обирай абстрактну «новину про ШІ взагалі», якщо є конкретніша дія.
-5. visualSubject і prompt мають бути ЯСКРАВИМИ: насичений колір, денне або золоте світло. Заборонено сірі серверні коридори, charcoal, desaturated, gloomy documentary.
-6. Уникай однакових сцен: не пропонуй «data center / server racks / fiber optics» для кожної новини. Обирай КОНКРЕТНУ фізичну метафору саме цієї події (робот, чип, ракета, зарядка EV, судовий молоток, сонячні панелі, vault door тощо), якщо факт це дозволяє.
-7. Різні типи новин → різні типи сцен. LLM-оновлення ≠ LLM-розробка ≠ браузер ≠ карти ≠ кібербезпека.
-8. ЗАБОРОНЕНО для обкладинки Facebook: data center, server racks, fiber optics, network cables, server room, blinking LEDs, patch panels. Це вже надто часто — обирай людей, предмети, природу, суд, космос, виробництво, події.
 
 Для обраного блоку заповни:
 - articleIndex — номер блоку з входу (1, 2, 3...)
 - coreFact — нейтральний факт англійською (хто/що/що сталося), БЕЗ сарказму; ТІЛЬКИ англійською, без кирилиці
 - entities — масив конкретних назв (компанії, продукти, технології, місця)
 - newsTone — "positive" | "neutral" | "negative" лише з coreFact
-- visualSubject — 1 конкретна сцена англійською з цих сутностей і дії; ТІЛЬКИ англійською, без кирилиці
-- prompt — англійський промпт фону з visualSubject; 4:5 vertical composition; ТІЛЬКИ англійською
 - pickReason — одне коротке речення українською, чому саме цей блок
 
 ${VISUAL_GROUNDING_RULES}
-
-ЗАБОРОНЕНО: будь-який текст, літери, цифри, слова, логотипи, UI, headlines на зображенні.
-Не пиши headline/detailText — їх не буде на картинці.
 
 Відповідай ТІЛЬКИ JSON:
 {
@@ -48,9 +39,26 @@ ${VISUAL_GROUNDING_RULES}
   "coreFact": "...",
   "entities": ["...", "..."],
   "newsTone": "positive|neutral|negative",
-  "visualSubject": "...",
-  "prompt": "...",
   "pickReason": "..."
+}`;
+
+export const COVER_VISUAL_SYSTEM_PROMPT = `You write one text-free 4:5 Facebook cover image prompt in English from a single news block.
+
+The digest caption is Ukrainian; your output is ONLY for the image model. Read the article text and coreFact, ignore sarcastic author tone, and depict the factual action.
+
+Requirements:
+- visualSubject: one concrete photographic scene tied to THIS story's specific action (who did what, where, with what objects)
+- prompt: full English image prompt derived from visualSubject; vivid color, golden or daylight; editorial magazine still
+- English only — no Cyrillic anywhere
+- No readable text, letters, numbers, logos, UI, screenshots, watermarks, or captions in the scene
+- No generic stock scenes unrelated to the story (random portraits, generic AI workstation, datacenter racks, crystal prisms, coffee-on-desk unless that is the story)
+- No author sarcasm as imagery (revolution, history book, joke framing)
+- Show physical objects and actions from the news, not abstract "AI" symbolism
+
+Reply with JSON only:
+{
+  "visualSubject": "...",
+  "prompt": "..."
 }`;
 
 export function coverSelectionUserPrompt(articles) {
@@ -58,6 +66,18 @@ export function coverSelectionUserPrompt(articles) {
     `--- ARTICLE ${i + 1} ---\n${article.text}${article.url ? `\nURL: ${article.url}` : ''}`
   )).join('\n\n');
   return `Обери РІВНО ОДИН блок як обкладинку Facebook. Ігноруй сарказм автора; візуал = факт новини.\n\n${blocks}`;
+}
+
+export function coverVisualUserPrompt(selection) {
+  const entities = Array.isArray(selection.entities) ? selection.entities.join(', ') : '';
+  return [
+    `coreFact: ${selection.coreFact || ''}`,
+    `entities: ${entities}`,
+    `newsTone: ${selection.newsTone || inferNewsToneFromFact(selection.coreFact)}`,
+    '',
+    'article:',
+    selection.sourceText || '',
+  ].join('\n');
 }
 
 function firstSentence(text) {
@@ -79,7 +99,7 @@ export function fallbackCoverFromArticles(articles) {
     coreFact,
     entities: [],
     newsTone: inferNewsToneFromFact(coreFact),
-    visualSubject: coreFact,
+    visualSubject: '',
     prompt: '',
     pickReason: 'Провідний блок дайджесту (запасний вибір без LLM).',
     fallback: true,
@@ -108,7 +128,6 @@ export function parseCoverSelection(raw, articles) {
   const index = Math.min(Math.max(0, zeroBased), articles.length - 1);
   const article = articles[index];
   const coreFact = String(data.coreFact || '').trim() || firstSentence(article.text);
-  const visualSubject = String(data.visualSubject || '').trim() || coreFact;
 
   return {
     articleIndex: index + 1,
@@ -119,11 +138,56 @@ export function parseCoverSelection(raw, articles) {
       ? data.entities.map((item) => String(item || '').trim()).filter(Boolean)
       : [],
     newsTone: data.newsTone,
-    visualSubject,
-    prompt: String(data.prompt || '').trim(),
+    visualSubject: '',
+    prompt: '',
     pickReason: String(data.pickReason || '').trim(),
     fallback: false,
   };
+}
+
+export function parseCoverVisualGrounding(raw, selection) {
+  const jsonMatch = String(raw || '').match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error('Cover visual grounding did not return JSON');
+  }
+
+  let data;
+  try {
+    data = JSON.parse(jsonMatch[0]);
+  } catch {
+    throw new Error('Cover visual grounding JSON is invalid');
+  }
+
+  const visualSubject = String(data.visualSubject || '').trim();
+  const prompt = String(data.prompt || '').trim();
+  if (!visualSubject && !prompt) {
+    throw new Error('Cover visual grounding returned empty visualSubject and prompt');
+  }
+
+  return {
+    ...selection,
+    visualSubject,
+    prompt,
+  };
+}
+
+export async function groundCoverVisual(selection, { completeJson, log = () => {} } = {}) {
+  if (typeof completeJson !== 'function') {
+    return selection;
+  }
+
+  try {
+    const raw = await completeJson(
+      COVER_VISUAL_SYSTEM_PROMPT,
+      coverVisualUserPrompt(selection),
+    );
+    const grounded = parseCoverVisualGrounding(raw, selection);
+    log(`Cover visual: ${(grounded.visualSubject || '').slice(0, 120)}`);
+    return grounded;
+  } catch (err) {
+    log(`Cover visual LLM failed, using fact-only fallback: ${err.message}`);
+    return selection;
+  }
 }
 
 export function groundDigestCover(selection, { rotationSeed = 0 } = {}) {
@@ -132,7 +196,7 @@ export function groundDigestCover(selection, { rotationSeed = 0 } = {}) {
     coreFact: selection.coreFact,
     rotationSeed,
   });
-  const grounded = groundVisualVariant({ ...selection, look: 'cover' }, rotationIndex);
+  const grounded = groundCoverVariant({ ...selection, look: 'cover' }, rotationIndex);
   return {
     ...grounded,
     articleIndex: selection.articleIndex,
@@ -146,7 +210,8 @@ export function groundDigestCover(selection, { rotationSeed = 0 } = {}) {
 
 /**
  * Pick and ground the Facebook cover subject.
- * `completeJson(systemPrompt, userPrompt)` must return JSON text.
+ * `completeJson(systemPrompt, userPrompt)` must return JSON text (called twice:
+ * story selection, then visual grounding).
  * If omitted or it throws, falls back to the first digest block.
  */
 export async function selectDigestCover(digestText, {
@@ -174,6 +239,8 @@ export async function selectDigestCover(digestText, {
   } else {
     selection = fallbackCoverFromArticles(articles);
   }
+
+  selection = await groundCoverVisual(selection, { completeJson, log });
 
   const grounded = groundDigestCover(selection, { rotationSeed });
   log(`Cover pick #${grounded.articleIndex}: ${(grounded.coreFact || '').slice(0, 80)}`);
