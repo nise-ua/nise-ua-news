@@ -1,5 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
-import { aggregatePostizAnalytics, mediaMimeFromFilename, mergePostizPosts, normalizeAnalytics, publishPostizDigest, waitForPostizReleaseUrl, firstFacebookRelease } from './postiz.js';
+import {
+  aggregatePostizAnalytics,
+  facebookPostMatchKey,
+  mediaMimeFromFilename,
+  mergePostizPosts,
+  normalizeAnalytics,
+  publishPostizDigest,
+  resolvePostizEntriesForDigest,
+  waitForPostizReleaseUrl,
+  firstFacebookRelease,
+} from './postiz.js';
 
 const config = {
   publishBackend: 'postiz',
@@ -163,6 +173,47 @@ describe('aggregatePostizAnalytics', () => {
       data: [{ date: 'd1', total: 13 }, { date: 'd2', total: 4 }],
       total: 17,
     }]);
+  });
+});
+
+describe('facebookPostMatchKey', () => {
+  it('normalizes Facebook post URLs and graph ids', () => {
+    expect(facebookPostMatchKey('https://www.facebook.com/111/posts/222')).toBe('222');
+    expect(facebookPostMatchKey('111_222')).toBe('222');
+    expect(facebookPostMatchKey('https://www.facebook.com/share/p/abc')).toBe('');
+  });
+});
+
+describe('resolvePostizEntriesForDigest', () => {
+  it('reuses stored postiz_posts when present', async () => {
+    const result = await resolvePostizEntriesForDigest({
+      postiz_posts: { text: [{ postId: 'p1', integrationId: 'i1' }] },
+    }, {});
+    expect(result.entries).toEqual([{ postId: 'p1', integrationId: 'i1', kind: 'text' }]);
+    expect(result.backfill).toBeNull();
+  });
+
+  it('matches facebook_post_id against Postiz listings', async () => {
+    const client = {
+      listPosts: vi.fn().mockResolvedValue({
+        posts: [{
+          id: 'post-1',
+          integration: { id: 'fb-1' },
+          releaseURL: 'https://www.facebook.com/111/posts/999',
+        }],
+      }),
+    };
+    const result = await resolvePostizEntriesForDigest({
+      facebook_post_id: 'https://www.facebook.com/111/posts/999',
+    }, client);
+    expect(result.entries[0].postId).toBe('post-1');
+    expect(result.backfill.text[0].postId).toBe('post-1');
+  });
+});
+
+describe('normalizeAnalytics', () => {
+  it('treats missing release ids as empty metrics', () => {
+    expect(normalizeAnalytics({ missing: true })).toEqual([]);
   });
 });
 

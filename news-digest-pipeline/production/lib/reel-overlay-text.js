@@ -13,8 +13,8 @@ export const REEL_HEADER_LAYOUT = {
   dotsPitch: 22,
   dotsRadius: 5,
   dotsBlockWidth: 150,
-  /** Clear air between the brand/dots row and the first headline baseline. */
-  gapAfterHeader: 80,
+  /** Tight air between the brand/dots row and the headline cap-height. */
+  gapAfterHeader: 28,
   /** Keep wrapped copy left of the dot grid. */
   rightGutter: 248,
 };
@@ -26,6 +26,11 @@ export function headerRowBottom(margin = REEL_HEADER_LAYOUT.margin) {
     + (REEL_HEADER_LAYOUT.dotsRows - 1) * REEL_HEADER_LAYOUT.dotsPitch
     + REEL_HEADER_LAYOUT.dotsRadius;
   return Math.max(brandBaseline, dotsBottom);
+}
+
+/** CSS/SVG y of the headline block, flush under NiSeNews. */
+export function overlayCopyTop(margin = REEL_HEADER_LAYOUT.margin) {
+  return headerRowBottom(margin) + REEL_HEADER_LAYOUT.gapAfterHeader;
 }
 
 export function sanitizeDetailText(text) {
@@ -114,7 +119,7 @@ export function layoutReelOverlayText({
 
     let hy;
     if (upper) {
-      hy = headerRowBottom(margin) + REEL_HEADER_LAYOUT.gapAfterHeader + Math.round(hSize * 0.8);
+      hy = overlayCopyTop(margin) + Math.round(hSize * 0.8);
     } else {
       const targetBottomY = height - 500;
       const totalBlockHeight = headlineTotalHeight

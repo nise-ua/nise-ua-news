@@ -10,6 +10,48 @@
 
 import { createHash, timingSafeEqual } from 'crypto';
 
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 10;
+const loginAttempts = new Map();
+
+function getClientIp(req) {
+  return req.ip || req.socket?.remoteAddress || 'unknown';
+}
+
+function pruneLoginAttempts(now = Date.now()) {
+  for (const [ip, entry] of loginAttempts) {
+    if (entry.resetAt <= now) loginAttempts.delete(ip);
+  }
+}
+
+function isLoginBlocked(req) {
+  if (authDisabled()) return false;
+  pruneLoginAttempts();
+  const entry = loginAttempts.get(getClientIp(req));
+  return entry != null && entry.count >= LOGIN_MAX_ATTEMPTS;
+}
+
+function recordFailedLogin(req) {
+  if (authDisabled()) return;
+  const ip = getClientIp(req);
+  const now = Date.now();
+  let entry = loginAttempts.get(ip);
+  if (!entry || entry.resetAt <= now) {
+    entry = { count: 0, resetAt: now + LOGIN_WINDOW_MS };
+  }
+  entry.count += 1;
+  loginAttempts.set(ip, entry);
+}
+
+function clearLoginAttempts(req) {
+  loginAttempts.delete(getClientIp(req));
+}
+
+/** @internal test helper */
+export function resetLoginAttemptsForTests() {
+  loginAttempts.clear();
+}
+
 /**
  * Constant-time string comparison to prevent timing attacks.
  */
@@ -73,11 +115,21 @@ export function apiAuth(req, res, next) {
   return res.status(401).json({ error: 'Unauthorized' });
 }
 
+function sendInvalidCredentials(req, res) {
+  recordFailedLogin(req);
+  res.setHeader('WWW-Authenticate', 'Basic realm="News Digest Dashboard"');
+  return res.status(401).send('Invalid credentials');
+}
+
 export function dashboardAuth(req, res, next) {
   if (authDisabled()) return next();
 
   const expectedPass = process.env.DASHBOARD_PASSWORD || process.env.API_SECRET_KEY;
   if (!expectedPass) return next(); // dev mode
+
+  if (isLoginBlocked(req)) {
+    return res.status(429).send('Too many login attempts, try again later');
+  }
 
   const authHeader = req.headers.authorization || '';
   if (!authHeader.startsWith('Basic ')) {
@@ -89,21 +141,19 @@ export function dashboardAuth(req, res, next) {
     const decoded = Buffer.from(authHeader.split(' ')[1], 'base64').toString();
     const colonIdx = decoded.indexOf(':');
     if (colonIdx === -1) {
-      res.setHeader('WWW-Authenticate', 'Basic realm="News Digest Dashboard"');
-      return res.status(401).send('Invalid credentials');
+      return sendInvalidCredentials(req, res);
     }
     const user = decoded.slice(0, colonIdx);
     const pass = decoded.slice(colonIdx + 1);
     const expectedUser = process.env.DASHBOARD_USER || 'admin';
 
     if (!safeCompare(user, expectedUser) || !safeCompare(pass, expectedPass)) {
-      res.setHeader('WWW-Authenticate', 'Basic realm="News Digest Dashboard"');
-      return res.status(401).send('Invalid credentials');
+      return sendInvalidCredentials(req, res);
     }
   } catch {
-    res.setHeader('WWW-Authenticate', 'Basic realm="News Digest Dashboard"');
-    return res.status(401).send('Invalid credentials');
+    return sendInvalidCredentials(req, res);
   }
 
+  clearLoginAttempts(req);
   next();
 }

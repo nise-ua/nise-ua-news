@@ -7,6 +7,7 @@
 import { parseDigestArticles } from './digest.js';
 import {
   VISUAL_GROUNDING_RULES,
+  coverRotationIndex,
   groundVisualVariant,
   inferNewsToneFromFact,
 } from './visual-grounding.js';
@@ -23,14 +24,17 @@ export const COVER_SELECTION_SYSTEM_PROMPT = `Ти обираєш ОДНУ но�
 3. Ігноруй авторський сарказм («революція?», «історія», «ага») — обирай факт, не тон.
 4. Не обирай абстрактну «новину про ШІ взагалі», якщо є конкретніша дія.
 5. visualSubject і prompt мають бути ЯСКРАВИМИ: насичений колір, денне або золоте світло. Заборонено сірі серверні коридори, charcoal, desaturated, gloomy documentary.
+6. Уникай однакових сцен: не пропонуй «data center / server racks / fiber optics» для кожної новини. Обирай КОНКРЕТНУ фізичну метафору саме цієї події (робот, чип, ракета, зарядка EV, судовий молоток, сонячні панелі, vault door тощо), якщо факт це дозволяє.
+7. Різні типи новин → різні типи сцен. LLM-оновлення ≠ LLM-розробка ≠ браузер ≠ карти ≠ кібербезпека.
+8. ЗАБОРОНЕНО для обкладинки Facebook: data center, server racks, fiber optics, network cables, server room, blinking LEDs, patch panels. Це вже надто часто — обирай людей, предмети, природу, суд, космос, виробництво, події.
 
 Для обраного блоку заповни:
 - articleIndex — номер блоку з входу (1, 2, 3...)
-- coreFact — нейтральний факт англійською (хто/що/що сталося), БЕЗ сарказму
+- coreFact — нейтральний факт англійською (хто/що/що сталося), БЕЗ сарказму; ТІЛЬКИ англійською, без кирилиці
 - entities — масив конкретних назв (компанії, продукти, технології, місця)
 - newsTone — "positive" | "neutral" | "negative" лише з coreFact
-- visualSubject — 1 конкретна сцена англійською з цих сутностей і дії
-- prompt — англійський промпт фону з visualSubject; 4:5 portrait composition
+- visualSubject — 1 конкретна сцена англійською з цих сутностей і дії; ТІЛЬКИ англійською, без кирилиці
+- prompt — англійський промпт фону з visualSubject; 4:5 vertical composition; ТІЛЬКИ англійською
 - pickReason — одне коротке речення українською, чому саме цей блок
 
 ${VISUAL_GROUNDING_RULES}
@@ -122,8 +126,13 @@ export function parseCoverSelection(raw, articles) {
   };
 }
 
-export function groundDigestCover(selection) {
-  const grounded = groundVisualVariant({ ...selection, look: 'cover' }, 0);
+export function groundDigestCover(selection, { rotationSeed = 0 } = {}) {
+  const rotationIndex = coverRotationIndex({
+    articleIndex: selection.articleIndex,
+    coreFact: selection.coreFact,
+    rotationSeed,
+  });
+  const grounded = groundVisualVariant({ ...selection, look: 'cover' }, rotationIndex);
   return {
     ...grounded,
     articleIndex: selection.articleIndex,
@@ -140,7 +149,11 @@ export function groundDigestCover(selection) {
  * `completeJson(systemPrompt, userPrompt)` must return JSON text.
  * If omitted or it throws, falls back to the first digest block.
  */
-export async function selectDigestCover(digestText, { completeJson, log = () => {} } = {}) {
+export async function selectDigestCover(digestText, {
+  completeJson,
+  log = () => {},
+  rotationSeed = Date.now(),
+} = {}) {
   const articles = parseDigestArticles(digestText);
   if (articles.length === 0) {
     throw new Error('Digest has no news blocks to illustrate');
@@ -162,7 +175,7 @@ export async function selectDigestCover(digestText, { completeJson, log = () => 
     selection = fallbackCoverFromArticles(articles);
   }
 
-  const grounded = groundDigestCover(selection);
+  const grounded = groundDigestCover(selection, { rotationSeed });
   log(`Cover pick #${grounded.articleIndex}: ${(grounded.coreFact || '').slice(0, 80)}`);
   log(`Cover reason: ${(grounded.pickReason || '').slice(0, 120)}`);
   return grounded;

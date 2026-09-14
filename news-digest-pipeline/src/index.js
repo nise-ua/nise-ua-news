@@ -41,12 +41,9 @@ const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
   message: { error: 'Too many requests' },
-  // Video progress is polled while a render is running. It must not consume
-  // the same request budget as user/API operations.
-  skip: (req) => req.method === 'GET' && (
-    req.path.startsWith('/digests/video-jobs/')
-    || req.path.startsWith('/digests/image-jobs/')
-  ),
+  // Dashboard reads (digest list, Postiz stats per card, articles) legitimately
+  // burst above 30/min. Writes and expensive ops keep dedicated limiters below.
+  skip: (req) => req.method === 'GET',
 });
 
 const publishLimiter = rateLimit({
@@ -80,20 +77,11 @@ const imageGenerateLimiter = rateLimit({
 // Health endpoint — public, no auth
 app.use('/health', healthRouter);
 
-// Dashboard (Basic Auth + rate limit for brute force protection)
-const dashboardLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 failed attempts per 15 min
-  message: 'Too many login attempts, try again later',
-  skipSuccessfulRequests: true, // only count 401s
-});
-
+// Dashboard (Basic Auth; failed-credential rate limit lives in dashboardAuth)
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/') || req.path === '/health') return next();
-  dashboardLimiter(req, res, () => {
-    dashboardAuth(req, res, () => {
-      express.static(join(__dirname, 'public'))(req, res, next);
-    });
+  dashboardAuth(req, res, () => {
+    express.static(join(__dirname, 'public'))(req, res, next);
   });
 });
 app.use('/videos', express.static(join(__dirname, '..', 'production', 'video', 'output')));

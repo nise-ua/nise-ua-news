@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { dirname, join, resolve } from 'path';
 import { pathToFileURL } from 'url';
-import { log, projectRoot, scriptDir } from '../logging.js';
+import { log, projectRoot, reportFatal, scriptDir } from '../logging.js';
 
 describe('log', () => {
   it('emits [HH:MM:SS] message via injectable console/clock', () => {
@@ -21,6 +21,18 @@ describe('log', () => {
     const spy = vi.fn();
     log('ts check', { console: { log: spy }, now: () => fixed });
     expect(spy).toHaveBeenCalledWith('[00:00:42] ts check');
+  });
+});
+
+describe('reportFatal', () => {
+  it('puts the summary on the Fatal: line and the table on following lines', () => {
+    const error = [];
+    reportFatal(new Error('Reel copy review could not finish in-band copy. Shot 1: detailText is missing\nFinal copy for review:\n    issues: none'), {
+      console: { error: (msg) => error.push(String(msg)) },
+    });
+    expect(error[0]).toBe('Fatal: Reel copy review could not finish in-band copy. Shot 1: detailText is missing');
+    expect(error[0]).not.toMatch(/issues:\s*none/i);
+    expect(error.slice(1).join('\n')).toMatch(/issues: none/);
   });
 });
 

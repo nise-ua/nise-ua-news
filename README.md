@@ -111,7 +111,7 @@ Fill in `.env`:
 LLM_VENDOR=anthropic                    # or "openai"
 ANTHROPIC_API_KEY=sk-ant-...           # Claude API key
 # OPENAI_API_KEY=sk-...                # OpenAI API key (if LLM_VENDOR=openai)
-CLAUDE_MODEL=claude-opus-4-20250514    # or any supported model
+LLM_MODEL=claude-opus-4-20250514    # or any supported model
 
 TELEGRAM_BOT_TOKEN=123456:ABC...       # Token from @BotFather
 TELEGRAM_CHAT_ID=123456789            # Your Telegram user ID

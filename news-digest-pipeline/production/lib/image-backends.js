@@ -2,10 +2,11 @@
  * Shared image-generation backend helpers for feed (4:5) and reel (9:16) pipelines.
  * Callers keep orchestration (loops, delays); this module owns vendor adapters.
  */
+import './prefer-ipv4.js';
 
 const DEFAULT_OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 const PORTRAIT_NOTE = 'Portrait 9:16 composition, native vertical image.';
-const COVER_NOTE = 'Portrait 4:5 composition, native portrait image.';
+const COVER_NOTE = 'Vertical 4:5 aspect ratio, full-frame editorial news photo.';
 const DEFAULT_CLOUDFLARE_IMAGE_MODEL = '@cf/black-forest-labs/flux-1-schnell';
 
 export function resolveImageModel(configuredModel) {
@@ -56,6 +57,16 @@ export function resolveCoverImageVendor(env = process.env) {
   return resolveImageVendor(env);
 }
 
+/** Ordered fallbacks when the primary cover vendor fails (skips duplicate primary). */
+export function resolveCoverImageFallbackVendors(primaryVendor, env = process.env) {
+  const primary = String(primaryVendor || '').trim().toLowerCase();
+  const candidates = [];
+  if (String(env.OPENROUTER_API_KEY || '').trim()) candidates.push('openrouter');
+  if (String(env.OPENAI_API_KEY || '').trim()) candidates.push('openai');
+  if (String(env.FAL_KEY || '').trim()) candidates.push('fal');
+  return candidates.filter((vendor) => vendor !== primary);
+}
+
 export function cloudflareImageSize(aspect = '4:5') {
   if (aspect === '9:16') return { width: 768, height: 1344 };
   return { width: 1024, height: 1280 };
@@ -97,9 +108,37 @@ export function isHardImageQuotaError(status, message) {
   return status === 429 && /spend(?:ing)? cap|credits|billing|quota/.test(text);
 }
 
+export function isTransientNetworkError(error) {
+  const message = String(error?.message || error).trim().toLowerCase();
+  const code = String(error?.cause?.code || error?.code || '').toUpperCase();
+  if (message === 'fetch failed') return true;
+  if (/\b(enotfound|econnrefused|etimedout|econnreset|eai_again)\b/.test(message)) return true;
+  return [
+    'ECONNRESET',
+    'ECONNREFUSED',
+    'ETIMEDOUT',
+    'ENOTFOUND',
+    'EAI_AGAIN',
+    'UND_ERR_CONNECT_TIMEOUT',
+    'UND_ERR_SOCKET',
+  ].includes(code);
+}
+
+export function formatServiceFetchError(error, serviceLabel = 'Image API') {
+  const message = String(error?.message || error).trim() || 'fetch failed';
+  const code = String(error?.cause?.code || error?.code || '').trim();
+  if (message.toLowerCase() === 'fetch failed') {
+    return code
+      ? `${serviceLabel}: network error (${code})`
+      : `${serviceLabel}: network connection failed`;
+  }
+  return `${serviceLabel}: ${message}`;
+}
+
 export function isRetryableImageError(error) {
   const message = String(error?.message || error);
   if (isHardImageQuotaError(error?.status, message)) return false;
+  if (isTransientNetworkError(error)) return true;
   const lower = message.toLowerCase();
   return error?.status === 429
     || /429|rate limit|too many requests|temporarily unavailable|try again later/.test(lower);
@@ -535,14 +574,21 @@ export async function generateCloudflareImage(prompt, {
     body.height = size.height;
   }
 
-  const response = await fetchFn(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${creds.apiToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+  let response;
+  try {
+    response = await fetchFn(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${creds.apiToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    const wrapped = new Error(formatServiceFetchError(err, 'Cloudflare Workers AI image'));
+    wrapped.cause = err?.cause || err;
+    throw wrapped;
+  }
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload?.success === false) {
@@ -680,7 +726,8 @@ export async function generateImageWithRetry(generateFn, {
     } catch (error) {
       if (!isRetryableImageError(error) || attempt >= maxRetries) throw error;
       const delayMs = baseDelayMs * (2 ** attempt);
-      log(`  ${label}: rate limited; retry ${attempt + 1}/${maxRetries} in ${delayMs}ms...`);
+      const reason = isTransientNetworkError(error) ? 'network error' : 'rate limited';
+      log(`  ${label}: ${reason}; retry ${attempt + 1}/${maxRetries} in ${delayMs}ms (${error.message})...`);
       await sleep(delayMs);
     }
   }

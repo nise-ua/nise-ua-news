@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "workspaceOpen": [
+      {
+        "command": "bash .cursor/hooks/restart-on-open.sh",
+        "timeout": 30
+      }
+    ]
+  }
+}

@@ -118,7 +118,7 @@
       max-width: 100%;
       min-width: 0;
     }
-    .digest-stats:has(.stat-empty) { display: none; }
+    .digest-stats:has(.stat-empty):not(:has(.stat-row)) { min-height: 0; }
     .stat-row {
       display: flex;
       align-items: center;
@@ -152,7 +152,8 @@
       white-space: nowrap;
       max-width: 72px;
     }
-    .stat-empty { color: #ccc; font-size: 13px; }
+    .stat-empty { color: #b8b3ad; font-size: 11px; }
+    .stat-unavailable { color: #c2410c; font-size: 11px; }
 
     /* Buttons base (modal / shared) */
     .btn {
@@ -218,6 +219,7 @@
       font-size: 12px;
       font-weight: 500;
       line-height: 1.35;
+      overflow-wrap: anywhere;
     }
     .video-progress-track {
       height: 5px;
@@ -461,30 +463,59 @@
     }
 
     const statsCache = new Map();
+    const STATS_CACHE_MS = 5 * 60 * 1000;
+    const STATS_CONCURRENCY = 3;
+
+    async function fetchPostizStats(digestId, attempt = 0) {
+      const res = await fetch(`/api/postiz/digests/${digestId}/stats?days=7`);
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 429 && attempt < 4) {
+        const retryAfter = Number(res.headers.get('Retry-After')) || 2;
+        await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
+        return fetchPostizStats(digestId, attempt + 1);
+      }
+      if (!res.ok) throw new Error(data.error || 'stats error');
+      return data;
+    }
+
     async function loadPostizStats(digests) {
-      const targets = (digests || []).filter((d) => d.postiz_posts);
-      await Promise.all(targets.map(async (d) => {
-        const host = document.querySelector(`[data-digest-stats="${d.id}"]`);
-        if (!host) return;
-        try {
-          let cached = statsCache.get(d.id);
-          if (!cached || Date.now() - cached.time > 30000) {
-            cached = { time: Date.now(), result: fetch(`/api/postiz/digests/${d.id}/stats?days=7`).then(async res => {
-              const data = await res.json();
-              if (!res.ok) throw new Error(data.error || 'stats error');
-              return data;
-            }) };
-            statsCache.set(d.id, cached);
+      const targets = (digests || []).filter((d) => d.postiz_posts || d.facebook_post_id || d.facebook_reel_id);
+      let cursor = 0;
+      async function worker() {
+        while (cursor < targets.length) {
+          const d = targets[cursor++];
+          const host = document.querySelector(`[data-digest-stats="${d.id}"]`);
+          if (!host) continue;
+          try {
+            let cached = statsCache.get(d.id);
+            if (!cached || Date.now() - cached.time > STATS_CACHE_MS || cached.failed) {
+              cached = {
+                time: Date.now(),
+                failed: false,
+                result: fetchPostizStats(d.id).catch((err) => {
+                  cached.failed = true;
+                  throw err;
+                }),
+              };
+              statsCache.set(d.id, cached);
+            }
+            const data = await cached.result;
+            const series = preferredSeries(data.series);
+            if (series.length) {
+              host.innerHTML = series.map(renderSparkline).join('');
+              continue;
+            }
+            if (!data.linked && data.linkable) {
+              host.innerHTML = '<span class="stat-empty">Postiz не прив’язано</span>';
+              continue;
+            }
+            host.innerHTML = '<span class="stat-empty">Немає даних за 7 днів</span>';
+          } catch (err) {
+            host.innerHTML = '<span class="stat-unavailable">Статистика тимчасово недоступна</span>';
           }
-          const data = await cached.result;
-          const series = preferredSeries(data.series);
-          host.innerHTML = series.length
-            ? series.map(renderSparkline).join('')
-            : '<span class="stat-empty">—</span>';
-        } catch (err) {
-          host.innerHTML = '<span class="stat-empty">Статистика тимчасово недоступна</span>';
         }
-      }));
+      }
+      await Promise.all(Array.from({ length: Math.min(STATS_CONCURRENCY, targets.length) }, () => worker()));
     }
 
     async function copyDigest(id, btn) {
@@ -649,7 +680,7 @@
           return;
         }
         if (job.status === 'failed') {
-          // Keep the failed state visible until the user retries.
+          activeImageJobs.set(active.digestId, { ...active, status: 'failed', message: job.error || job.message, error: job.error });
           alert('Не вдалося створити обкладинку: ' + (job.error || 'Невідома помилка'));
           setTimeout(loadDigests, 300);
           return;
@@ -662,7 +693,8 @@
         const label = currentProgress.querySelector('.video-progress-label');
         const bar = currentProgress.querySelector('.video-progress-bar');
         if (label) {
-          label.textContent = `${job.status === 'failed' ? '❌' : '⏳'} ${job.message} (${job.progress}%)`;
+          const statusText = job.status === 'failed' ? (job.error || job.message) : job.message;
+          label.textContent = `${job.status === 'failed' ? '❌' : '⏳'} ${statusText} (${job.progress}%)`;
         }
         if (bar) bar.style.width = `${job.progress}%`;
         currentProgress.classList.toggle('is-failed', job.status === 'failed');
@@ -753,7 +785,7 @@
           return;
         }
         if (job.status === 'failed') {
-          // Keep the failed state visible until the user retries.
+          activeVideoJobs.set(active.digestId, { ...active, status: 'failed', message: job.error || job.message, error: job.error });
           alert('Не вдалося створити відео: ' + (job.error || 'Невідома помилка'));
           setTimeout(loadDigests, 300);
           return;
@@ -766,7 +798,8 @@
         const label = currentProgress.querySelector('.video-progress-label');
         const bar = currentProgress.querySelector('.video-progress-bar');
         if (label) {
-          label.textContent = `${job.status === 'failed' ? '❌' : '⏳'} ${job.message} (${job.progress}%)`;
+          const statusText = job.status === 'failed' ? (job.error || job.message) : job.message;
+          label.textContent = `${job.status === 'failed' ? '❌' : '⏳'} ${statusText} (${job.progress}%)`;
         }
         if (bar) bar.style.width = `${job.progress}%`;
         currentProgress.classList.toggle('is-failed', job.status === 'failed');

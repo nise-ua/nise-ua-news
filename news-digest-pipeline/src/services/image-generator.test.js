@@ -87,6 +87,7 @@ describe('startImageGeneration', () => {
     });
 
     expect(getImageJob(job.id).error).toMatch(/OPENROUTER_API_KEY/);
+    expect(getImageJob(job.id).message).toMatch(/OPENROUTER_API_KEY/);
     expect(updateDigestMock).not.toHaveBeenCalled();
   });
 

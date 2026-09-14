@@ -50,7 +50,7 @@ import {
   EDGE_VOICE,
   generatePerArticleAudio,
 } from '../../lib/tts.js';
-import { log, projectRoot, scriptDir } from '../../lib/logging.js';
+import { log, projectRoot, reportFatal, scriptDir } from '../../lib/logging.js';
 import { assertFinishedReelCopy, ensureUkrainianOnScreenCopy } from '../../lib/reel-ukrainian-copy.js';
 import {
   ReelCopyReviewError,
@@ -426,7 +426,7 @@ async function main() {
   }
 }
 
-main().catch(err => {
-  console.error(`Fatal: ${err.message}`);
+main().catch((err) => {
+  reportFatal(err);
   process.exit(1);
 });

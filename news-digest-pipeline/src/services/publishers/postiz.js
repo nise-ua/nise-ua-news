@@ -130,7 +130,113 @@ export async function waitForPostizReleaseUrl(client, postId, {
   return '';
 }
 
+export function facebookPostMatchKey(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const postsMatch = raw.match(/\/posts\/(\d+)/i);
+  if (postsMatch) return postsMatch[1];
+  const reelMatch = raw.match(/\/reel\/(\d+)/i);
+  if (reelMatch) return `reel:${reelMatch[1]}`;
+  const underscore = raw.match(/^(\d+)_(\d+)$/);
+  if (underscore) return underscore[2];
+  if (/share\/p\//i.test(raw)) return '';
+  return raw.toLowerCase();
+}
+
+function postizKindFromSettings(post) {
+  const settings = typeof post?.settings === 'string'
+    ? (() => { try { return JSON.parse(post.settings); } catch { return {}; } })()
+    : (post?.settings || {});
+  const postType = String(settings.post_type || settings.postType || '').toLowerCase();
+  if (postType === 'story') return 'story';
+  if (postType === 'reel') return 'reel';
+  return 'text';
+}
+
+export function postizEntryFromListing(post) {
+  if (!post) return null;
+  const postId = postIdOf(post);
+  if (!postId) return null;
+  return {
+    integrationId: String(post.integration?.id || post.integrationId || ''),
+    postId,
+    releaseURL: releaseUrlOf(post) || String(post.releaseURL || post.releaseUrl || '').trim(),
+    kind: postizKindFromSettings(post),
+  };
+}
+
+export async function listPostizPosts(client, { startDate, endDate } = {}) {
+  const start = startDate || new Date(Date.now() - 120 * 24 * 60 * 60 * 1000);
+  const end = endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const body = await client.listPosts({
+    startDate: start instanceof Date ? start.toISOString() : start,
+    endDate: end instanceof Date ? end.toISOString() : end,
+  });
+  return collectPosts(body);
+}
+
+export async function findPostizPostByFacebookRef(client, facebookRef, cachedPosts) {
+  const key = facebookPostMatchKey(facebookRef);
+  if (!key) return null;
+  const posts = cachedPosts || await listPostizPosts(client);
+  const match = posts.find((post) => facebookPostMatchKey(post.releaseURL || post.releaseUrl) === key);
+  return postizEntryFromListing(match);
+}
+
+export function postizEntriesForDigest(digest) {
+  const stored = Object.entries(postizPostsForDigest(digest)).flatMap(([kind, posts]) =>
+    (Array.isArray(posts) ? posts : []).map((post) => ({ ...post, kind })),
+  ).filter((post) => post.postId);
+  if (stored.length > 0) return stored;
+  const refs = [
+    ['text', digest?.facebook_post_id],
+    ['reel', digest?.facebook_reel_id],
+    ['story', digest?.facebook_story_id],
+  ];
+  return refs
+    .filter(([, ref]) => facebookPostMatchKey(ref))
+    .map(([kind, ref]) => ({ kind, facebookRef: ref, pendingLookup: true }));
+}
+
+export async function resolvePostizEntriesForDigest(digest, client) {
+  const stored = Object.entries(postizPostsForDigest(digest)).flatMap(([kind, posts]) =>
+    (Array.isArray(posts) ? posts : []).map((post) => ({ ...post, kind })),
+  ).filter((post) => post.postId);
+  if (stored.length > 0) return { entries: stored, backfill: null };
+
+  const refs = [
+    ['text', digest?.facebook_post_id],
+    ['reel', digest?.facebook_reel_id],
+    ['story', digest?.facebook_story_id],
+  ].filter(([, ref]) => facebookPostMatchKey(ref));
+  if (refs.length === 0) return { entries: [], backfill: null };
+
+  const cachedPosts = await listPostizPosts(client);
+  const resolved = [];
+  const backfill = {};
+  for (const [kind, ref] of refs) {
+    const match = await findPostizPostByFacebookRef(client, ref, cachedPosts);
+    if (!match) continue;
+    const entry = { ...match, kind };
+    resolved.push(entry);
+    if (!backfill[kind]) backfill[kind] = [];
+    backfill[kind].push({
+      integrationId: entry.integrationId,
+      postId: entry.postId,
+      releaseURL: entry.releaseURL,
+      platform: 'facebook',
+    });
+  }
+  return {
+    entries: resolved,
+    backfill: Object.keys(backfill).length ? backfill : null,
+  };
+}
+
 export function normalizeAnalytics(body) {
+  if (body && typeof body === 'object' && !Array.isArray(body) && body.missing === true) {
+    return [];
+  }
   const series = Array.isArray(body) ? body : body?.data || body?.analytics || [];
   return (Array.isArray(series) ? series : []).map((metric) => ({
     label: metric.label || metric.name || 'metric',

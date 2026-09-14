@@ -9,6 +9,7 @@ import { readdirSync, statSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
 import { updateDigest } from '../db/index.js';
+import { summarizeCliFailure } from './cli-failure.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PIPELINE_ROOT = join(__dirname, '../..');
@@ -85,7 +86,10 @@ export function startImageGeneration(digestId) {
   };
   jobs.set(job.id, job);
 
-  const child = spawn(process.execPath, [SCRIPT_PATH, digestId], { cwd: PIPELINE_ROOT });
+  const child = spawn(process.execPath, [SCRIPT_PATH, digestId], {
+    cwd: PIPELINE_ROOT,
+    env: process.env,
+  });
   updateJob(job, {
     status: 'running',
     stage: 'starting',
@@ -121,9 +125,8 @@ export function startImageGeneration(digestId) {
   child.on('error', (error) => finishImageJob(job, error));
   child.on('close', (code) => {
     if (code !== 0) {
-      const detail = stderr.trim().split(/\r?\n/).filter(Boolean).at(-1)
-        || stdout.trim().split(/\r?\n/).filter(Boolean).at(-1);
-      finishImageJob(job, new Error(detail || `Пайплайн обкладинки завершився з кодом ${code}`));
+      const detail = summarizeCliFailure(stderr, stdout, `Пайплайн обкладинки завершився з кодом ${code}`);
+      finishImageJob(job, new Error(detail));
       return;
     }
     const pathLine = stdout.trim().split(/\r?\n/).reverse().find((line) => line.trim().startsWith('Path:'));
@@ -157,12 +160,13 @@ export function startImageGeneration(digestId) {
 }
 
 function finishImageJob(job, error) {
-  console.error(`[image-generator] ${job.digestId}:`, error);
+  const detail = String(error?.message || error || 'Невідома помилка').trim();
+  console.error(`[image-generator] ${job.digestId}:`, detail);
   updateJob(job, {
     status: 'failed',
     stage: 'failed',
-    message: 'Створення обкладинки завершилося з помилкою',
-    error: error.message,
+    message: detail,
+    error: detail,
   });
   scheduleJobCleanup(job.id);
 }

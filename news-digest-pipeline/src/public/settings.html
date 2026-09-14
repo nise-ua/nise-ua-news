@@ -570,11 +570,18 @@
 
       if (active === 'general') {
         const g = d.general;
-        const catalog = g.modelCatalog || { anthropic: [], openai: [], openrouter: [] };
+        const catalog = g.modelCatalog || { anthropic: [], openai: [], openrouter: [], moonshot: [], cursor: [] };
         const vendor = (g.llmVendor && g.llmVendor.value) || 'anthropic';
-        const currentModel = (g.model && g.model.value) || (g.claudeModel && g.claudeModel.value) || '';
-        const vendorOpts = ['anthropic', 'openai', 'openrouter', 'moonshot'].map((v) =>
-          `<option value="${v}" ${v === vendor ? 'selected' : ''}>${v === 'anthropic' ? 'Anthropic' : v === 'openai' ? 'OpenAI' : v === 'openrouter' ? 'OpenRouter' : 'Moonshot (Kimi)'}</option>`
+        const currentModel = (g.model && g.model.value) || (g.llmModel && g.llmModel.value) || '';
+        const vendorLabels = {
+          anthropic: 'Anthropic',
+          openai: 'OpenAI',
+          openrouter: 'OpenRouter',
+          moonshot: 'Moonshot (Kimi)',
+          cursor: 'Cursor (Cloud Agent)',
+        };
+        const vendorOpts = ['anthropic', 'openai', 'openrouter', 'moonshot', 'cursor'].map((v) =>
+          `<option value="${v}" ${v === vendor ? 'selected' : ''}>${vendorLabels[v] || v}</option>`
         ).join('');
         const modelList = catalog[vendor] || [];
         const inList = modelList.some((m) => m.id === currentModel);
@@ -595,10 +602,10 @@
               <select id="f-llmVendor">${vendorOpts}</select>
             </div>
             <div class="field">
-              <label>Модель (CLAUDE_MODEL)</label>
+              <label>Модель (LLM_MODEL)</label>
               <select id="f-model">${modelOpts}</select>
               <input type="text" id="f-modelCustom" style="margin-top:8px;display:${customDisplay}" placeholder="Введіть id моделі вручну" value="${inList ? '' : esc(currentModel)}">
-              <div class="hint">Список — підказка, не вичерпний. Можна ввести довільний id через «Інша».</div>
+              <div class="hint">Список — підказка, не вичерпний. Можна ввести довільний id через «Інша». Cursor генерує дайджест одним Cloud Agent (Composer); обкладинки й reel лишаються на інших ключах.</div>
             </div>
             <div class="field">
               <label>Ендпоінт Anthropic (ANTHROPIC_BASE_URL)</label>
@@ -714,6 +721,7 @@
             ${secretRow('OpenAI API Key', pub.openaiApiKey)}
             ${secretRow('OpenRouter API Key', pub.openrouterApiKey)}
             ${secretRow('Moonshot API Key', pub.moonshotApiKey)}
+            ${secretRow('Cursor API Key', pub.cursorApiKey)}
             ${secretRow('Fal Key', pub.falKey)}
             ${plannedSection(pub.planned)}
           </div>`;
@@ -836,7 +844,7 @@
       const customInp = document.getElementById('f-modelCustom');
       if (!vendorSel || !modelSel || !customInp) return;
 
-      const catalog = (DATA.general && DATA.general.modelCatalog) || { anthropic: [], openai: [], openrouter: [], moonshot: [] };
+      const catalog = (DATA.general && DATA.general.modelCatalog) || { anthropic: [], openai: [], openrouter: [], moonshot: [], cursor: [] };
 
       const refreshCustomVisibility = () => {
         customInp.style.display = modelSel.value === '__custom__' ? 'block' : 'none';
@@ -883,7 +891,7 @@
           : modelSel.value;
         return {
           llmVendor: document.getElementById('f-llmVendor').value,
-          claudeModel: modelId,
+          llmModel: modelId,
           anthropicBaseUrl: document.getElementById('f-anthropicBaseUrl').value.trim(),
           openaiBaseUrl: document.getElementById('f-openaiBaseUrl').value.trim(),
           openrouterBaseUrl: document.getElementById('f-openrouterBaseUrl').value.trim(),

@@ -11,6 +11,7 @@ import {
   renderFrameToPng,
 } from '../render-frame.js';
 import { TEMPLATE_IDS } from '../template-select.js';
+import { overlayCopyTop } from '../../../lib/reel-overlay-text.js';
 
 describe('escapeHtml', () => {
   it('escapes every HTML-significant character', () => {
@@ -57,6 +58,7 @@ describe('templates', () => {
       expect(html, id).toContain('{{detail}}');
       expect(html, id).toContain('{{backgroundImage}}');
       expect(html, id).toContain('brand-row');
+      expect(html, id).toContain(`top: ${overlayCopyTop()}px`);
       expect(html, id).toContain('align-items: flex-end');
       expect(html, id).toMatch(/\.dots i\s*\{[^}]*background:\s*#ffffff/s);
       expect(html, id).not.toContain('accent-bar');

@@ -139,10 +139,30 @@ function stripWrappingQuotes(word) {
   return String(word || '').replace(/^[«"'(]+|[»"')]+$/g, '');
 }
 
+function hasFiniteUkrainianVerb(text) {
+  const words = String(text || '')
+    .replace(/[.!?…]+$/u, '')
+    .split(/\s+/)
+    .map((word) => stripWrappingQuotes(word.replace(/^[«"']+|[»"',:;]+$/g, '')))
+    .filter(Boolean);
+  return words.some((word) => {
+    if (/ти(ся)?$/iu.test(word)) return false;
+    return /[а-яіїєґ'’]{2,}(лася|лося|лися|ла|ли|ло|ав|яв|ув|ов|ив|є|ає|ує|ює|ить|ать|ять|уть|ють|имо)$/iu.test(word);
+  });
+}
+
+function hasInfinitiveWord(text) {
+  return String(text || '')
+    .split(/\s+/)
+    .some((word) => /ти(ся)?$/iu.test(stripWrappingQuotes(word.replace(/^[«"']+|[»"',:;]+$/g, ''))));
+}
+
 /**
  * Hard control: a reel line is unfinished when it has no terminal punctuation,
- * ends on a conjunction/preposition, trails off as «ще один шанс», or ends
- * with a short «а/і + verb» clause after a comma (e.g. «а тепер ріже»).
+ * ends on a conjunction/preposition, trails off as «ще один шанс», ends
+ * with a short «а/і + verb» clause after a comma (e.g. «а тепер ріже»),
+ * uses «, що …» with an infinitive and no finite verb in the subordinate
+ * clause, or is only an infinitive phrase with no subject/finite verb.
  */
 export function looksUnfinishedSentence(text) {
   const raw = String(text || '').trim();
@@ -159,6 +179,10 @@ export function looksUnfinishedSentence(text) {
   if (clauseWords.length <= 3 && /^(а|і|й|та)\s+/iu.test(lastClause)) {
     return true;
   }
+  const afterThat = body.split(/,\s+що\s+/iu).slice(1).join(' що ');
+  if (afterThat && hasInfinitiveWord(afterThat) && !hasFiniteUkrainianVerb(afterThat)) return true;
+  const first = stripWrappingQuotes(words[0]);
+  if (/ти(ся)?$/iu.test(first) && !hasFiniteUkrainianVerb(body.slice(first.length))) return true;
   return false;
 }
 

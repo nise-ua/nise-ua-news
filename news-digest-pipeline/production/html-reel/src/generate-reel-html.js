@@ -38,7 +38,7 @@ import { stitchClips, mergeShotVideoAndAudio } from '../../video/src/stitch.js';
 import { getDigestContent, parseDigestItemTexts } from '../../lib/digest.js';
 import { buildGroundedPrompt, inferNewsToneFromFact } from '../../lib/visual-grounding.js';
 import { EDGE_VOICE, generatePerArticleAudio } from '../../lib/tts.js';
-import { log, projectRoot, scriptDir } from '../../lib/logging.js';
+import { log, projectRoot, reportFatal, scriptDir } from '../../lib/logging.js';
 import { renderShotsToPngs } from './render-frame.js';
 import { generateAiBackgroundsForShots } from './fetch-ai-backgrounds.js';
 
@@ -281,7 +281,7 @@ async function main() {
   }
 }
 
-main().catch(err => {
-  console.error(`Fatal: ${err.message}`);
+main().catch((err) => {
+  reportFatal(err);
   process.exit(1);
 });

@@ -58,6 +58,32 @@ describe('fallbackCoverFromArticles', () => {
 });
 
 describe('groundDigestCover', () => {
+  it('uses articleIndex to rotate cover palette and composition', () => {
+    const first = groundDigestCover({
+      articleIndex: 1,
+      sourceText: 'OpenAI оновив ChatGPT.',
+      url: '',
+      coreFact: 'OpenAI updated ChatGPT with a reasoning-depth slider',
+      entities: ['ChatGPT', 'OpenAI'],
+      newsTone: 'positive',
+      visualSubject: 'ChatGPT UI screen with labels',
+      prompt: 'ui screen',
+      pickReason: 'test',
+    });
+    const third = groundDigestCover({
+      articleIndex: 3,
+      sourceText: 'OpenAI оновив ChatGPT.',
+      url: '',
+      coreFact: 'OpenAI updated ChatGPT with a reasoning-depth slider',
+      entities: ['ChatGPT', 'OpenAI'],
+      newsTone: 'positive',
+      visualSubject: 'ChatGPT UI screen with labels',
+      prompt: 'ui screen',
+      pickReason: 'test',
+    });
+    expect(first.prompt).not.toBe(third.prompt);
+  });
+
   it('rebuilds sarcastic visuals into a text-free grounded prompt', () => {
     const grounded = groundDigestCover({
       articleIndex: 1,
@@ -77,7 +103,8 @@ describe('groundDigestCover', () => {
     expect(grounded.prompt).toMatch(/ZERO TEXT|no text/i);
     expect(grounded.visualSubject.toLowerCase()).not.toMatch(/chatgpt ui|revolution/);
     expect(grounded.prompt.toLowerCase()).not.toMatch(/dark server aisle|documentary photography/);
-    expect(grounded.prompt).toMatch(/vivid|saturated|punchy|scroll/i);
+    expect(grounded.prompt.toLowerCase()).not.toMatch(/fiber optic|server rack|data center|network cable/);
+    expect(grounded.prompt).toMatch(/vivid|saturated|punchy|scroll|prism|stage|conference|coffee|presenter/i);
   });
 });
 
