@@ -1,21 +1,26 @@
 FROM node:20-bookworm-slim
 WORKDIR /app
 
-# Server-side Chromium/Playwright was removed (2026-06): article content is
-# fetched by the local Mac fetcher (real Chrome via AppleScript), never on the
-# server, so the headless browser was ~400MB of dead weight. Keep only:
-#   - wget: used by the docker-compose healthcheck
-#   - ca-certificates: outbound HTTPS to the Anthropic API
+# wget: compose healthcheck. python/make/g++: native modules (better-sqlite3, sharp)
+# on both amd64 and arm64 UGREEN NAS boxes.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     ca-certificates \
+    python3 \
+    make \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
-RUN npm ci --production
+RUN npm ci --omit=dev
 COPY src/ ./src/
+COPY production/ ./production/
 COPY .env.example ./.env.example
-# Prompt files are mounted via docker-compose volumes
+
+RUN mkdir -p /app/prompts /app/data /app/output \
+    /app/production/image/output \
+    /app/production/video/output
+
 VOLUME /app/data
 EXPOSE 3000
 CMD ["node", "src/index.js"]

@@ -1,14 +1,16 @@
 {
   "manifest_version": 3,
   "name": "News Collector",
-  "version": "1.0",
+  "version": "1.1.1",
   "description": "A Chrome extension to collect news articles.",
   "permissions": [
     "storage",
     "activeTab",
     "contextMenus",
     "notifications",
-    "sidePanel"
+    "sidePanel",
+    "tabs",
+    "scripting"
   ],
   "host_permissions": [
     "http://localhost/*",

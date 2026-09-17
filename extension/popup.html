@@ -7,7 +7,7 @@
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            width: 300px;
+            width: 320px;
             padding: 15px;
             margin: 0;
             background-color: #f8f9fa;
@@ -17,9 +17,25 @@
             margin-top: 0;
             color: #343a40;
         }
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #495057;
+            margin: 10px 0 4px;
+        }
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 13px;
+        }
         button {
             width: 100%;
             padding: 12px;
+            margin-top: 12px;
             background-color: #007bff;
             color: white;
             border: none;
@@ -27,43 +43,39 @@
             font-size: 14px;
             font-weight: bold;
             cursor: pointer;
-            transition: background-color 0.2s;
         }
-        button:hover {
-            background-color: #0056b3;
+        button.secondary {
+            background-color: #495057;
         }
+        button:hover { filter: brightness(0.95); }
         button:disabled {
             background-color: #6c757d;
             cursor: not-allowed;
         }
         #status {
-            margin-top: 15px;
+            margin-top: 12px;
             padding: 10px;
             border-radius: 4px;
             font-size: 13px;
             display: none;
         }
-        .status-ok {
-            background-color: #d4edda;
-            color: #155724;
-            display: block !important;
-        }
-        .status-error {
-            background-color: #f8d7da;
-            color: #721c24;
-            display: block !important;
-        }
-        .status-info {
-            background-color: #e2e3e5;
-            color: #383d41;
-            display: block !important;
-        }
+        .status-ok { background-color: #d4edda; color: #155724; display: block !important; }
+        .status-error { background-color: #f8d7da; color: #721c24; display: block !important; }
+        .status-info { background-color: #e2e3e5; color: #383d41; display: block !important; }
+        .hint { font-size: 11px; color: #6c757d; margin-top: 6px; }
     </style>
 </head>
 <body>
     <h1>News Collector</h1>
-    <button id="collectNews">Collect Current Page</button>
+    <label for="backendUrl">UGREEN / app URL</label>
+    <input id="backendUrl" type="url" placeholder="http://192.168.0.138:3010" autocomplete="off">
+    <label for="apiSecretKey">API_SECRET_KEY</label>
+    <input id="apiSecretKey" type="password" placeholder="same key as NAS .env" autocomplete="off">
+    <p class="hint">Save API_SECRET_KEY from .env (dashboard login password also works). Then collect.</p>
+    <button id="saveSettings" class="secondary" type="button">Save destination</button>
+    <button id="collectNews" type="button">Collect Current Page</button>
     <div id="status"></div>
+    <script src="collect.js"></script>
     <script src="popup.js"></script>
 </body>
 </html>

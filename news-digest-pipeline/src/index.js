@@ -140,8 +140,8 @@ process.on('SIGTERM', () => {
 });
 
 // Start server
-app.listen(config.port, () => {
-  console.log(`[server] News Digest Pipeline running on port ${config.port}`);
+app.listen(config.port, '0.0.0.0', () => {
+  console.log(`[server] News Digest Pipeline running on 0.0.0.0:${config.port}`);
   console.log(`[server] Environment: ${config.nodeEnv}`);
 
   // Register Telegram webhook after server is listening

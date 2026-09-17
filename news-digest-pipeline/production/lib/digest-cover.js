@@ -19,14 +19,14 @@ export const COVER_SELECTION_SYSTEM_PROMPT = `Ти обираєш ОДНУ но�
 Мета: зупинити скрол у стрічці. Картинка БЕЗ будь-якого тексту — підпис поста буде повним дайджестом.
 
 Критерії вибору (за пріоритетом):
-1. Найсильніший візуальний факт: несподіванка, масштаб, конфлікт, імена/продукти, конкретна сцена.
-2. Сцену можна сфотографувати без UI, логотипів, екранів і написів.
+1. Найсильніший візуальний факт: несподіванка, масштаб, конфлікт, імена/продукти, конкретна сцена з предметами (гра, пристрій, лабораторія), не анонімне обличчя.
+2. Сцену можна сфотографувати без UI, логотипів, екранів, написів і випадкового портрета.
 3. Ігноруй авторський сарказм («революція?», «історія», «ага») — обирай факт, не тон.
 4. Не обирай абстрактну «новину про ШІ взагалі», якщо є конкретніша дія.
 
 Для обраного блоку заповни:
 - articleIndex — номер блоку з входу (1, 2, 3...)
-- coreFact — нейтральний факт англійською (хто/що/що сталося), БЕЗ сарказму; ТІЛЬКИ англійською, без кирилиці
+- coreFact — нейтральний факт англійською (хто/що/що сталося), БЕЗ сарказму; ТІЛЬКИ англійською, без кирилиці. Якщо не можеш написати англійською — все одно латиницею, ніколи кирилицею.
 - entities — масив конкретних назв (компанії, продукти, технології, місця)
 - newsTone — "positive" | "neutral" | "negative" лише з coreFact
 - pickReason — одне коротке речення українською, чому саме цей блок
@@ -51,7 +51,8 @@ Requirements:
 - prompt: full English image prompt derived from visualSubject; vivid color, golden or daylight; editorial magazine still
 - English only — no Cyrillic anywhere
 - No readable text, letters, numbers, logos, UI, screenshots, watermarks, or captions in the scene
-- No generic stock scenes unrelated to the story (random portraits, generic AI workstation, datacenter racks, crystal prisms, coffee-on-desk unless that is the story)
+- No generic stock scenes unrelated to the story (random portraits, a man in a hat, unidentified faces, modern RGB gaming PC, generic AI workstation, datacenter racks, crystal prisms, coffee-on-desk unless that is the story)
+- For classic game / OS-from-scratch stories: retro CRT, arcade stick, or bare motherboard on a workbench — never a sleek modern PC tower
 - No author sarcasm as imagery (revolution, history book, joke framing)
 - Show physical objects and actions from the news, not abstract "AI" symbolism
 

@@ -1,0 +1,12 @@
+node_modules
+/data
+/output
+.env
+.git
+coverage
+production/image/output
+production/video/output
+production/audio/output
+production/html-reel/output
+**/*.test.js
+**/__tests__

@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { dashboardAuth, resetLoginAttemptsForTests } from './auth.js';
+import { apiAuth, dashboardAuth, resetLoginAttemptsForTests } from './auth.js';
 
 function mockReq(headers = {}, ip = '127.0.0.1') {
   return {
     headers,
     ip,
+    path: '/articles/batch',
+    query: {},
     socket: { remoteAddress: ip },
   };
 }
@@ -29,6 +31,33 @@ function mockRes() {
   };
   return res;
 }
+
+describe('apiAuth bearer', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('accepts API_SECRET_KEY or DASHBOARD_PASSWORD as Bearer', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('API_SECRET_KEY', 'api-key');
+    vi.stubEnv('DASHBOARD_PASSWORD', 'dash-pass');
+
+    let nextApi = false;
+    apiAuth(mockReq({ authorization: 'Bearer api-key' }), mockRes(), () => { nextApi = true; });
+    expect(nextApi).toBe(true);
+
+    let nextDash = false;
+    apiAuth(mockReq({ authorization: 'Bearer dash-pass' }), mockRes(), () => { nextDash = true; });
+    expect(nextDash).toBe(true);
+
+    const denied = mockRes();
+    denied.json = (body) => { denied.body = body; return denied; };
+    let nextBad = false;
+    apiAuth(mockReq({ authorization: 'Bearer other' }), denied, () => { nextBad = true; });
+    expect(nextBad).toBe(false);
+    expect(denied.statusCode).toBe(401);
+  });
+});
 
 describe('dashboardAuth login rate limit', () => {
   afterEach(() => {
