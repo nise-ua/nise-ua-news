@@ -56,7 +56,14 @@ export const GENERIC_IT_CLICHE_RE =
 
 /** Generic stock cover scenes the visual LLM is told to avoid — not topic routing. */
 const COVER_STOCK_CLICHE_RE =
-  /\b(computing workstation|modular computing|crystal prism|generic ai workstation|presenter on stage|coffee on desk|colorful LED indicators on a bright studio desk)\b/i;
+  /\b(computing workstation|modular computing|crystal prism|generic ai workstation|presenter on stage|coffee on desk|colorful LED indicators on a bright studio desk|headshot|portrait of|close-up of a (man|woman|person)|man in a (red )?hat|red baseball cap|unidentified (man|person)|random (man|person)|stock photo of a (man|woman)|gaming pc|rgb pc|custom pc|pc tower|beige pc tower|modern gaming rig)\b/i;
+
+const PRIVACY_FACT_RE =
+  /\b(contractor|subcontractor|live chats?|user chats?|confidential|privacy leak|human reviewer|content moderator)\b/i;
+const PRIVACY_FACT_UK_RE = /підрядник|конфіденц|живі чати|чати користувач/i;
+const GAMING_FACT_RE =
+  /\b(doom|video game|arcade cabinet|operating system from scratch|wrote an os|wrote an operating system)\b/i;
+const GAMING_FACT_UK_RE = /операційн[ау]\s+систем|запускає\s+Doom|\bDoom\b/i;
 
 const SAFE_VISUAL_VARIANTS = {
   aiAssistantUpdate: [
@@ -115,6 +122,12 @@ const SAFE_VISUAL_VARIANTS = {
     'Field of wind turbines at golden hour with saturated green grass, vivid sky, no company logos on towers no readable signage no watermarks',
     'Rows of vivid blue solar panels reflecting clouds, wide landscape composition, no inverter labels no meter numbers no watermarks',
     'Battery storage containers in a bright industrial yard, colorful safety stripes without text, warm daylight, no capacity markings no watermarks',
+  ],
+  gaming: [
+    '1990s beige desktop with a curved CRT monitor showing a blocky first-person corridor game in green and brown pixels, unlabeled gamepad on the desk, warm room light, no logos no HUD text no watermarks',
+    'Unlabeled black game controller in front of a CRT with phosphor-green glow in a teal rec room, saturated retro light, no brand marks no screen text no watermarks',
+    'Hands on an unlabeled arcade stick under vivid neon cabinet light, blocky pixel corridor on the screen without readable text, no logos no score digits no watermarks',
+    'Bare green circuit board with fresh solder joints beside floppy disks on a bright workbench, DIY operating-system build metaphor, no silkscreen text no labels no watermarks',
   ],
   default: [
     'Sunlit technology scene with unmarked hardware, warm daylight and vivid color, no screens dials labels symbols typography or watermarks',
@@ -207,6 +220,7 @@ export function isSafeCustomVisualSubject(subject, { look = 'reel' } = {}) {
   if (!raw || raw.length < 20) return false;
   if (containsCyrillic(raw)) return false;
   if (normalizeVisualLook(look) === 'cover' && isGenericItCliche(raw)) return false;
+  if (normalizeVisualLook(look) === 'cover' && COVER_STOCK_CLICHE_RE.test(raw)) return false;
   if (isKnownSafeVisual(raw)) return true;
   if (BANNED_RE.test(raw)) return false;
   if (matchesVisualSafetyPattern(UI_VISUAL_RE, raw)) return false;
@@ -221,6 +235,59 @@ function stripCoverSafetyInstructions(text) {
     .replace(/\b(no|without|never)\s+(readable\s+)?(text|labels?|typography|writing|words|logos?|watermarks?|captions?)\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function isPrivacyStory({ coreFact = '', entities = [] } = {}) {
+  const entityText = (Array.isArray(entities) ? entities : []).join(' ');
+  return PRIVACY_FACT_RE.test(coreFact)
+    || PRIVACY_FACT_UK_RE.test(coreFact)
+    || PRIVACY_FACT_RE.test(entityText)
+    || PRIVACY_FACT_UK_RE.test(entityText);
+}
+
+function isGamingStory({ coreFact = '', entities = [] } = {}) {
+  const entityText = (Array.isArray(entities) ? entities : []).join(' ');
+  return GAMING_FACT_RE.test(coreFact)
+    || GAMING_FACT_UK_RE.test(coreFact)
+    || GAMING_FACT_RE.test(entityText)
+    || GAMING_FACT_UK_RE.test(entityText);
+}
+
+function pickGamingCoverVariant({ coreFact = '', index = 0 } = {}) {
+  const osBuild = /\b(operating system|wrote an os|from scratch|операційн)/i.test(String(coreFact || ''));
+  const variantIndex = osBuild ? 3 : 0;
+  return pickSafeVisualVariant('gaming', variantIndex);
+}
+
+export function buildSafeCoverVisualSubject({
+  visualSubject,
+  coreFact,
+  entities = [],
+  index = 0,
+} = {}) {
+  if (isPrivacyStory({ coreFact, entities })) {
+    return pickSafeVisualVariant('security', index);
+  }
+  if (isGamingStory({ coreFact, entities })) {
+    return pickGamingCoverVariant({ coreFact, index });
+  }
+
+  const subject = buildSafeVisualSubject({
+    visualSubject,
+    coreFact,
+    entities,
+    index,
+    look: 'cover',
+  });
+  if (
+    !subject
+    || containsCyrillic(subject)
+    || isGenericItCliche(subject)
+    || COVER_STOCK_CLICHE_RE.test(subject)
+  ) {
+    return pickSafeVisualVariant('default', index);
+  }
+  return subject;
 }
 
 function coverSubjectNeedsFallback(subject, prompt) {
@@ -252,8 +319,13 @@ export function groundCoverVariant(variant, index = 0) {
   let visualSubject = String(variant.visualSubject || '').trim();
   let prompt = String(variant.prompt || '').trim();
 
-  if (coverSubjectNeedsFallback(visualSubject, prompt)) {
-    visualSubject = sanitizeTextForImagePrompt(coreFact || visualSubject);
+  if (coverSubjectNeedsFallback(visualSubject, prompt) || containsCyrillic(coreFact)) {
+    visualSubject = buildSafeCoverVisualSubject({
+      visualSubject,
+      coreFact,
+      entities,
+      index: hashVisualSeed(coreFact),
+    });
     prompt = '';
   } else {
     visualSubject = sanitizeTextForImagePrompt(visualSubject);
@@ -555,8 +627,16 @@ export function buildGroundedPrompt({
 } = {}) {
   const fact = String(coreFact || '').trim();
   const visualLook = normalizeVisualLook(look);
+  const incomingSubject = String(visualSubject || '').trim();
   const safeSubject = visualLook === 'cover'
-    ? sanitizeTextForImagePrompt(String(visualSubject || fact || '').trim())
+    ? (incomingSubject && !containsCyrillic(incomingSubject) && !COVER_STOCK_CLICHE_RE.test(incomingSubject)
+      ? incomingSubject
+      : buildSafeCoverVisualSubject({
+        visualSubject,
+        coreFact: fact,
+        entities,
+        index: hashVisualSeed(fact),
+      }))
     : buildSafeVisualSubject({ visualSubject, coreFact: fact, entities, index, look: visualLook });
   const factClause = buildImageFactClause(fact);
   const tone = resolveNewsTone({ newsTone, coreFact: fact });

@@ -84,17 +84,25 @@ export function apiAuth(req, res, next) {
   if (authDisabled()) return next();
 
   const expectedKey = process.env.API_SECRET_KEY;
-  if (!expectedKey) return next(); // dev mode
+  const dashPass = process.env.DASHBOARD_PASSWORD || '';
+  if (!expectedKey && !dashPass) return next(); // dev mode
 
-  // Check Bearer token
+  function tokenMatches(value) {
+    const token = String(value || '').trim();
+    if (!token) return false;
+    if (expectedKey && safeCompare(token, expectedKey)) return true;
+    if (dashPass && safeCompare(token, dashPass)) return true;
+    return false;
+  }
+
+  // Check Bearer token (Chrome plugin). Accept API key or dashboard password.
   const authHeader = req.headers.authorization || '';
   if (authHeader.startsWith('Bearer ')) {
-    const bearer = authHeader.slice(7);
-    if (safeCompare(bearer, expectedKey)) return next();
+    if (tokenMatches(authHeader.slice(7))) return next();
   }
 
   // Check query param
-  if (req.query.key && safeCompare(req.query.key, expectedKey)) return next();
+  if (req.query.key && tokenMatches(req.query.key)) return next();
 
   // Check Basic Auth (dashboard passes Basic Auth to API on same origin)
   if (authHeader.startsWith('Basic ')) {
@@ -103,9 +111,7 @@ export function apiAuth(req, res, next) {
       const colonIdx = decoded.indexOf(':');
       if (colonIdx !== -1) {
         const pass = decoded.slice(colonIdx + 1);
-        // Accept either API key or dashboard password
-        const dashPass = process.env.DASHBOARD_PASSWORD || '';
-        if (safeCompare(pass, expectedKey) || (dashPass && safeCompare(pass, dashPass))) return next();
+        if (tokenMatches(pass)) return next();
       }
     } catch {
       // malformed — fall through

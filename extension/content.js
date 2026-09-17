@@ -11,8 +11,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         };
         console.log("News Collector: Scraped data", data);
         sendResponse(data);
+        return false;
     }
-    return true;
 });
 
 function extractContent() {

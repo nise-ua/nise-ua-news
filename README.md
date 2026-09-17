@@ -36,7 +36,7 @@ No manual copying, no layout work, no routine.
 
 | Step | Action | Instructions |
 |-----|------------|-----------|
-| 1 | Set up a **VPS server** (Ubuntu, Docker, Traefik) | [vps-setup.md](news-digest-pipeline/docs/vps-setup.md) |
+| 1 | Set up a **VPS** (Ubuntu, Docker, Traefik) **or UGREEN NAS Docker** | [vps-setup.md](news-digest-pipeline/docs/vps-setup.md) · [ugreen-docker.md](news-digest-pipeline/docs/ugreen-docker.md) |
 | 2 | Create a **Telegram bot** via @BotFather and set up a webhook | [telegram-setup.md](news-digest-pipeline/docs/telegram-setup.md) |
 | 3 | Get an **API key** — Claude at [console.anthropic.com](https://console.anthropic.com/) or OpenAI at [platform.openai.com](https://platform.openai.com) | — |
 | 4 | *(optional)* Create a **Facebook App** and get a Page Access Token | [facebook-page-setup.md](news-digest-pipeline/docs/facebook-page-setup.md) |
@@ -140,26 +140,18 @@ npm start
 
 Dashboard: `http://localhost:3000` (login: `admin` / your `DASHBOARD_PASSWORD`)
 
-### 4. Local Docker
-
-Use this when you want to run the app on your own machine without Traefik or a VPS:
+### 4. Local Docker / UGREEN NAS (no Traefik)
 
 ```bash
-docker compose -f news-digest-pipeline/docker-compose.yml -f news-digest-pipeline/docker-compose.local.yml up -d --build
+cd news-digest-pipeline
+docker compose -f docker-compose.ugreen.yml up -d --build
 ```
 
-Open:
+Open `http://localhost:3000` or `http://<NAS-LAN-IP>:3000`.
 
-```text
-http://localhost:3000
-```
+Fill `.env` first (`NODE_ENV=production`, `API_SECRET_KEY`, `DASHBOARD_PASSWORD`, LLM keys). Chrome plugin: load `extension/`, save the NAS URL and API key. Full NAS steps: [ugreen-docker.md](news-digest-pipeline/docs/ugreen-docker.md).
 
-This local override:
-- publishes port `3000`
-- mounts the repo root as `/app/prompts` so the prompt files are visible
-- keeps the production Traefik compose file unchanged
-
-### 5. Production (Docker / VPS)
+### 5. Production (Docker / VPS + Traefik)
 
 ```bash
 docker compose up -d --build
@@ -490,6 +482,7 @@ Full audit: [SECURITY_AUDIT_2026-04-13.md](SECURITY_AUDIT_2026-04-13.md)
 | Facebook Page (Graph API) | [facebook-page-setup.md](news-digest-pipeline/docs/facebook-page-setup.md) |
 | Facebook Profile (Patchright) | [facebook-setup.md](news-digest-pipeline/docs/facebook-setup.md) |
 | VPS + Docker + Traefik | [vps-setup.md](news-digest-pipeline/docs/vps-setup.md) |
+| UGREEN NAS Docker + Chrome plugin | [ugreen-docker.md](news-digest-pipeline/docs/ugreen-docker.md) |
 | iOS Shortcut | [ios-shortcut-setup.md](news-digest-pipeline/docs/ios-shortcut-setup.md) |
 | Instagram Pipeline | [instagram/README.md](news-digest-pipeline/instagram/README.md) |
 | Facebook Shadow Ban Research | [facebook-shadow-ban-research.md](news-digest-pipeline/docs/facebook-shadow-ban-research.md) |

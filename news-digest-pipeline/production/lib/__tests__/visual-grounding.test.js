@@ -217,7 +217,7 @@ describe('cover visual variety', () => {
     )).toBe(false);
   });
 
-  it('falls back to sanitized coreFact when the LLM subject is unsafe', () => {
+  it('falls back to an English object scene when the LLM subject is unsafe', () => {
     const grounded = groundCoverVariant({
       coreFact: 'Meta released Muse, a personal AI agent that books travel and completes purchases.',
       entities: ['Meta', 'Muse'],
@@ -227,9 +227,54 @@ describe('cover visual variety', () => {
       look: 'cover',
     }, 0);
 
-    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/chatgpt|ui|readable labels/);
+    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/\bchatgpt\b|\bui\b|readable labels/);
     expect(grounded.prompt).toMatch(/ZERO TEXT|no text/i);
     expect(containsCyrillic(grounded.prompt)).toBe(false);
+  });
+
+  it('does not send Ukrainian contractor copy to the image model as a random portrait', () => {
+    const grounded = groundCoverVariant({
+      coreFact: 'сотні підрядників читають живі чати користувачів і оцінюють, наскільки ChatGPT «людяний»',
+      entities: ['ChatGPT', 'OpenAI'],
+      newsTone: 'negative',
+      visualSubject: 'сотні підрядників читають живі чати користувачів',
+      prompt: '',
+      look: 'cover',
+    }, 0);
+
+    expect(containsCyrillic(grounded.visualSubject)).toBe(false);
+    expect(containsCyrillic(grounded.prompt)).toBe(false);
+    expect(grounded.prompt.toLowerCase()).not.toMatch(/portrait|red hat|headshot|підрядник/);
+    expect(grounded.visualSubject).toMatch(/vault|padlock|network appliances/i);
+  });
+
+  it('grounds a Doom OS story as a game/hardware scene, not a person', () => {
+    const grounded = groundCoverVariant({
+      coreFact: 'Claude Code wrote an operating system from scratch that launches Doom',
+      entities: ['Claude Code', 'Doom'],
+      newsTone: 'positive',
+      visualSubject: 'Portrait of a man in a red hat',
+      prompt: 'headshot of an unidentified man wearing a red baseball cap',
+      look: 'cover',
+    }, 0);
+
+    expect(grounded.visualSubject).toMatch(/crt|controller|arcade|circuit board|floppy/i);
+    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/pc tower|gaming pc|rgb/);
+    expect(grounded.prompt.toLowerCase()).not.toMatch(/portrait|red hat|headshot/);
+  });
+
+  it('uses a DIY motherboard scene for OS-from-scratch gaming covers', () => {
+    const grounded = groundCoverVariant({
+      coreFact: 'Claude Code wrote an operating system from scratch that launches Doom',
+      entities: ['Claude Code', 'Doom'],
+      newsTone: 'positive',
+      visualSubject: 'Modern RGB gaming PC tower on a desk',
+      prompt: 'custom gaming pc with colorful LEDs',
+      look: 'cover',
+    }, 0);
+
+    expect(grounded.visualSubject).toMatch(/circuit board|floppy|solder/i);
+    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/pc tower|gaming pc|rgb/);
   });
 
   it('keeps a safe LLM-provided scene without keyword templates', () => {
