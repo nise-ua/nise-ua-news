@@ -43,19 +43,20 @@ When changing `news-digest-pipeline/production/lib` or adding tests, read
 `news-digest-pipeline/docs/testing.md` and run tests from
 `news-digest-pipeline/` (`npm run test:production` or `npm run test:all`).
 
-### Restart after major code changes
+### Restart after every app fix
 
-After any major code change (pipeline, dashboard, production libs, video/reel,
-or other server-loaded code), restart the local app so the running process
-picks up the new code. From the repo root:
+After every application fix or code change (including small dashboard, pipeline,
+production-lib, video/reel, and other server-loaded changes), update the running
+app and restart it so the new code is active. From the repo root:
 
 ```bash
 ./restart.sh
 ```
 
-Do this at the end of the task, after tests. Skip for docs-only or comment-only
-edits. The script wraps `news-digest-pipeline/scripts/restart-local.sh` and
-reloads the dashboard on port 3000.
+Do this at the end of every fix, after tests, without waiting for a separate user
+request. Skip only for docs-only or comment-only edits. The script wraps
+`news-digest-pipeline/scripts/restart-local.sh` and reloads the dashboard on
+port 3000.
 
 The required review-first CLI workflow is:
 

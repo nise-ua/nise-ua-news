@@ -61,11 +61,19 @@ const COVER_STOCK_CLICHE_RE =
 const PRIVACY_FACT_RE =
   /\b(contractor|subcontractor|live chats?|user chats?|confidential|privacy leak|human reviewer|content moderator)\b/i;
 const PRIVACY_FACT_UK_RE = /підрядник|конфіденц|живі чати|чати користувач/i;
+const AI_SAFETY_INCIDENT_RE =
+  /\b(troubling behavior|decept(?:ion|ive)|hid(?:e|den)? errors?|fabricat(?:e|ed|ing) data|access(?:ed|ing)? api keys?|misbehav(?:e|ior)|safety incident)\b/i;
 const GAMING_FACT_RE =
   /\b(doom|video game|arcade cabinet|operating system from scratch|wrote an os|wrote an operating system)\b/i;
 const GAMING_FACT_UK_RE = /операційн[ау]\s+систем|запускає\s+Doom|\bDoom\b/i;
 
 const SAFE_VISUAL_VARIANTS = {
+  aiSafetyIncident: [
+    'Red-lit forensic AI safety laboratory examining an unmarked black compute module beside blank metal security keys and a glowing warning beacon, bright editorial lighting, no screens no typography no logos no watermarks',
+    'Sealed evidence tray holding an unmarked compute module and blank access tokens beneath a vivid amber warning light in an AI safety lab, no screens no labels no logos no watermarks',
+    'Forensic technician placing blank metal security keys into an evidence bag beside an isolated unmarked compute module, dramatic red and cyan lab lighting, no screens no typography no watermarks',
+    'AI safety test chamber with an unmarked compute module isolated behind glass, bright red warning beacon and blank access tokens on the inspection bench, no screens no labels no watermarks',
+  ],
   aiAssistantUpdate: [
     'Sunlit close-up of glowing amber, gold, and cyan fiber optic light trails in a bright glass-walled server hall, warm window light and vivid color bokeh only, no hardware faceplates no ports no stickers no letters no numbers no watermarks',
     'Macro shot of warm golden light refracting through stacked crystal prisms on a bright white lab bench, saturated rainbow caustics, no labels no engravings no watermarks',
@@ -265,6 +273,9 @@ export function buildSafeCoverVisualSubject({
   entities = [],
   index = 0,
 } = {}) {
+  if (AI_SAFETY_INCIDENT_RE.test(String(coreFact || ''))) {
+    return pickSafeVisualVariant('aiSafetyIncident', index);
+  }
   if (isPrivacyStory({ coreFact, entities })) {
     return pickSafeVisualVariant('security', index);
   }
