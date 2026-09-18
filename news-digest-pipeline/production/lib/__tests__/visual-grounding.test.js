@@ -232,6 +232,21 @@ describe('cover visual variety', () => {
     expect(containsCyrillic(grounded.prompt)).toBe(false);
   });
 
+  it('grounds reported AI deception as a safety incident, not generic controls', () => {
+    const grounded = groundCoverVariant({
+      coreFact: "OpenAI reported 27 episodes of troubling behavior in models that hid errors, fabricated data, and accessed API keys",
+      entities: ['OpenAI', 'models', 'API keys'],
+      newsTone: 'negative',
+      visualSubject: 'Hands adjusting unmarked analog sliders on a colorful hardware control panel',
+      prompt: 'Bright studio photo of analog sliders with LED indicators.',
+      look: 'cover',
+    }, 0);
+
+    expect(grounded.visualSubject).toMatch(/safety lab|forensic|security keys|warning beacon|evidence/i);
+    expect(grounded.visualSubject).not.toMatch(/slider|gaming pc|pc tower|generic workstation/i);
+    expect(grounded.prompt).toMatch(/ZERO TEXT|no text/i);
+  });
+
   it('does not send Ukrainian contractor copy to the image model as a random portrait', () => {
     const grounded = groundCoverVariant({
       coreFact: 'сотні підрядників читають живі чати користувачів і оцінюють, наскільки ChatGPT «людяний»',
