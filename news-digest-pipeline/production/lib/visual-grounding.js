@@ -56,7 +56,7 @@ export const GENERIC_IT_CLICHE_RE =
 
 /** Generic stock cover scenes the visual LLM is told to avoid — not topic routing. */
 const COVER_STOCK_CLICHE_RE =
-  /\b(computing workstation|modular computing|crystal prism|generic ai workstation|presenter on stage|coffee on desk|colorful LED indicators on a bright studio desk|headshot|portrait of|close-up of a (man|woman|person)|man in a (red )?hat|red baseball cap|unidentified (man|person)|random (man|person)|stock photo of a (man|woman)|gaming pc|rgb pc|custom pc|pc tower|beige pc tower|modern gaming rig)\b/i;
+  /\b(computing workstation|modular computing|crystal prism|generic ai workstation|presenter on stage|coffee on desk|colorful LED indicators on a bright studio desk|headshot|portrait of|close-up of a (man|woman|person)|man in a (red )?hat|red baseball cap|unidentified (man|person)|random (man|person)|stock photo of a (man|woman)|gaming pc|rgb pc|custom pc|pc tower|beige pc tower|modern gaming rig|urban rooftop|rooftop with antennas|blank equipment boxes)\b/i;
 
 const PRIVACY_FACT_RE =
   /\b(contractor|subcontractor|live chats?|user chats?|confidential|privacy leak|human reviewer|content moderator)\b/i;
@@ -66,6 +66,12 @@ const AI_SAFETY_INCIDENT_RE =
 const GAMING_FACT_RE =
   /\b(doom|video game|arcade cabinet|operating system from scratch|wrote an os|wrote an operating system)\b/i;
 const GAMING_FACT_UK_RE = /операційн[ау]\s+систем|запускає\s+Doom|\bDoom\b/i;
+const FINANCE_FACT_RE =
+  /\b(bank(?:ing)?|bank account|checking account|salary|payroll|paycheck|wallet|payment|fintech|money|finance|financial|debit|credit card)\b/i;
+const FINANCE_FACT_UK_RE = /зарплат|банківськ|\bбанк\b|рахунок|гаманець|платіж|грош/i;
+const AI_POLICY_DEBATE_RE =
+  /\b(extinction|existential|doomer|end of (the )?world|ai threat|humanity|overhype|regulation scare)\b/i;
+const AI_POLICY_DEBATE_UK_RE = /вимиранн|апокаліпсис|кінець світу|загроз[аи]\s+вим/i;
 
 const SAFE_VISUAL_VARIANTS = {
   aiSafetyIncident: [
@@ -137,10 +143,22 @@ const SAFE_VISUAL_VARIANTS = {
     'Hands on an unlabeled arcade stick under vivid neon cabinet light, blocky pixel corridor on the screen without readable text, no logos no score digits no watermarks',
     'Bare green circuit board with fresh solder joints beside floppy disks on a bright workbench, DIY operating-system build metaphor, no silkscreen text no labels no watermarks',
   ],
+  finance: [
+    'Open unmarked leather wallet beside a stack of blank cash envelopes on a sunlit desk, vivid paper whites, closed laptop with a dark blank screen in the background, no bank logos no numerals no watermarks',
+    'Hands tucking a blank payment card into a worn wallet next to sealed cash envelopes, warm window light, no card numbers no bank names no screens no watermarks',
+    'Heavy bank vault door ajar with warm light on shelves of blank envelopes, teal and amber contrast, no combination numerals no engraved text no watermarks',
+    'Overhead shot of blank salary envelopes fanned on a bright oak desk beside a closed notebook, hard daylight, no printed names no currency numerals no watermarks',
+  ],
+  aiPolicyDebate: [
+    'Empty sunlit lecture hall with a wooden podium and rows of vacant chairs, vivid window light, no slides no screens no typography no watermarks',
+    'Wooden gavel and blank folders on a bright mahogany table, shallow depth of field, no engraved text no document titles no watermarks',
+    'Researchers around a sunlit conference table with closed unmarked notebooks, colorful sticky flags without writing, no laptops facing camera no screens no watermarks',
+    'Scales of justice silhouette against a colorful sunset sky, dramatic contrast, no engraved letters no courthouse signage no watermarks',
+  ],
   default: [
     'Sunlit technology scene with unmarked hardware, warm daylight and vivid color, no screens dials labels symbols typography or watermarks',
     'Bright makerspace workbench with colorful tools and blank metal prototypes, saturated daylight, no printed labels no screens no watermarks',
-    'Vivid urban rooftop with antennas and blank equipment boxes against a saturated sunset sky, no billboard text no logos no watermarks',
+    'Close-up of copper heat pipes and vivid coolant tubes on open unmarked hardware, shallow depth of field, punchy warm daylight, no stickers no serial numbers no watermarks',
     'Macro of colorful fiber and copper cables organized in a bright cable tray, punchy contrast, no port labels no tags no watermarks',
   ],
 };
@@ -187,6 +205,12 @@ function buildImageFactClause(coreFact) {
   const fact = String(coreFact || '').trim();
   if (!fact) return '';
 
+  if (isFinanceStory({ coreFact: fact }) || FINANCE_FACT_UK_RE.test(fact)) {
+    return ' News context: a chatbot connected to a bank account and salary payments.';
+  }
+  if (isAiPolicyDebateStory({ coreFact: fact }) || AI_POLICY_DEBATE_UK_RE.test(fact)) {
+    return ' News context: a public debate about AI risk and regulation.';
+  }
   if (/\b(discontinu|removed|shut\s?down|deprecated|killed)\b/i.test(fact)) {
     return ' News context: a major tech feature was removed after launch.';
   }
@@ -261,6 +285,22 @@ function isGamingStory({ coreFact = '', entities = [] } = {}) {
     || GAMING_FACT_UK_RE.test(entityText);
 }
 
+function isFinanceStory({ coreFact = '', entities = [] } = {}) {
+  const entityText = (Array.isArray(entities) ? entities : []).join(' ');
+  return FINANCE_FACT_RE.test(coreFact)
+    || FINANCE_FACT_UK_RE.test(coreFact)
+    || FINANCE_FACT_RE.test(entityText)
+    || FINANCE_FACT_UK_RE.test(entityText);
+}
+
+function isAiPolicyDebateStory({ coreFact = '', entities = [] } = {}) {
+  const entityText = (Array.isArray(entities) ? entities : []).join(' ');
+  return AI_POLICY_DEBATE_RE.test(coreFact)
+    || AI_POLICY_DEBATE_UK_RE.test(coreFact)
+    || AI_POLICY_DEBATE_RE.test(entityText)
+    || AI_POLICY_DEBATE_UK_RE.test(entityText);
+}
+
 function pickGamingCoverVariant({ coreFact = '', index = 0 } = {}) {
   const osBuild = /\b(operating system|wrote an os|from scratch|операційн)/i.test(String(coreFact || ''));
   const variantIndex = osBuild ? 3 : 0;
@@ -282,6 +322,12 @@ export function buildSafeCoverVisualSubject({
   if (isGamingStory({ coreFact, entities })) {
     return pickGamingCoverVariant({ coreFact, index });
   }
+  if (isFinanceStory({ coreFact, entities })) {
+    return pickSafeVisualVariant('finance', index);
+  }
+  if (isAiPolicyDebateStory({ coreFact, entities })) {
+    return pickSafeVisualVariant('aiPolicyDebate', index);
+  }
 
   const subject = buildSafeVisualSubject({
     visualSubject,
@@ -301,10 +347,31 @@ export function buildSafeCoverVisualSubject({
   return subject;
 }
 
-function coverSubjectNeedsFallback(subject, prompt) {
+function normalizeForCompare(text) {
+  return sanitizeTextForImagePrompt(text)
+    .toLowerCase()
+    .replace(/[^a-z0-9\u0400-\u04ff]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isFactDumpSubject(subject, coreFact) {
+  const a = normalizeForCompare(subject);
+  const b = normalizeForCompare(coreFact);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const aWords = a.split(' ').filter(Boolean);
+  const bWords = b.split(' ').filter(Boolean);
+  if (aWords.length >= 6 && b.includes(a)) return true;
+  if (bWords.length >= 6 && a.includes(b)) return true;
+  return false;
+}
+
+function coverSubjectNeedsFallback(subject, prompt, coreFact = '') {
   const value = stripCoverSafetyInstructions(String(subject || '').trim());
   const promptValue = stripCoverSafetyInstructions(String(prompt || '').trim());
   if (!value || containsCyrillic(value) || containsCyrillic(promptValue)) return true;
+  if (isFactDumpSubject(value, coreFact) || isFactDumpSubject(promptValue, coreFact)) return true;
   if (promptHasBannedMetaphor(value) || promptHasBannedMetaphor(promptValue)) return true;
   if (isGenericItCliche(value) || isGenericItCliche(promptValue)) return true;
   if (COVER_STOCK_CLICHE_RE.test(value) || COVER_STOCK_CLICHE_RE.test(promptValue)) return true;
@@ -330,7 +397,7 @@ export function groundCoverVariant(variant, index = 0) {
   let visualSubject = String(variant.visualSubject || '').trim();
   let prompt = String(variant.prompt || '').trim();
 
-  if (coverSubjectNeedsFallback(visualSubject, prompt) || containsCyrillic(coreFact)) {
+  if (coverSubjectNeedsFallback(visualSubject, prompt, coreFact)) {
     visualSubject = buildSafeCoverVisualSubject({
       visualSubject,
       coreFact,
@@ -390,6 +457,13 @@ export function buildSafeVisualSubject({
     return pickSafeVisualVariant('mapFeatureRemoval', index);
   }
 
+  if (isFinanceStory({ coreFact: fact, entities })) {
+    return pickSafeVisualVariant('finance', index);
+  }
+  if (isAiPolicyDebateStory({ coreFact: fact, entities })) {
+    return pickSafeVisualVariant('aiPolicyDebate', index);
+  }
+
   if (
     factMatches(/\b(chip|semiconductor|wafer|gpu|cpu|processor|foundry|tsmc|nvidia|intel|amd)\b/i, fact)
     || factMatches(/\b(chip|semiconductor|wafer|gpu|cpu|processor)\b/i, entityText)
@@ -447,8 +521,8 @@ export function buildSafeVisualSubject({
   }
 
   if (
-    factMatches(/\b(chatgpt|gpt|openai|reasoning|assistant|adaptiv|direct response)\b/i, fact)
-    || factMatches(/\b(chatgpt|gpt|openai|reasoning|assistant)\b/i, entityText)
+    factMatches(/\b(chatgpt|gpt|openai|claude|anthropic|reasoning|assistant|adaptiv|direct response)\b/i, fact)
+    || factMatches(/\b(chatgpt|gpt|openai|claude|anthropic|reasoning|assistant)\b/i, entityText)
   ) {
     return pickSafeVisualVariant('aiAssistantUpdate', index);
   }

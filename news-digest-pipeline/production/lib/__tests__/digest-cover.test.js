@@ -125,6 +125,34 @@ describe('groundDigestCover', () => {
 });
 
 describe('selectDigestCover', () => {
+  it('retries cover selection when coreFact is Cyrillic', async () => {
+    const completeJson = vi.fn()
+      .mockResolvedValueOnce(JSON.stringify({
+        articleIndex: 1,
+        coreFact: 'Anthropic тестує Claude Money з банківським рахунком',
+        entities: ['Claude Money'],
+        newsTone: 'negative',
+        pickReason: 'Фінанси.',
+      }))
+      .mockResolvedValueOnce(JSON.stringify({
+        articleIndex: 1,
+        coreFact: 'Anthropic is testing Claude Money, a chatbot linked to a bank account',
+        entities: ['Claude Money'],
+        newsTone: 'negative',
+        pickReason: 'Фінанси.',
+      }))
+      .mockResolvedValueOnce(JSON.stringify({
+        visualSubject: 'Hands tucking a blank payment card into a worn wallet next to sealed cash envelopes, warm window light, no card numbers no bank names no screens no watermarks',
+        prompt: 'Hands tucking a blank payment card into a worn wallet. Vivid editorial cover photo.',
+      }));
+
+    const cover = await selectDigestCover(SAMPLE_DIGEST, { completeJson, log: () => {} });
+    expect(completeJson).toHaveBeenCalledTimes(3);
+    expect(cover.coreFact).toMatch(/bank account/i);
+    expect(cover.coreFact).not.toMatch(/тестує/);
+    expect(cover.visualSubject).toMatch(/wallet|payment card|envelopes/i);
+  });
+
   it('uses the LLM pick and visual grounding when completeJson succeeds', async () => {
     const completeJson = vi.fn()
       .mockResolvedValueOnce(JSON.stringify({

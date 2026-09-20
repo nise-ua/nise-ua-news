@@ -7,6 +7,7 @@
 import { parseDigestArticles } from './digest.js';
 import {
   VISUAL_GROUNDING_RULES,
+  containsCyrillic,
   coverRotationIndex,
   groundCoverVariant,
   inferNewsToneFromFact,
@@ -26,7 +27,7 @@ export const COVER_SELECTION_SYSTEM_PROMPT = `Ти обираєш ОДНУ но�
 
 Для обраного блоку заповни:
 - articleIndex — номер блоку з входу (1, 2, 3...)
-- coreFact — нейтральний факт англійською (хто/що/що сталося), БЕЗ сарказму; ТІЛЬКИ англійською, без кирилиці. Якщо не можеш написати англійською — все одно латиницею, ніколи кирилицею.
+- coreFact — нейтральний факт АНГЛІЙСЬКОЮ (хто/що/що сталося), БЕЗ сарказму. Обов'язково Latin script. ЗАБОРОНЕНО кирилицю в coreFact. Приклад: "Anthropic is testing Claude Money, a chatbot that connects to a bank account to track salary."
 - entities — масив конкретних назв (компанії, продукти, технології, місця)
 - newsTone — "positive" | "neutral" | "negative" лише з coreFact
 - pickReason — одне коротке речення українською, чому саме цей блок
@@ -51,7 +52,9 @@ Requirements:
 - prompt: full English image prompt derived from visualSubject; vivid color, golden or daylight; editorial magazine still
 - English only — no Cyrillic anywhere
 - No readable text, letters, numbers, logos, UI, screenshots, watermarks, or captions in the scene
-- No generic stock scenes unrelated to the story (random portraits, a man in a hat, unidentified faces, modern RGB gaming PC, generic AI workstation, datacenter racks, crystal prisms, coffee-on-desk unless that is the story)
+- No generic stock scenes unrelated to the story (urban rooftops, cell towers, random portraits, a man in a hat, unidentified faces, modern RGB gaming PC, generic AI workstation, datacenter racks, crystal prisms, coffee-on-desk unless that is the story)
+- Bank / salary / fintech stories: wallet, cash envelopes, vault, payment card — never a rooftop or unmarked hardware
+- AI extinction / regulation-debate stories: lecture hall, gavel, conference table — never a rooftop or server room
 - For classic game / OS-from-scratch stories: retro CRT, arcade stick, or bare motherboard on a workbench — never a sleek modern PC tower
 - No author sarcasm as imagery (revolution, history book, joke framing)
 - Show physical objects and actions from the news, not abstract "AI" symbolism
@@ -228,11 +231,20 @@ export async function selectDigestCover(digestText, {
   let selection;
   if (typeof completeJson === 'function') {
     try {
-      const raw = await completeJson(
-        COVER_SELECTION_SYSTEM_PROMPT,
-        coverSelectionUserPrompt(articles),
-      );
+      const userPrompt = coverSelectionUserPrompt(articles);
+      let raw = await completeJson(COVER_SELECTION_SYSTEM_PROMPT, userPrompt);
       selection = parseCoverSelection(raw, articles);
+      if (containsCyrillic(selection.coreFact)) {
+        log('Cover selection coreFact was not English, retrying...');
+        raw = await completeJson(
+          COVER_SELECTION_SYSTEM_PROMPT,
+          `${userPrompt}\n\nCRITICAL: coreFact MUST be English Latin script only. No Cyrillic. Example: "Anthropic is testing Claude Money, a chatbot linked to a bank account."`,
+        );
+        const retried = parseCoverSelection(raw, articles);
+        if (!containsCyrillic(retried.coreFact)) {
+          selection = retried;
+        }
+      }
     } catch (err) {
       log(`Cover selection LLM failed, using lead story: ${err.message}`);
       selection = fallbackCoverFromArticles(articles);
