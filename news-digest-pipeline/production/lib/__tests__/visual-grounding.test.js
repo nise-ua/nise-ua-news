@@ -247,6 +247,52 @@ describe('cover visual variety', () => {
     expect(grounded.prompt).toMatch(/ZERO TEXT|no text/i);
   });
 
+  it('grounds a Ukrainian Claude Money story as bank objects, not a rooftop', () => {
+    const grounded = groundCoverVariant({
+      coreFact: 'Anthropic тестує чатбот Claude Money, який може розбиратися, куди зникла зарплата з банківського рахунку',
+      entities: ['Anthropic', 'Claude Money'],
+      newsTone: 'negative',
+      visualSubject: 'Vivid urban rooftop with antennas and blank equipment boxes against a saturated sunset sky, no billboard text no logos no watermarks',
+      prompt: '',
+      look: 'cover',
+    }, 0);
+
+    expect(grounded.visualSubject).toMatch(/wallet|envelope|vault|payment card/i);
+    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/rooftop|antenna|cell tower/);
+    expect(grounded.prompt).toMatch(/bank account|salary|wallet|envelope|vault/i);
+    expect(grounded.prompt.toLowerCase()).not.toMatch(/rooftop|antenna/);
+    expect(containsCyrillic(grounded.prompt)).toBe(false);
+  });
+
+  it('keeps a safe English cover scene even when coreFact is Ukrainian', () => {
+    const custom = 'Hands tucking a blank payment card into a worn wallet next to sealed cash envelopes, warm window light, no card numbers no bank names no screens no watermarks';
+    const grounded = groundCoverVariant({
+      coreFact: 'Anthropic тестує Claude Money з доступом до банківського рахунку',
+      entities: ['Anthropic', 'Claude Money'],
+      newsTone: 'negative',
+      visualSubject: custom,
+      prompt: `${custom}. Vivid editorial cover photo.`,
+      look: 'cover',
+    }, 0);
+
+    expect(grounded.visualSubject).toMatch(/wallet|payment card|envelopes/i);
+    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/rooftop|server rack/);
+  });
+
+  it('grounds an AI extinction-debate story as a forum, not generic hardware', () => {
+    const grounded = groundCoverVariant({
+      coreFact: 'Andrew Ng said AI extinction forecasts are science fiction used for PR and regulation',
+      entities: ['Andrew Ng'],
+      newsTone: 'neutral',
+      visualSubject: 'Vivid urban rooftop with antennas and blank equipment boxes',
+      prompt: '',
+      look: 'cover',
+    }, 0);
+
+    expect(grounded.visualSubject).toMatch(/lecture hall|gavel|conference table|scales of justice/i);
+    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/rooftop|antenna/);
+  });
+
   it('does not send Ukrainian contractor copy to the image model as a random portrait', () => {
     const grounded = groundCoverVariant({
       coreFact: 'сотні підрядників читають живі чати користувачів і оцінюють, наскільки ChatGPT «людяний»',
