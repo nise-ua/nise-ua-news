@@ -2,24 +2,22 @@ import { config as dotenvConfig } from 'dotenv';
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { resolveProductionLlmModel } from '../production/lib/llm-client.js';
 
 dotenvConfig();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const parentDir = join(__dirname, '..');  // news-digest-pipeline root
-const newsRoot = join(parentDir, '..');   // News/ directory with prompt files
 
-// Prompts are looked up in three places, in order:
-//   1. /app/prompts        — Docker volume mount
-//   2. <pipeline>/prompts  — bare-metal (systemd) deploy ships them here
-//   3. News/ parent dir    — local dev
+// Prompts live in news-digest-pipeline/prompts (Docker: /app/prompts).
 const dockerPromptsDir = '/app/prompts';
 const localPromptsDir = join(parentDir, 'prompts');
 const promptsDir = existsSync(join(dockerPromptsDir, 'prompt.md'))
   ? dockerPromptsDir
-  : existsSync(join(localPromptsDir, 'prompt.md'))
-  ? localPromptsDir
-  : newsRoot;
+  : localPromptsDir;
+if (!existsSync(join(promptsDir, 'prompt.md'))) {
+  console.warn(`[config] Missing prompt.md at ${promptsDir}. Put digest prompts in news-digest-pipeline/prompts/.`);
+}
 
 // Absolute paths to all editable source files. Exported so the settings API
 // can read/write the exact same files config.js loads from.
@@ -45,13 +43,9 @@ export const REEL_FRAME_MODES = ['ai', 'html'];
 export const PUBLISH_BACKENDS = ['legacy', 'postiz'];
 export const LLM_VENDORS = ['anthropic', 'openai', 'openrouter', 'moonshot', 'cursor'];
 
-/** Resolve the digest LLM id from LLM_MODEL, with CLAUDE_MODEL as a legacy alias. */
+/** Resolve the digest LLM id from LLM_MODEL, with OPENAI_MODEL / CLAUDE_MODEL aliases. */
 export function resolveLlmModel(env = process.env) {
-  const fromNew = String(env.LLM_MODEL || '').trim();
-  if (fromNew) return fromNew;
-  const fromLegacy = String(env.CLAUDE_MODEL || '').trim();
-  if (fromLegacy) return fromLegacy;
-  return 'gpt-5.4-mini';
+  return resolveProductionLlmModel(env);
 }
 
 /** Normalize REEL_FRAME_MODE to 'ai' | 'html' (default ai). */
@@ -202,7 +196,7 @@ function buildConfig() {
     // Raw config.md text (kept for the settings editor)
     configMdRaw,
 
-    // Prompts (loaded from parent directory files)
+    // Prompts (loaded from news-digest-pipeline/prompts)
     commentaryPrompt,
     assemblyPrompt,
     deepPrompt,

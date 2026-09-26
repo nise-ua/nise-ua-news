@@ -9,6 +9,7 @@ import {
   VISUAL_GROUNDING_RULES,
   containsCyrillic,
   coverRotationIndex,
+  coverSubjectNeedsFallback,
   groundCoverVariant,
   inferNewsToneFromFact,
 } from './visual-grounding.js';
@@ -48,7 +49,7 @@ export const COVER_VISUAL_SYSTEM_PROMPT = `You write one text-free 4:5 Facebook 
 The digest caption is Ukrainian; your output is ONLY for the image model. Read the article text and coreFact, ignore sarcastic author tone, and depict the factual action.
 
 Requirements:
-- visualSubject: one concrete photographic scene tied to THIS story's specific action (who did what, where, with what objects)
+- visualSubject: one concrete photograph of THIS story's objects and action (what is in the frame, where, what is happening). Never a sentence that restates coreFact.
 - prompt: full English image prompt derived from visualSubject; vivid color, golden or daylight; editorial magazine still
 - English only — no Cyrillic anywhere
 - No readable text, letters, numbers, logos, UI, screenshots, watermarks, or captions in the scene
@@ -90,20 +91,62 @@ function firstSentence(text) {
   return (match ? match[0] : source).trim();
 }
 
+const FALLBACK_STORY_HINTS = [
+  {
+    score: 5,
+    re: /літак|судно|корабл|абордаж|fighter jets?|military aircraft|warship|cargo ship/i,
+    coreFact: 'Military aircraft were sent toward a ship after a faulty automated intelligence report.',
+    entities: ['military aircraft', 'cargo ship'],
+    newsTone: 'negative',
+  },
+  {
+    score: 8,
+    re: /брелок|тамагочі|tamagotchi|keychain|pendant/i,
+    coreFact: 'A company showed a small square pocket pendant that listens through a microphone.',
+    entities: ['pocket pendant'],
+    newsTone: 'neutral',
+    scene: 'A small square metal pocket pendant lying on a sunlit wooden table, microphone grille, no icons, no logos, no text',
+  },
+  {
+    score: 4,
+    re: /зламав|злам|парол|креденшал|hacked|breach|credentials/i,
+    coreFact: 'An AI model broke into company systems and collected credentials during a safety test.',
+    entities: ['credentials'],
+    newsTone: 'negative',
+    scene: 'A heavy vault door ajar beside a padlock and blank metal keys on a sunlit desk, no icons, no racks, no text',
+  },
+  {
+    score: 3,
+    re: /будує сам себе|наступну версію|тисяч\w* агент|swarm of agents|builds the next version/i,
+    coreFact: 'An AI lab is using swarms of agents to build the next version of its own model.',
+    entities: ['AI agents'],
+    newsTone: 'neutral',
+  },
+];
+
 export function fallbackCoverFromArticles(articles) {
-  const article = articles[0];
-  if (!article?.text) {
+  if (!articles?.[0]?.text) {
     throw new Error('Digest has no news blocks to illustrate');
   }
-  const coreFact = firstSentence(article.text);
+  let best = { index: 0, story: null, score: 0 };
+  articles.forEach((article, index) => {
+    const text = String(article?.text || '');
+    for (const story of FALLBACK_STORY_HINTS) {
+      if (story.re.test(text) && story.score > best.score) {
+        best = { index, story, score: story.score };
+      }
+    }
+  });
+  const article = articles[best.index];
+  const coreFact = best.story?.coreFact || firstSentence(article.text);
   return {
-    articleIndex: 1,
+    articleIndex: best.index + 1,
     sourceText: article.text,
     url: article.url || '',
     coreFact,
-    entities: [],
-    newsTone: inferNewsToneFromFact(coreFact),
-    visualSubject: '',
+    entities: best.story?.entities || [],
+    newsTone: best.story?.newsTone || inferNewsToneFromFact(coreFact),
+    visualSubject: best.story?.scene || '',
     prompt: '',
     pickReason: 'Провідний блок дайджесту (запасний вибір без LLM).',
     fallback: true,
@@ -185,7 +228,18 @@ export async function groundCoverVisual(selection, { completeJson, log = () => {
       COVER_VISUAL_SYSTEM_PROMPT,
       coverVisualUserPrompt(selection),
     );
-    const grounded = parseCoverVisualGrounding(raw, selection);
+    let grounded = parseCoverVisualGrounding(raw, selection);
+    if (coverSubjectNeedsFallback(grounded.visualSubject, grounded.prompt, selection.coreFact)) {
+      log('Cover visual restated the headline or a stock scene, retrying...');
+      const retryRaw = await completeJson(
+        COVER_VISUAL_SYSTEM_PROMPT,
+        `${coverVisualUserPrompt(selection)}\n\nREJECTED. visualSubject must be a photograph of the physical objects in this article. Do not repeat coreFact as a sentence. Do not use a datacenter, gaming PC, rooftop, or generic workstation unless that object is the news.`,
+      );
+      const retried = parseCoverVisualGrounding(retryRaw, selection);
+      if (!coverSubjectNeedsFallback(retried.visualSubject, retried.prompt, selection.coreFact)) {
+        grounded = retried;
+      }
+    }
     log(`Cover visual: ${(grounded.visualSubject || '').slice(0, 120)}`);
     return grounded;
   } catch (err) {

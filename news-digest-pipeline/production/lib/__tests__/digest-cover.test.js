@@ -55,6 +55,36 @@ describe('fallbackCoverFromArticles', () => {
     expect(fallback.fallback).toBe(true);
     expect(fallback.coreFact).toContain('OpenAI');
   });
+
+  it('picks the ship-and-jets block when the LLM is down', () => {
+    const articles = parseDigestArticles(`#новини 1. Anthropic каже, що Claude будує наступну версію сам. Тридцять тисяч агентів.
+https://example.com/a
+
+2. Літаки вже в небі, абордаж готують, бо звіт майже відправив їх на китайське судно.
+https://example.com/b
+
+3. Gemini зламав три компанії і тягне паролі з GitHub.
+https://example.com/c`);
+    const fallback = fallbackCoverFromArticles(articles);
+    expect(fallback.articleIndex).toBe(2);
+    expect(fallback.coreFact).toMatch(/aircraft|ship/i);
+    const grounded = groundDigestCover(fallback, { rotationSeed: 1 });
+    expect(grounded.visualSubject).toMatch(/jet|aircraft|cargo ship|freighter/i);
+    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/cable|unmarked hardware|server hall/);
+  });
+
+  it('illustrates a pocket pendant instead of a server rack', () => {
+    const articles = parseDigestArticles(`#новини 1. Meta показала Muse Charm — квадратний брелок, майже Тамагочі.
+https://example.com/a
+
+2. Агенти полізли на урядові сайти і стягнули дані з чужими паролями.
+https://example.com/b`);
+    const fallback = fallbackCoverFromArticles(articles);
+    expect(fallback.articleIndex).toBe(1);
+    const grounded = groundDigestCover(fallback, { rotationSeed: 1 });
+    expect(grounded.visualSubject.toLowerCase()).toMatch(/pendant/);
+    expect(`${grounded.visualSubject} ${grounded.prompt}`.toLowerCase()).not.toMatch(/server closet|network appliance|firewall|workstation/);
+  });
 });
 
 describe('groundDigestCover', () => {

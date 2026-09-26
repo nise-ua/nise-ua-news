@@ -1,4 +1,4 @@
-const DEFAULT_BACKEND_URL = 'http://192.168.0.138:3010';
+const DEFAULT_BACKEND_URL = '';
 const SCRAPE_MS = 8000;
 const FETCH_MS = 15000;
 
@@ -74,6 +74,9 @@ async function scrapeTab(tab) {
 
 async function postArticle(scrapedData) {
     const { backendUrl, apiSecretKey } = await getCollectorSettings();
+    if (!backendUrl) {
+        throw new Error('Set the app URL in the extension popup before collecting.');
+    }
     if (!apiSecretKey) {
         throw new Error('Save API_SECRET_KEY in this popup first (same key as the NAS .env).');
     }

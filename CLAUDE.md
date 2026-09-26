@@ -6,9 +6,9 @@ Collecting news from Perplexity via a Chrome extension (folder `extension/`) and
 ## File Paths
 - **Input Files**: `./input_*.json` — JSON files from the extension.
 - **Output Files**: `./output/` — finished digests (`digest_YYYY-MM-DD_partN.txt`).
-- **Commentary Style**: `./prompt.md`
-- **Assembly Format**: `./assembly_prompt.md`
-- **Settings (hashtags, border)**: `./config.md`
+- **Commentary Style**: `./news-digest-pipeline/prompts/prompt.md`
+- **Assembly Format**: `./news-digest-pipeline/prompts/assembly_prompt.md`
+- **Settings (hashtags, border)**: `./news-digest-pipeline/prompts/config.md`
 - **Reel/image workflow**: `./docs/reel-image-workflow.md`
 - **How to run tests (agents)**: `./news-digest-pipeline/docs/testing.md`
 
@@ -16,7 +16,7 @@ Collecting news from Perplexity via a Chrome extension (folder `extension/`) and
 1. User uploads `input_*.json`.
 2. Verify content quality (filter sidebar noise).
 3. Split into parts as directed by the user (usually 13-17 articles per part).
-4. For each part, generate a digest according to the rules in `prompt.md` and `assembly_prompt.md`.
+4. For each part, generate a digest according to the rules in `news-digest-pipeline/prompts/prompt.md` and `news-digest-pipeline/prompts/assembly_prompt.md`.
 5. Save result to `./output/`.
 
 ## Reel and Image Generation
@@ -66,6 +66,10 @@ npm run test:production
 Full gate: `npm run test:all`. New production-lib tests go in
 `production/lib/__tests__/` (Vitest). Do not add new `node:test` files.
 
+## Running app
+
+The live app is the UGREEN NAS container at http://192.168.1.22:3010. After application changes, deploy with `/Users/nicksergeenkov/DevProjects/ugreen/news-digest/scripts/deploy-nas.sh` and confirm `curl -sS http://192.168.1.22:3010/health`. A local restart on port 3000 does not update the NAS. See `news-digest-pipeline/docs/ugreen-docker.md`.
+
 ## Dashboard UI
 
 All web pages in `news-digest-pipeline/src/public/` (`index.html`, `articles.html`, `settings.html`) must fit the screen width. No page may be wider than the viewport: constrain `html`/`body`, wrap or break long URLs and titles, and never let tables or toolbars cause horizontal page overflow.
@@ -73,7 +77,7 @@ All web pages in `news-digest-pipeline/src/public/` (`index.html`, `articles.htm
 ## Digest Format
 - `#новини` on the first line with the first paragraph (`#новини 1. …`).
 - Numbered author commentaries + link to original, starting with `1.` on the next line.
-- Border/disclaimer (from `config.md`) at the end. No template or auto-generated trailing hashtags.
+- Border/disclaimer (from `news-digest-pipeline/prompts/config.md`) at the end. No template or auto-generated trailing hashtags.
 
 
 ### Subagent Task Delegation

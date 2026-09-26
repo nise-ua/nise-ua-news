@@ -1,18 +1,22 @@
 ## Canonical NAS deploy (this household)
 
-Use the homelab repo, not Traefik:
+The live app is the NAS container, not the laptop process on port 3000. Application code is baked into the image at `/volume1/docker/news-digest`. Restarting localhost, or editing files only on the laptop, does not change what the dashboard and Chrome plugin use.
+
+After every application change, deploy this repo and confirm health:
 
 ```bash
 /Users/nicksergeenkov/DevProjects/ugreen/news-digest/scripts/deploy-nas.sh
+curl -sS http://192.168.1.22:3010/health
 ```
 
 | | |
 |---|---|
-| NAS | `/volume1/docker/news-digest` |
-| Dashboard | http://192.168.0.138:3010 |
-| Host port | **3010** (Sure already uses 3000) |
+| NAS | `192.168.1.22` (`/volume1/docker/news-digest`) |
+| SSH | `Nick@192.168.1.22` port **122** |
+| Dashboard | http://192.168.1.22:3010 |
+| Host port | **3010** (Sure already uses 3000; container listens on 3000) |
 
-Chrome plugin: load `extension/`, URL `http://192.168.0.138:3010`, Bearer = `API_SECRET_KEY` from `news-digest-pipeline/.env`.
+Chrome plugin: load `extension/`, URL `http://192.168.1.22:3010`, Bearer = `API_SECRET_KEY` from `news-digest-pipeline/.env`.
 
 
 Run the dashboard on a UGREEN NAS (Container Manager / Docker), then send articles from Chrome on your laptop.
@@ -21,8 +25,8 @@ Run the dashboard on a UGREEN NAS (Container Manager / Docker), then send articl
 
 - Container on port **3000** (no Traefik)
 - Persistent SQLite in `./data`
-- Prompt files mounted from the repo root
-- Chrome extension posts to `http://<NAS-LAN-IP>:3000/api/articles/batch`
+- Prompt files mounted from `news-digest-pipeline/prompts`
+- Chrome extension posts to `http://192.168.1.22:3010/api/articles/batch`
 
 Facebook Profile composer (Patchright) still needs a Mac. Covers/reels need the same API keys as local.
 
@@ -32,11 +36,12 @@ Keep this layout on a share (example: `/volume1/docker/news/`):
 
 ```text
 news/
-  prompt.md
-  assembly_prompt.md
-  prompt_deep.md
-  config.md
   news-digest-pipeline/
+    prompts/
+      prompt.md
+      assembly_prompt.md
+      prompt_deep.md
+      config.md
     Dockerfile
     docker-compose.ugreen.yml
     .env
@@ -54,7 +59,7 @@ Copy `news-digest-pipeline/.env.example` to `.env` on the NAS and fill:
 |---|---|---|
 | `NODE_ENV` | yes | `production` (enables API + dashboard auth) |
 | `PORT` | yes | `3000` |
-| `BASE_URL` | yes | `http://<NAS-LAN-IP>:3000` |
+| `BASE_URL` | yes | `http://192.168.1.22:3010` |
 | `API_SECRET_KEY` | yes | Bearer key for Chrome plugin + API |
 | `DASHBOARD_USER` | yes | Basic auth user (default `admin`) |
 | `DASHBOARD_PASSWORD` | yes | Dashboard login password |
@@ -98,28 +103,28 @@ Use different values for `API_SECRET_KEY` and `DASHBOARD_PASSWORD`.
 Or SSH into the NAS:
 
 ```bash
-cd /volume1/docker/news/news-digest-pipeline
-docker compose -f docker-compose.ugreen.yml up -d --build
-docker compose -f docker-compose.ugreen.yml ps
-curl -sS http://127.0.0.1:3000/health
+cd /volume1/docker/news-digest
+docker compose up -d --build
+docker compose ps
+curl -sS http://127.0.0.1:3010/health
 ```
 
 Open the dashboard from a PC on the same LAN:
 
 ```text
-http://<NAS-LAN-IP>:3000
+http://192.168.1.22:3010
 ```
 
 Login: `DASHBOARD_USER` / `DASHBOARD_PASSWORD`.
 
-If the page does not load, in UGREEN **Control Panel → Firewall** allow inbound TCP **3000** on the LAN.
+If the page does not load, in UGREEN **Control Panel → Firewall** allow inbound TCP **3010** on the LAN.
 
 ## Chrome plugin → UGREEN app
 
 1. Chrome → `chrome://extensions` → Developer mode → **Load unpacked**.
 2. Select the repo `extension/` folder.
 3. Open the plugin popup.
-4. **UGREEN / app URL:** `http://<NAS-LAN-IP>:3000` (no trailing slash).
+4. **UGREEN / app URL:** `http://192.168.1.22:3010` (no trailing slash).
 5. **API_SECRET_KEY:** the same value as in NAS `.env`.
 6. **Save destination**.
 7. Open a news article, refresh the tab once after installing, then **Collect Current Page**.
@@ -129,5 +134,4 @@ The plugin POSTs scraped `{ url, title, content }` to `/api/articles/batch`. Pro
 ## Notes
 
 - Mixed HTTP on LAN is expected. Do not put this port on the public internet without a reverse proxy and TLS.
-- Rebuild after code changes: `docker compose -f docker-compose.ugreen.yml up -d --build`.
-- This machine cannot log into your NAS. Copy the tree and start compose on the UGREEN box.
+- The live app is this NAS image. Rebuild after code changes with `/Users/nicksergeenkov/DevProjects/ugreen/news-digest/scripts/deploy-nas.sh`, then check http://192.168.1.22:3010/health.

@@ -30,27 +30,27 @@ describe('extractLlmText', () => {
 });
 
 describe('shouldPreferCloudflareLlm', () => {
-  it('is true when Cloudflare keys exist', () => {
+  it('is opt-in even when Cloudflare image keys exist', () => {
     const restore = withEnv({
       CLOUDFLARE_ACCOUNT_ID: 'acc',
       CLOUDFLARE_API_TOKEN: 'tok',
       CLOUDFLARE_LLM: undefined,
     });
     try {
-      expect(shouldPreferCloudflareLlm()).toBe(true);
+      expect(shouldPreferCloudflareLlm()).toBe(false);
     } finally {
       restore();
     }
   });
 
-  it('can be disabled', () => {
+  it('is true only when CLOUDFLARE_LLM=1 and keys exist', () => {
     const restore = withEnv({
       CLOUDFLARE_ACCOUNT_ID: 'acc',
       CLOUDFLARE_API_TOKEN: 'tok',
-      CLOUDFLARE_LLM: '0',
+      CLOUDFLARE_LLM: '1',
     });
     try {
-      expect(shouldPreferCloudflareLlm()).toBe(false);
+      expect(shouldPreferCloudflareLlm()).toBe(true);
     } finally {
       restore();
     }

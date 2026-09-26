@@ -33,18 +33,22 @@ async function sendCollectMessage() {
 
 function loadSettings() {
     chrome.storage.sync.get({
-        backendUrl: DEFAULT_BACKEND_URL,
+        backendUrl: '',
         apiSecretKey: ''
     }, (stored) => {
         const urlEl = document.getElementById('backendUrl');
         const keyEl = document.getElementById('apiSecretKey');
-        if (urlEl) urlEl.value = stored.backendUrl || DEFAULT_BACKEND_URL;
+        if (urlEl) urlEl.value = stored.backendUrl || '';
         if (keyEl) keyEl.value = stored.apiSecretKey || '';
     });
 }
 
 function saveSettings() {
-    const backendUrl = document.getElementById('backendUrl').value.trim().replace(/\/+$/, '') || DEFAULT_BACKEND_URL;
+    const backendUrl = document.getElementById('backendUrl').value.trim().replace(/\/+$/, '');
+    if (!backendUrl) {
+        updateStatus('Enter the dashboard URL (for example http://localhost:3000).', 'error');
+        return;
+    }
     const apiSecretKey = document.getElementById('apiSecretKey').value.trim();
     chrome.storage.sync.set({ backendUrl, apiSecretKey }, () => {
         updateStatus('Destination saved. Collect will hit this UGREEN app.', 'ok');

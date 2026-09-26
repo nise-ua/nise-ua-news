@@ -247,6 +247,21 @@ describe('cover visual variety', () => {
     expect(grounded.prompt).toMatch(/ZERO TEXT|no text/i);
   });
 
+  it('grounds a faulty-intel ship story as aircraft over water', () => {
+    const grounded = groundCoverVariant({
+      coreFact: 'Anthropic нарешті чесно показала, як виглядає «під наглядом людини».',
+      sourceText: 'Літаки вже в небі, абордаж готують біля китайського судна.',
+      entities: [],
+      newsTone: 'negative',
+      visualSubject: 'Sunlit technology scene with unmarked hardware, warm daylight and vivid color',
+      prompt: '',
+      look: 'cover',
+    }, 0);
+    expect(grounded.visualSubject).toMatch(/jet|aircraft|cargo ship|freighter/i);
+    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/cable tray|unmarked hardware|server hall/);
+    expect(grounded.prompt).toMatch(/aircraft|ship|jet/i);
+  });
+
   it('grounds a Ukrainian Claude Money story as bank objects, not a rooftop', () => {
     const grounded = groundCoverVariant({
       coreFact: 'Anthropic тестує чатбот Claude Money, який може розбиратися, куди зникла зарплата з банківського рахунку',
@@ -336,6 +351,51 @@ describe('cover visual variety', () => {
 
     expect(grounded.visualSubject).toMatch(/circuit board|floppy|solder/i);
     expect(grounded.visualSubject.toLowerCase()).not.toMatch(/pc tower|gaming pc|rgb/);
+  });
+
+  it('photographs the story objects when the model returns a headline', () => {
+    const grounded = groundCoverVariant({
+      coreFact: 'Apple released a new iPhone Duo with a foldable design and dual OLED screens',
+      entities: ['Apple', 'iPhone Duo'],
+      newsTone: 'neutral',
+      visualSubject: 'released a new iPhone Duo with a foldable design and dual OLED screens',
+      prompt: '',
+      look: 'cover',
+    }, 0);
+
+    expect(grounded.visualSubject).toMatch(/foldable|hinge|glass/i);
+    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/released a new|server rack|gaming pc|fiber optic|cable tray/);
+    expect(grounded.prompt).toMatch(/foldable|hinge|glass/i);
+    expect(grounded.prompt).not.toMatch(/major technology product update|technology industry news/i);
+  });
+
+  it('does not illustrate a credential story as a server closet', () => {
+    const grounded = groundCoverVariant({
+      coreFact: 'An AI model broke into company systems and collected credentials during a safety test.',
+      sourceText: 'Один намагався зламувати сайт і стягнув дані з чужими паролями.',
+      entities: ['credentials'],
+      newsTone: 'negative',
+      visualSubject: 'Firewall-style rack of blinking unmarked network appliances in a vivid server closet',
+      prompt: '',
+      look: 'cover',
+    }, 2);
+
+    expect(grounded.visualSubject.toLowerCase()).toMatch(/vault|padlock|key/);
+    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/server closet|network appliance|firewall|rack/);
+  });
+
+  it('photographs a personal-agent story instead of a datacenter', () => {
+    const grounded = groundCoverVariant({
+      coreFact: 'Meta released Muse, a personal AI agent that books travel and completes purchases.',
+      entities: ['Meta', 'Muse'],
+      newsTone: 'positive',
+      visualSubject: 'Meta released Muse, a personal AI agent that books travel and completes purchases.',
+      prompt: '',
+      look: 'cover',
+    }, 0);
+
+    expect(grounded.visualSubject).toMatch(/travel|purchases/i);
+    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/server rack|fiber optic|gaming pc|workstation|cable tray/);
   });
 
   it('keeps a safe LLM-provided scene without keyword templates', () => {

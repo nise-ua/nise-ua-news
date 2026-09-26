@@ -387,7 +387,8 @@ describe('generateImage', () => {
     expect(options.headers.Authorization).toBe('Bearer cf-token');
     const body = JSON.parse(options.body);
     expect(body.prompt).toContain('news cover prompt');
-    expect(body.prompt).toMatch(/Vertical 4:5 aspect ratio/i);
+    expect(body.prompt).toMatch(/Vertical 4:5 photograph/i);
+    expect(body.prompt).toMatch(/no title/i);
     expect(body.steps).toBe(4);
     expect(body.width).toBeUndefined();
     expect(body.height).toBeUndefined();

@@ -6,7 +6,7 @@ import './prefer-ipv4.js';
 
 const DEFAULT_OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 const PORTRAIT_NOTE = 'Portrait 9:16 composition, native vertical image.';
-const COVER_NOTE = 'Vertical 4:5 aspect ratio, full-frame editorial news photo.';
+const COVER_NOTE = 'Vertical 4:5 photograph. No title, no masthead, no caption, no letters, no words, no AI NEWS banner.';
 const DEFAULT_CLOUDFLARE_IMAGE_MODEL = '@cf/black-forest-labs/flux-1-schnell';
 
 export function resolveImageModel(configuredModel) {

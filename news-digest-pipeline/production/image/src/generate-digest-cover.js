@@ -23,7 +23,13 @@ import OpenAI from 'openai';
 import { fal } from '@fal-ai/client';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import Anthropic from '@anthropic-ai/sdk';
-import { initDb, getDb, updateDigest } from '../../../src/db/index.js';
+import {
+  findLatestDigestId,
+  initDigestStore,
+  persistDigestFields,
+  resolvePipelineDbPath,
+  resolvePublicBaseUrl,
+} from '../../lib/digest-store.js';
 import { getDigestContent } from '../../lib/digest.js';
 import {
   COVER_ASPECT,
@@ -38,7 +44,7 @@ import {
   resolveCoverImageVendor,
   safeLogUrl,
 } from '../../lib/image-backends.js';
-import { completeCloudflareJsonText, shouldPreferCloudflareLlm } from '../../lib/cloudflare-llm.js';
+import { completeJsonText } from '../../lib/llm-client.js';
 import { log, projectRoot, reportFatal, scriptDir } from '../../lib/logging.js';
 
 const __dirname = scriptDir(import.meta.url);
@@ -51,75 +57,15 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy-key-for
 const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || 'dummy-key-for-init' });
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || 'dummy-key-for-init');
 
-const SERVER = process.env.BASE_URL || process.env.SERVER_URL || `http://localhost:${process.env.PORT || 3000}`;
+const SERVER = resolvePublicBaseUrl();
 const OUTPUT_DIR = join(__dirname, '..', 'output');
-const DB_PATH = join(ROOT, 'data', 'news-digest.db');
+const DB_PATH = resolvePipelineDbPath();
 
 async function completeJson(systemPrompt, userPrompt) {
-  if (shouldPreferCloudflareLlm()) {
-    return completeCloudflareJsonText(systemPrompt, userPrompt);
-  }
-  const vendor = String(process.env.LLM_VENDOR || '').trim().toLowerCase();
-  let text;
-
-  if (vendor === 'openrouter') {
-    if (!process.env.OPENROUTER_API_KEY) throw new Error('OPENROUTER_API_KEY missing in .env');
-    const baseUrl = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        ...(process.env.BASE_URL ? { 'HTTP-Referer': process.env.BASE_URL } : {}),
-        'X-Title': 'NiSeNews digest cover',
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        response_format: { type: 'json_object' },
-      }),
-    });
-    const payload = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(payload?.error?.message || `OpenRouter cover request failed (${res.status})`);
-    }
-    text = payload?.choices?.[0]?.message?.content;
-  } else if (process.env.OPENAI_API_KEY) {
-    const res = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4o',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      response_format: { type: 'json_object' },
-    });
-    text = res.choices[0].message.content;
-  } else if (process.env.ANTHROPIC_API_KEY) {
-    const res = await claude.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }],
-    });
-    text = res.content[0].text;
-  } else if (process.env.GOOGLE_API_KEY) {
-    const textModel = (process.env.GOOGLE_MODEL && !process.env.GOOGLE_MODEL.includes('image'))
-      ? process.env.GOOGLE_MODEL
-      : 'gemini-2.5-flash';
-    const model = genAI.getGenerativeModel({
-      model: textModel,
-      generationConfig: { responseMimeType: 'application/json' },
-    });
-    const res = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
-    text = res.response.text();
-  } else {
-    throw new Error('No LLM key found for digest cover selection');
-  }
-
-  if (!text) throw new Error('Cover selection response did not contain text');
-  return text;
+  return completeJsonText(systemPrompt, userPrompt, {
+    maxTokens: 1024,
+    title: 'NiSeNews digest cover',
+  });
 }
 
 async function saveCoverImage(imageUrl, filepath) {
@@ -136,13 +82,12 @@ async function saveCoverImage(imageUrl, filepath) {
 async function persistCoverUrl(digestId, publicUrl) {
   let id = digestId !== 'latest' ? digestId : null;
   try {
-    initDb(process.env.DB_PATH || DB_PATH);
+    initDigestStore(DB_PATH);
     if (!id) {
-      const row = getDb().prepare('SELECT id FROM digests ORDER BY date DESC LIMIT 1').get();
-      if (row) id = row.id;
+      id = findLatestDigestId();
     }
     if (id) {
-      updateDigest(id, { image_url: publicUrl });
+      persistDigestFields(id, { image_url: publicUrl });
       log(`Stored cover URL for digest ${id}: ${publicUrl}`);
     }
   } catch (err) {
