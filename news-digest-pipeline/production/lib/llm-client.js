@@ -58,6 +58,14 @@ async function postChat({ url, headers, body }) {
   return text;
 }
 
+/** Newer OpenAI models reject max_tokens and require max_completion_tokens. */
+export function chatTokenLimit(model, maxTokens) {
+  if (/^(gpt-5|o\d)/i.test(String(model || ''))) {
+    return { max_completion_tokens: maxTokens };
+  }
+  return { max_tokens: maxTokens };
+}
+
 function openrouterHeaders(title, env = process.env) {
   return {
     Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
@@ -134,7 +142,7 @@ async function completeViaVendors(systemPrompt, userPrompt, {
     return postChat({
       url: `${baseUrl}/chat/completions`,
       headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}` },
-      body: { model, messages, max_tokens: maxTokens, ...jsonFormat },
+      body: { model, messages, ...chatTokenLimit(model, maxTokens), ...jsonFormat },
     });
   }
 

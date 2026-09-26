@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { resolveMediaChatModel, resolveProductionLlmModel } from '../llm-client.js';
+import { chatTokenLimit, resolveMediaChatModel, resolveProductionLlmModel } from '../llm-client.js';
 import { resolvePipelineDbPath, resolvePublicBaseUrl } from '../digest-store.js';
 import { unstubGlobals, withEnv } from './helpers.js';
 
@@ -27,6 +27,13 @@ describe('resolveProductionLlmModel', () => {
       LLM_VENDOR: 'openai',
       LLM_MODEL: 'gpt-5.4-mini',
     })).toBe('gpt-5.4-mini');
+  });
+});
+
+describe('chatTokenLimit', () => {
+  it('uses max_completion_tokens for gpt-5 models', () => {
+    expect(chatTokenLimit('gpt-5.4-mini', 1024)).toEqual({ max_completion_tokens: 1024 });
+    expect(chatTokenLimit('gpt-4o', 1024)).toEqual({ max_tokens: 1024 });
   });
 });
 
