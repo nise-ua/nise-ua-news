@@ -37,7 +37,7 @@ describe('generate-reel.js ESM safety', () => {
     expect(source).toMatch(/console\.log\(`Path: \$\{finalReelPath\}`\)/);
     expect(source).toMatch(/basename\(finalReelPath\)/);
     expect(source).toMatch(/digestVideoUpdateFields\(/);
-    expect(source).toMatch(/updateDigest\(/);
+    expect(source).toMatch(/persistDigestFields\(/);
   });
 
   it('adds a --copy-only gate and reuses saved storyboard JSON', () => {

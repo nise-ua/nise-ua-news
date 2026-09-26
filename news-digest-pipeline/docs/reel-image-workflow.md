@@ -172,8 +172,7 @@ production/image/output/instagram_<timestamp>_NN.png
 The current working local configuration uses:
 
 - Cloudflare Workers AI for storyboard JSON, overlay critic, and cover pick
-  when `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` are set
-  (`CLOUDFLARE_LLM=0` restores OpenRouter/OpenAI).
+  only when `CLOUDFLARE_LLM=1` (image keys alone are not enough).
 - `IMAGE_VENDOR=cloudflare` (Flux Schnell) for covers and reel stills.
 
 OpenAI and OpenRouter may fail when their account has no credits. Do not

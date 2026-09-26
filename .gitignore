@@ -58,3 +58,6 @@ Image *.jpeg
 # --- Root-level orphaned package files (superseded by news-digest-pipeline/package.json) ---
 /package.json
 /package-lock.json
+
+# --- Graphify ---
+graphify-out/cost.json

@@ -15,7 +15,6 @@
  */
 
 import OpenAI from 'openai';
-import Anthropic from '@anthropic-ai/sdk';
 import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { config as dotenvConfig } from 'dotenv';
@@ -26,6 +25,7 @@ import {
   getAudioDuration,
 } from '../../lib/tts.js';
 import { log, projectRoot, scriptDir } from '../../lib/logging.js';
+import { completeText } from '../../lib/llm-client.js';
 
 const __dirname = scriptDir(import.meta.url);
 const ROOT = projectRoot(import.meta.url);
@@ -35,10 +35,6 @@ const OUTPUT_DIR = join(__dirname, '..', 'output');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || 'dummy-key-for-init'
-});
-
-const claude = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || 'dummy-key-for-init'
 });
 
 export { getAudioDuration, generatePerArticleAudio };
@@ -53,20 +49,11 @@ async function prepareAudioScript(digestText, mode = 'reel') {
 Текст має бути максимально живим, захоплюючим, з короткими реченнями та чіткими акцентами.
 Поверни ТІЛЬКИ текст диктора, без приміток чи маркерів.`;
 
-    if (process.env.OPENAI_API_KEY) {
-      const res = await openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'gpt-4o',
-        messages: [{ role: 'user', content: `${prompt}\n\nДайджест:\n${digestText.slice(0, 3000)}` }]
-      });
-      return res.choices[0].message.content.trim();
-    } else if (process.env.ANTHROPIC_API_KEY) {
-      const res = await claude.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: `${prompt}\n\nДайджест:\n${digestText.slice(0, 3000)}` }]
-      });
-      return res.content[0].text.trim();
-    }
+    const text = await completeText(prompt, `Дайджест:\n${digestText.slice(0, 3000)}`, {
+      maxTokens: 1024,
+      title: 'NiSeNews voiceover',
+    });
+    return text.trim();
   }
 
   return digestText.slice(0, 2000);

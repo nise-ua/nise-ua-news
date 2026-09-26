@@ -29,6 +29,8 @@ import {
   sleep,
 } from '../../lib/image-backends.js';
 import { log, projectRoot, scriptDir } from '../../lib/logging.js';
+import { FEED_HEADLINE_WORD_MAX, FEED_HEADLINE_WORD_MIN } from '../../lib/reel-copy-contract.js';
+import { resolveProductionLlmModel } from '../../lib/llm-client.js';
 
 const __dirname = scriptDir(import.meta.url);
 const ROOT = projectRoot(import.meta.url);
@@ -74,7 +76,7 @@ async function generateHeadlinesAndPrompts(digestText) {
 2. **entities** — масив конкретних назв (компанії, продукти, технології, місця)
 3. **newsTone** — "positive" | "neutral" | "negative" (лише з coreFact, не з сарказму)
 4. **visualSubject** — 1 конкретна сцена англійською з цих сутностей і дії
-5. **headline** — заголовок українською (5-8 слів, макс 2 рядки). Конкретика (цифри, імена, продукти). Без саркастичних слів на кшталт «революція/історія», якщо це не буквальний факт
+5. **headline** — заголовок українською (${FEED_HEADLINE_WORD_MIN}-${FEED_HEADLINE_WORD_MAX} слів, макс 2 рядки). Конкретика (цифри, імена, продукти). Без саркастичних слів на кшталт «революція/історія», якщо це не буквальний факт
 6. **prompt** — англійський промпт фону (1-2 речення), ОБОВ'ЯЗКОВО побудований з visualSubject
 7. **url** — URL джерела (якщо є у блоці)
 
@@ -106,7 +108,7 @@ ${VISUAL_GROUNDING_RULES}
   if (vendor === 'openai') {
     if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY missing in .env');
     const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4o',
+      model: resolveProductionLlmModel(),
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -127,7 +129,7 @@ ${VISUAL_GROUNDING_RULES}
         'X-Title': 'NiSeNews image pipeline',
       },
       body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4o',
+        model: resolveProductionLlmModel(),
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
@@ -337,7 +339,7 @@ ${imageContents.map((v, i) => `Варіант ${i + 1}: [PERSON_NAME]: "${v.head
 
   if (vendor === 'openai') {
     const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4o',
+      model: resolveProductionLlmModel(),
       messages: [{
         role: 'user',
         content: [

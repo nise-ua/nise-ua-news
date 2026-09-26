@@ -5,6 +5,7 @@ describe('resolveLlmModel', () => {
   it('prefers LLM_MODEL over the legacy CLAUDE_MODEL alias', () => {
     expect(resolveLlmModel({ LLM_MODEL: 'composer-2', CLAUDE_MODEL: 'gpt-5.4-mini' })).toBe('composer-2');
     expect(resolveLlmModel({ CLAUDE_MODEL: 'kimi-k2.6' })).toBe('kimi-k2.6');
+    expect(resolveLlmModel({ OPENAI_MODEL: 'gpt-4o' })).toBe('gpt-4o');
     expect(resolveLlmModel({})).toBe('gpt-5.4-mini');
   });
 });

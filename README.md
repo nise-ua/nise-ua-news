@@ -1,6 +1,6 @@
-# News Digest Pipeline v3.0.1
+# News Digest Pipeline v3.1.0
 
-[![Version](https://img.shields.io/badge/version-3.0.1-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.1.0-blue)](CHANGELOG.md)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Claude API](https://img.shields.io/badge/Claude_API-Opus_4-d97706?logo=anthropic&logoColor=white)](https://www.anthropic.com/)
 [![OpenAI](https://img.shields.io/badge/OpenAI-Compatible-412991?logo=openai&logoColor=white)](https://openai.com/)
@@ -140,16 +140,16 @@ npm start
 
 Dashboard: `http://localhost:3000` (login: `admin` / your `DASHBOARD_PASSWORD`)
 
-### 4. Local Docker / UGREEN NAS (no Traefik)
+### 4. UGREEN NAS (the running app)
+
+The household dashboard is http://127.0.0.1:3010. Deploy the current tree there:
 
 ```bash
-cd news-digest-pipeline
-docker compose -f docker-compose.ugreen.yml up -d --build
+news-digest/scripts/deploy-nas.sh
+curl -sS http://127.0.0.1:3010/health
 ```
 
-Open `http://localhost:3000` or `http://<NAS-LAN-IP>:3000`.
-
-Fill `.env` first (`NODE_ENV=production`, `API_SECRET_KEY`, `DASHBOARD_PASSWORD`, LLM keys). Chrome plugin: load `extension/`, save the NAS URL and API key. Full NAS steps: [ugreen-docker.md](news-digest-pipeline/docs/ugreen-docker.md).
+`docker compose -f docker-compose.ugreen.yml` on the laptop is only a local preview. Full steps: [ugreen-docker.md](news-digest-pipeline/docs/ugreen-docker.md).
 
 ### 5. Production (Docker / VPS + Traefik)
 
@@ -168,7 +168,12 @@ docker restart news-digest-pipeline
 docker compose up -d --build
 ```
 
-#### Local run (npm)
+#### NAS (live app)
+```bash
+news-digest/scripts/deploy-nas.sh
+```
+
+#### Local run (npm, laptop only)
 ```bash
 # Use the restart script
 ./scripts/restart-local.sh
@@ -209,10 +214,10 @@ flowchart LR
 ```
 
 Three prompts control the style:
-- **[prompt.md](prompt.md)** — how to write the commentary (tone, length, format)
-- **[prompt_deep.md](prompt_deep.md)** — alternative "architect" scenario prompt (deeper analysis)
-- **[assembly_prompt.md](assembly_prompt.md)** — how to assemble the digest (order, footer)
-- **[config.md](config.md)** — hashtags, separator, boundary disclaimer
+- **[prompt.md](news-digest-pipeline/prompts/prompt.md)** — how to write the commentary (tone, length, format)
+- **[prompt_deep.md](news-digest-pipeline/prompts/prompt_deep.md)** — alternative "architect" scenario prompt (deeper analysis)
+- **[assembly_prompt.md](news-digest-pipeline/prompts/assembly_prompt.md)** — how to assemble the digest (order, footer)
+- **[config.md](news-digest-pipeline/prompts/config.md)** — hashtags, separator, boundary disclaimer
 
 The active scenario (`sarcastic` or `architect`) is selected via the Dashboard Settings page or API.
 
@@ -315,13 +320,13 @@ flowchart LR
 4. **Summarize** — compress remaining news into 5–8 word phrases
 5. **Compile** — combine headline + "А также: …" subtext
 
-Run: `node production/image/src/headlines.js latest`
+Run: `node production/image/src/generate.js latest`
 
 ### Video (Reels / Shorts)
 
 ```mermaid
 flowchart LR
-    D[Digest] --> S[Claude: Storyboard<br/>6 shots × 5-15 sec]
+    D[Digest] --> S[Storyboard<br/>one shot per news block]
     S --> V[Kling 3.0 / Veo 3.1]
     V --> C1[shot_01.mp4]
     V --> C2[shot_02.mp4]
@@ -401,12 +406,8 @@ Full audit: [SECURITY_AUDIT_2026-04-13.md](SECURITY_AUDIT_2026-04-13.md)
 ## Structure
 
 ```
-├── prompt.md                       # Prompt: article commentary (sarcastic scenario)
-├── prompt_deep.md                  # Prompt: deeper analysis (architect scenario)
-├── assembly_prompt.md              # Prompt: digest assembly
-├── config.md                       # Hashtags, separator, boundary disclaimer
-│
 ├── news-digest-pipeline/
+│   ├── prompts/                    # prompt.md, prompt_deep.md, assembly, config.md
 │   ├── src/
 │   │   ├── index.js                # Express server + auth + rate limiting
 │   │   ├── config.js               # Env → runtime config
@@ -448,13 +449,15 @@ Full audit: [SECURITY_AUDIT_2026-04-13.md](SECURITY_AUDIT_2026-04-13.md)
 │   │   ├── monitor.sh              # VPS monitoring
 │   │   └── restart-local.sh        # Local restart
 │   ├── production/
-│   │   ├── image/                  # Instagram image pipeline
-│   │   │   ├── src/
-│   │   │   │   ├── headlines.js    # 5-step headline generation
-│   │   │   │   ├── generate.js     # Image generation via fal.ai
-│   │   │   │   └── overlay.js      # Sharp text overlay
-│   │   ├── video/                  # Video pipeline research
-│   │   └── audio/                  # Audio/TTS research
+│   │   ├── lib/                    # Shared digest, copy, image, TTS helpers
+│   │   ├── image/                  # Cover + Instagram carousel CLIs
+│   │   │   └── src/
+│   │   │       ├── generate-digest-cover.js
+│   │   │       ├── generate.js     # Carousel stills
+│   │   │       └── overlay.js
+│   │   ├── video/                  # generate-reel.js (AI + overlay)
+│   │   ├── html-reel/              # generate-reel-html.js
+│   │   └── audio/                  # Voiceover CLI
 │   ├── distribution/
 │   │   ├── telegram/               # Standalone Telegram publisher
 │   │   ├── facebook-page/          # Standalone Facebook Page publisher

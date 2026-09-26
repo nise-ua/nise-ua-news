@@ -36,7 +36,7 @@ export function extractLlmText(payload) {
 }
 
 export function shouldPreferCloudflareLlm(env = process.env) {
-  if (String(env.CLOUDFLARE_LLM || '1').trim() === '0') return false;
+  if (String(env.CLOUDFLARE_LLM || '').trim() !== '1') return false;
   return hasCloudflareImageCredentials(env);
 }
 

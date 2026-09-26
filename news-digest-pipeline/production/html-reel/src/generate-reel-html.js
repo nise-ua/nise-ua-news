@@ -16,11 +16,17 @@
 import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'fs';
 import { basename, join } from 'path';
 import { config as dotenvConfig } from 'dotenv';
-import { initDb, getDb, updateDigest } from '../../../src/db/index.js';
-import { digestVideoUpdateFields } from '../../../src/db/digest-video-fields.js';
+import {
+  digestVideoUpdateFields,
+  findLatestDigestId,
+  initDigestStore,
+  persistDigestFields,
+  resolvePipelineDbPath,
+  resolvePublicBaseUrl,
+} from '../../lib/digest-store.js';
 
 import { generateStoryboard } from '../../video/src/storyboard.js';
-import { planShortsRuntime } from '../../video/src/shorts-runtime.js';
+import { planShortsRuntime } from '../../lib/shorts-runtime.js';
 import { ensureUkrainianOnScreenCopy, assertFinishedReelCopy } from '../../lib/reel-ukrainian-copy.js';
 import {
   ReelCopyReviewError,
@@ -46,10 +52,10 @@ const __dirname = scriptDir(import.meta.url);
 const ROOT = projectRoot(import.meta.url, 3);
 dotenvConfig({ path: join(ROOT, '.env'), override: true });
 
-const SERVER = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 3000}`;
+const SERVER = resolvePublicBaseUrl();
 // Videos must land where the UI serves them from, i.e. the shared reel output.
 const OUTPUT_DIR = join(__dirname, '..', '..', 'video', 'output');
-const DB_PATH = join(ROOT, 'data', 'news-digest.db');
+const DB_PATH = resolvePipelineDbPath();
 
 function removeStaleTempRuns(maxAgeMs = 24 * 60 * 60 * 1000) {
   if (!existsSync(OUTPUT_DIR)) return;
@@ -257,13 +263,12 @@ async function main() {
     const publicVideoUrl = `${SERVER}/videos/${fileName}`;
     let digestToUpdateId = digestId !== 'latest' ? digestId : null;
     try {
-      initDb(process.env.DB_PATH || DB_PATH);
+      initDigestStore(DB_PATH);
       if (!digestToUpdateId) {
-        const row = getDb().prepare('SELECT id FROM digests ORDER BY date DESC LIMIT 1').get();
-        if (row) digestToUpdateId = row.id;
+        digestToUpdateId = findLatestDigestId();
       }
       if (digestToUpdateId) {
-        updateDigest(digestToUpdateId, digestVideoUpdateFields(format, {
+        persistDigestFields(digestToUpdateId, digestVideoUpdateFields(format, {
           videoUrl: publicVideoUrl,
           reelUrl: publicReelUrl,
         }));

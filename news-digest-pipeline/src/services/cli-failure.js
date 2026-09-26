@@ -3,7 +3,7 @@
  * multi-line table whose last row is often `issues: none`.
  */
 const ISSUE_NONE = /^issues:\s*none$/i;
-const NOISE_LINE = /^(shot\s+\d+|headline\b|detail\b|spoken\b|final copy for review:)/i;
+const NOISE_LINE = /^(shot\s+\d+|headline\b|detail\b|spoken\b|final copy for review:|node\.js v\d|at\s+)/i;
 
 function humanizeFetchFailure(text) {
   const trimmed = String(text || '').trim();

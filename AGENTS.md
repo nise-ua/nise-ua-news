@@ -43,20 +43,24 @@ When changing `news-digest-pipeline/production/lib` or adding tests, read
 `news-digest-pipeline/docs/testing.md` and run tests from
 `news-digest-pipeline/` (`npm run test:production` or `npm run test:all`).
 
-### Restart after every app fix
+### Running app is the NAS
+
+The household app is the UGREEN container at http://127.0.0.1:3010
+(`/volume1/docker/news-digest`, SSH `nas-user@127.0.0.1` port 122). The laptop
+process on port 3000 is only a local preview.
 
 After every application fix or code change (including small dashboard, pipeline,
-production-lib, video/reel, and other server-loaded changes), update the running
-app and restart it so the new code is active. From the repo root:
+production-lib, video/reel, and other server-loaded changes), deploy so the NAS
+image matches this repo, then confirm health:
 
 ```bash
-./restart.sh
+news-digest/scripts/deploy-nas.sh
+curl -sS http://127.0.0.1:3010/health
 ```
 
-Do this at the end of every fix, after tests, without waiting for a separate user
-request. Skip only for docs-only or comment-only edits. The script wraps
-`news-digest-pipeline/scripts/restart-local.sh` and reloads the dashboard on
-port 3000.
+`news-digest-pipeline/scripts/restart-local.sh` updates the laptop only. A local
+`./restart.sh` wrapper at the git root is optional and gitignored. See
+`news-digest-pipeline/docs/ugreen-docker.md`.
 
 The required review-first CLI workflow is:
 

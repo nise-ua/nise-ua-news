@@ -2,14 +2,14 @@
 # Use this file instead of Traefik production compose.
 #
 # In UGREEN Docker / Container Manager:
-#   1. Copy news-digest-pipeline (and parent prompt*.md / config.md / assembly_prompt.md)
+#   1. Copy news-digest-pipeline including prompts/ (prompt.md, config.md, assembly_prompt.md)
 #      onto a NAS share, e.g. /volume1/docker/news-digest-pipeline
 #   2. Copy .env.example → .env and fill every key you use
 #   3. Create a Project with this compose file, or:
 #        docker compose -f docker-compose.ugreen.yml up -d --build
 #
 # Prefer the homelab deploy: news-digest/scripts/deploy-nas.sh
-# Host 3010 (Sure already uses 3000). Dashboard: http://192.168.0.138:3010
+# Host 3010 (Sure already uses 3000). Dashboard: http://127.0.0.1:3010
 
 services:
   news-digest:

@@ -1,0 +1,6 @@
+# Extra exclusions on top of .gitignore (never re-includes gitignored paths).
+news-digest-pipeline/.archive/
+.archive/
+*.min.js
+*.map
+news-digest-pipeline/production/video/v2/

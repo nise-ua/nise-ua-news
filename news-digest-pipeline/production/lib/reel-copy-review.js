@@ -6,7 +6,8 @@
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { completeCloudflareJson, shouldPreferCloudflareLlm } from './cloudflare-llm.js';
+import { completeJson } from './llm-client.js';
+import { criticSystemPrompt, spokenWordBand } from './reel-copy-contract.js';
 import {
   DETAIL_HARD_MAX,
   DETAIL_WORD_MAX,
@@ -449,7 +450,8 @@ function pickBand(units, min, max, exclude = new Set()) {
  * Deterministic in-band rewrite when the LLM critic is unavailable or stuck.
  * Does not change visual fields. Uses whole factual sentences only.
  */
-export function repairShotCopy(shot = {}) {
+export function repairShotCopy(shot = {}, { format = 'facebook' } = {}) {
+  const spokenBand = spokenWordBand(format);
   const units = copyUnitsFrom(shot);
   const lead = factAnchor(shot);
   const leadUnits = lead
@@ -488,8 +490,8 @@ export function repairShotCopy(shot = {}) {
   }
   const spoken = pickBand(
     leadUnits.filter((unit) => !copyTooSimilar(unit, detail) || copyTooSimilar(unit, headline)),
-    HEADLINE_WORD_MIN,
-    18,
+    spokenBand.min,
+    spokenBand.max,
   ) || headline || finishLine(shot.spokenText);
   return {
     ...shot,
@@ -595,24 +597,9 @@ export function readStoryboardFile(filepath) {
   };
 }
 
-const CRITIC_SYSTEM = `Ти — редактор українських Reels/Shorts для NiSeNews.
-Перевір on-screen copy кожного shot проти coreFact і sourceLead (перше фактичне речення дайджесту).
-
-Заборонено: однослівні заголовки («Класика.»), саркастичні зачини,
-незавершені речення, два речення в detail, тире/крапка з комою, що склеюють дві думки.
-Заборонено авторські жарти, риторичні питання, обірвані підрядні («Того, хто наливає каву»),
-і рядки, які не називають ту саму подію, що coreFact/sourceLead.
-
-Обов'язково:
-- headline: РІВНО одне завершене українське речення, 6–11 слів, підмет + присудок + додаток.
-- detailText: РІВНО одне завершене українське речення, 8–12 слів, не повторює headline.
-- spokenText: одне завершене українське речення з ТИМ САМИМ фактом, що headline (хто що зробив). Не читай detail, жарти, приклади «Говориш у Keep», «Анонс вийшов наступного дня» без суб'єкта новини.
-- Бренди латиницею: Meta, Nvidia, Google, AI, GPT, Llama, Claude, OpenAI.
-- Текст має читатися з першого погляду і чіпляти конкретним фактом (хто що зробив).
-
-Відповідай JSON:
-{"shots":[{"shot":1,"pass":true,"issues":[],"headline":"...","detailText":"...","spokenText":"..."}]}
-Якщо pass=true, повтори поточні рядки. Якщо pass=false, перепиши лише headline/detailText/spokenText.`;
+function criticPrompt(format) {
+  return criticSystemPrompt(format);
+}
 
 function applyCopyFields(shot, patch = {}) {
   const next = { ...shot };
@@ -637,68 +624,10 @@ function localizeShot(shot) {
 }
 
 async function defaultCompleteJson(systemPrompt, userPrompt) {
-  if (shouldPreferCloudflareLlm()) {
-    return completeCloudflareJson(systemPrompt, userPrompt, { maxTokens: 2800 });
-  }
-  const llmVendor = String(process.env.LLM_VENDOR || '').trim().toLowerCase();
-  let text;
-  if (llmVendor === 'openrouter' || process.env.OPENROUTER_API_KEY) {
-    if (!process.env.OPENROUTER_API_KEY) {
-      throw new Error('OPENROUTER_API_KEY missing in .env');
-    }
-    const baseUrl = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        ...(process.env.BASE_URL ? { 'HTTP-Referer': process.env.BASE_URL } : {}),
-        'X-Title': 'NiSeNews reel copy review',
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        response_format: { type: 'json_object' },
-        max_tokens: 2800,
-      }),
-    });
-    const payload = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(payload?.error?.message || `OpenRouter copy review failed (${res.status})`);
-    }
-    text = payload?.choices?.[0]?.message?.content;
-  } else if (process.env.OPENAI_API_KEY) {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        response_format: { type: 'json_object' },
-        max_tokens: 2800,
-      }),
-    });
-    const payload = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(payload?.error?.message || `OpenAI copy review failed (${res.status})`);
-    }
-    text = payload?.choices?.[0]?.message?.content;
-  } else {
-    throw new Error('No API key found for reel copy review');
-  }
-  if (!text) throw new Error('Copy review response did not contain text content');
-  const jsonMatch = String(text).match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('Failed to parse copy review JSON');
-  return JSON.parse(jsonMatch[0]);
+  return completeJson(systemPrompt, userPrompt, {
+    maxTokens: 2800,
+    title: 'NiSeNews reel copy review',
+  });
 }
 
 function shotsNeedLlm(shots) {
@@ -729,7 +658,9 @@ export async function reviewReelStoryboard(storyboard = {}, options = {}) {
     completeJson = defaultCompleteJson,
     log: logFn = () => {},
     maxRounds = COPY_REVIEW_MAX_ROUNDS,
+    format = 'facebook',
   } = options;
+  const critic = criticPrompt(format);
 
   let shots = (storyboard.shots || []).map((shot) => localizeShot(shot));
 
@@ -740,14 +671,14 @@ export async function reviewReelStoryboard(storyboard = {}, options = {}) {
 
     let llmPayload = null;
     try {
-      llmPayload = await completeJson(CRITIC_SYSTEM, buildReviewUserPrompt(shots, round));
+      llmPayload = await completeJson(critic, buildReviewUserPrompt(shots, round));
     } catch (err) {
       if (heuristicFails.length === 0) {
         logFn(`Copy critic skipped (${err.message}); heuristics passed.`);
         break;
       }
       logFn(`Copy critic unavailable (${err.message}); applying deterministic repair.`);
-      shots = shots.map((shot) => localizeShot(repairShotCopy(shot)));
+      shots = shots.map((shot) => localizeShot(repairShotCopy(shot, { format })));
       break;
     }
 
@@ -774,7 +705,7 @@ export async function reviewReelStoryboard(storyboard = {}, options = {}) {
     logFn(`Copy review still flagged ${failed.length} shot(s); applying deterministic repair.`);
     shots = shots.map((shot) => {
       if (findCopyIssues(shot).length === 0) return shot;
-      return localizeShot(repairShotCopy(shot));
+      return localizeShot(repairShotCopy(shot, { format }));
     });
   }
 

@@ -54,6 +54,18 @@ const VERSION_NUMBER_RE = /\b\d+(?:\.\d+)+\b/g;
 export const GENERIC_IT_CLICHE_RE =
   /\b(fiber optic|server rack|server racks|data center|compute rack|server hall|server room|server blade|server cabinet|network room|telecom closet|patch panel|cable tray|cable bundle|GPU server|blinking LED|network cable|server aisle|cooling manifold|compute module)\b/i;
 
+/** Computer hardware stock. Cover photos of racks and PCs do not depict the news. */
+const COVER_COMPUTER_RE =
+  /\b(server closet|server rack|server room|server hall|data center|datacenter|network appliance|firewall-style|firewall rack|gaming pc|pc tower|workstation|gpu server)\b/i;
+
+function pickCoverObjectVariant(category, index = 0) {
+  const variants = (SAFE_VISUAL_VARIANTS[category] || [])
+    .filter((line) => !COVER_COMPUTER_RE.test(line));
+  if (!variants.length) return '';
+  const i = Number.isFinite(index) ? Math.abs(Math.trunc(index)) : 0;
+  return variants[i % variants.length];
+}
+
 /** Generic stock cover scenes the visual LLM is told to avoid — not topic routing. */
 const COVER_STOCK_CLICHE_RE =
   /\b(computing workstation|modular computing|crystal prism|generic ai workstation|presenter on stage|coffee on desk|colorful LED indicators on a bright studio desk|headshot|portrait of|close-up of a (man|woman|person)|man in a (red )?hat|red baseball cap|unidentified (man|person)|random (man|person)|stock photo of a (man|woman)|gaming pc|rgb pc|custom pc|pc tower|beige pc tower|modern gaming rig|urban rooftop|rooftop with antennas|blank equipment boxes)\b/i;
@@ -72,6 +84,11 @@ const FINANCE_FACT_UK_RE = /зарплат|банківськ|\bбанк\b|ра�
 const AI_POLICY_DEBATE_RE =
   /\b(extinction|existential|doomer|end of (the )?world|ai threat|humanity|overhype|regulation scare)\b/i;
 const AI_POLICY_DEBATE_UK_RE = /вимиранн|апокаліпсис|кінець світу|загроз[аи]\s+вим/i;
+const MILITARY_NEAR_MISS_RE =
+  /літак|судно|корабл|абордаж|fighter jets?|military aircraft|warship|cargo ship|naval vessel/i;
+const COMPANY_BREACH_UK_RE = /зламав|злам|парол|креденшал/i;
+const AI_SELF_BUILD_RE =
+  /будує сам себе|наступну версію|тисяч\w* агент|swarm of agents|builds the next version|agents? (?:to )?build/i;
 
 const SAFE_VISUAL_VARIANTS = {
   aiSafetyIncident: [
@@ -149,6 +166,16 @@ const SAFE_VISUAL_VARIANTS = {
     'Heavy bank vault door ajar with warm light on shelves of blank envelopes, teal and amber contrast, no combination numerals no engraved text no watermarks',
     'Overhead shot of blank salary envelopes fanned on a bright oak desk beside a closed notebook, hard daylight, no printed names no currency numerals no watermarks',
   ],
+  militaryNearMiss: [
+    'Fighter jets flying low over a large cargo ship on a vivid blue sea at sunset, no hull names no tail insignia no flags with emblems no watermarks',
+    'Two military aircraft banking above a freighter on a bright ocean, saturated amber light and white wake, no markings no readable numbers no watermarks',
+    'Cargo ship on open water with jets visible high in a dramatic teal and gold sky, no national flags no ship lettering no watermarks',
+  ],
+  aiSelfBuild: [
+    'Robotic arms assembling rows of identical unmarked compute modules on a bright factory line, saturated daylight, no screens no labels no logos no watermarks',
+    'A line of blank metal modules moving toward a robotic assembler in a sunlit clean room, vivid teal and amber light, no typography no screens no watermarks',
+    'Close-up of a robot gripper placing an unmarked compute block onto a growing stack of identical blocks, punchy studio light, no labels no logos no watermarks',
+  ],
   aiPolicyDebate: [
     'Empty sunlit lecture hall with a wooden podium and rows of vacant chairs, vivid window light, no slides no screens no typography no watermarks',
     'Wooden gavel and blank folders on a bright mahogany table, shallow depth of field, no engraved text no document titles no watermarks',
@@ -205,23 +232,32 @@ function buildImageFactClause(coreFact) {
   const fact = String(coreFact || '').trim();
   if (!fact) return '';
 
+  if (isMilitaryNearMissStory({ coreFact: fact })) {
+    return ' Depict: military aircraft sent toward a ship after a faulty automated report.';
+  }
+  if (isCompanyBreachStory({ coreFact: fact })) {
+    return ' Depict: an AI test broke into company systems and collected credentials.';
+  }
+  if (isAiSelfBuildStory({ coreFact: fact })) {
+    return ' Depict: swarms of AI agents building the next version of a model.';
+  }
   if (isFinanceStory({ coreFact: fact }) || FINANCE_FACT_UK_RE.test(fact)) {
-    return ' News context: a chatbot connected to a bank account and salary payments.';
+    return ' Depict: a chatbot connected to a bank account and salary payments.';
   }
   if (isAiPolicyDebateStory({ coreFact: fact }) || AI_POLICY_DEBATE_UK_RE.test(fact)) {
-    return ' News context: a public debate about AI risk and regulation.';
+    return ' Depict: a public debate about AI risk and regulation.';
   }
   if (/\b(discontinu|removed|shut\s?down|deprecated|killed)\b/i.test(fact)) {
-    return ' News context: a major tech feature was removed after launch.';
+    return ' Depict: a major tech feature was removed after launch.';
   }
   if (/\b(launch|release|update|introduc|unveil|debuts?)\b/i.test(fact)) {
-    return ' News context: a major technology product update.';
+    return ' Depict: a major technology product update.';
   }
   if (/\b(develop|building|training|parameters|language model|llm)\b/i.test(fact)) {
-    return ' News context: large-scale AI model development.';
+    return ' Depict: large-scale AI model development.';
   }
   if (/\b(browser|surf the web|web agent|browser agent|kitesurf)\b/i.test(fact)) {
-    return ' News context: a new AI web browsing tool launch.';
+    return ' Depict: a new AI web browsing tool launch.';
   }
   if (
     /\b(ai agent|virtual assistant|personal assistant|autonomous agent|virtual machine|digital assistant|muse)\b/i.test(fact)
@@ -229,13 +265,13 @@ function buildImageFactClause(coreFact) {
   ) {
     if (/\b(агент|віртуальн|асистент|штучн)\b/i.test(fact)
       || /\b(ai agent|virtual assistant|muse)\b/i.test(fact)) {
-      return ' News context: a new autonomous AI assistant technology.';
+      return ' Depict: a new autonomous AI assistant technology.';
     }
   }
   if (containsCyrillic(fact)) {
-    return ' News context: a technology industry news story.';
+    return ' Depict: a technology industry news story.';
   }
-  return ` News context: ${sanitizeTextForImagePrompt(fact)}.`;
+  return ` Depict: ${sanitizeTextForImagePrompt(fact)}.`;
 }
 
 const SAFE_VISUAL_VALUES = new Set(
@@ -247,10 +283,12 @@ function isKnownSafeVisual(subject) {
   return SAFE_VISUAL_VALUES.has(value);
 }
 
-export function isSafeCustomVisualSubject(subject, { look = 'reel' } = {}) {
+export function isSafeCustomVisualSubject(subject, { look = 'reel', coreFact = '' } = {}) {
   const raw = String(subject || '').trim();
   if (!raw || raw.length < 20) return false;
   if (containsCyrillic(raw)) return false;
+  if (normalizeVisualLook(look) === 'cover' && isCoverHeadlineSubject(raw, coreFact)) return false;
+  if (normalizeVisualLook(look) === 'cover' && COVER_COMPUTER_RE.test(raw)) return false;
   if (normalizeVisualLook(look) === 'cover' && isGenericItCliche(raw)) return false;
   if (normalizeVisualLook(look) === 'cover' && COVER_STOCK_CLICHE_RE.test(raw)) return false;
   if (isKnownSafeVisual(raw)) return true;
@@ -301,6 +339,25 @@ function isAiPolicyDebateStory({ coreFact = '', entities = [] } = {}) {
     || AI_POLICY_DEBATE_UK_RE.test(entityText);
 }
 
+function storyCorpus({ coreFact = '', entities = [], sourceText = '' } = {}) {
+  const entityText = (Array.isArray(entities) ? entities : []).join(' ');
+  return `${coreFact}\n${sourceText}\n${entityText}`;
+}
+
+function isMilitaryNearMissStory(input) {
+  return MILITARY_NEAR_MISS_RE.test(storyCorpus(input));
+}
+
+function isCompanyBreachStory(input) {
+  const corpus = storyCorpus(input);
+  return COMPANY_BREACH_UK_RE.test(corpus)
+    || /\b(breach|hack(?:ed|ing)?|ransomware|credentials|passwords?)\b/i.test(corpus);
+}
+
+function isAiSelfBuildStory(input) {
+  return AI_SELF_BUILD_RE.test(storyCorpus(input));
+}
+
 function pickGamingCoverVariant({ coreFact = '', index = 0 } = {}) {
   const osBuild = /\b(operating system|wrote an os|from scratch|операційн)/i.test(String(coreFact || ''));
   const variantIndex = osBuild ? 3 : 0;
@@ -311,40 +368,49 @@ export function buildSafeCoverVisualSubject({
   visualSubject,
   coreFact,
   entities = [],
+  sourceText = '',
   index = 0,
 } = {}) {
-  if (AI_SAFETY_INCIDENT_RE.test(String(coreFact || ''))) {
-    return pickSafeVisualVariant('aiSafetyIncident', index);
+  const story = { coreFact, entities, sourceText };
+  const objectScene = (category) => pickCoverObjectVariant(category, index);
+  if (AI_SAFETY_INCIDENT_RE.test(String(coreFact || '')) || AI_SAFETY_INCIDENT_RE.test(String(sourceText || ''))) {
+    return objectScene('aiSafetyIncident') || photographOfStory(coreFact);
   }
   if (isPrivacyStory({ coreFact, entities })) {
-    return pickSafeVisualVariant('security', index);
+    return objectScene('security') || photographOfStory(coreFact);
   }
   if (isGamingStory({ coreFact, entities })) {
     return pickGamingCoverVariant({ coreFact, index });
   }
   if (isFinanceStory({ coreFact, entities })) {
-    return pickSafeVisualVariant('finance', index);
+    return objectScene('finance') || photographOfStory(coreFact);
   }
   if (isAiPolicyDebateStory({ coreFact, entities })) {
-    return pickSafeVisualVariant('aiPolicyDebate', index);
+    return objectScene('aiPolicyDebate') || photographOfStory(coreFact);
+  }
+  if (isMilitaryNearMissStory(story)) {
+    return objectScene('militaryNearMiss') || photographOfStory(coreFact);
+  }
+  if (isCompanyBreachStory(story)) {
+    return objectScene('security') || photographOfStory(coreFact);
+  }
+  if (isAiSelfBuildStory(story)) {
+    return objectScene('aiSelfBuild') || photographOfStory(coreFact);
   }
 
-  const subject = buildSafeVisualSubject({
-    visualSubject,
-    coreFact,
-    entities,
-    index,
-    look: 'cover',
-  });
+  const subject = String(visualSubject || '').trim();
   if (
-    !subject
-    || containsCyrillic(subject)
-    || isGenericItCliche(subject)
-    || COVER_STOCK_CLICHE_RE.test(subject)
+    isSafeCustomVisualSubject(subject, { look: 'cover', coreFact })
+    && !containsCyrillic(subject)
+    && !isGenericItCliche(subject)
+    && !COVER_STOCK_CLICHE_RE.test(subject)
   ) {
-    return pickSafeVisualVariant('default', index);
+    return sanitizeTextForImagePrompt(subject);
   }
-  return subject;
+
+  // Uncategorized news used to fall through to a headline sentence or a
+  // datacenter/cable stock photo. Photograph this story's own objects instead.
+  return photographOfStory(coreFact);
 }
 
 function normalizeForCompare(text) {
@@ -353,6 +419,51 @@ function normalizeForCompare(text) {
     .replace(/[^a-z0-9\u0400-\u04ff]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+const COVER_SCENE_RE =
+  /\b(hands?|desk|table|room|hall|workbench|bench|close-up|macro|overhead|sunlit|daylight|window light|studio|laboratory|lab|wallet|envelope|vault|jet|jets|aircraft|ship|freighter|hinge|luggage|passport|podium|gavel|conference|photograph|photo of|holding|placing|tucking|folded|half-open)\b/i;
+
+const COVER_NEWS_VERB_RE =
+  /\b(released?|announc\w+|report\w+|outperform\w+|unveiled?|introduced?|launched?|updated?|develop\w+|testing|tested|said|says|removed|discontinued|debut\w+)\b/i;
+
+function contentWordOverlap(left, right) {
+  const stop = new Set(['a', 'an', 'the', 'with', 'and', 'that', 'which', 'for', 'from', 'into', 'its', 'their', 'new', 'this', 'was', 'were', 'are', 'has', 'have', 'had', 'after', 'during', 'than', 'can', 'could']);
+  const words = (value) => normalizeForCompare(value).split(' ').filter((word) => word.length > 2 && !stop.has(word));
+  const leftWords = words(left);
+  const rightWords = new Set(words(right));
+  if (!leftWords.length || !rightWords.size) return 0;
+  const shared = leftWords.filter((word) => rightWords.has(word)).length;
+  return shared / leftWords.length;
+}
+
+/** A cover subject must be a photograph. A sentence that restates the news is not one. */
+export function isCoverHeadlineSubject(subject, coreFact = '') {
+  const value = String(subject || '').trim();
+  if (!value) return true;
+  if (isFactDumpSubject(value, coreFact)) return true;
+  const scene = COVER_SCENE_RE.test(value);
+  if (scene && contentWordOverlap(value, coreFact) < 0.85) return false;
+  if (COVER_NEWS_VERB_RE.test(value) && !scene) return true;
+  if (coreFact && contentWordOverlap(value, coreFact) >= 0.6 && !scene) return true;
+  return false;
+}
+
+function photographOfStory(coreFact) {
+  const stop = /\b(a|an|the|with|and|that|which|for|from|into|its|their|new|this|to|of|on|in|by|after|during|than|was|were|are|has|have|had|can|could|will|just|also)\b/gi;
+  let text = sanitizeTextForImagePrompt(coreFact);
+  text = text.replace(/[\u0400-\u04FF]+/g, ' ');
+  text = text.replace(COVER_NEWS_VERB_RE, ' ');
+  text = text.replace(/\b(oled\s+)?screens?\b/gi, 'blank glass panels');
+  text = text.replace(TEXT_PRONE_VISUAL_RE, ' ');
+  text = text.replace(UI_VISUAL_RE, ' ');
+  text = text.replace(stop, ' ');
+  text = text.replace(/[^a-z0-9\s-]/gi, ' ').replace(/\s+/g, ' ').trim();
+  const objects = text.length >= 8 ? text : 'the tangible objects named in this news story';
+  const fold = /\bfold/i.test(objects)
+    ? ' Show one hinged device half-open on a sunlit table, blank glass, no icons.'
+    : '';
+  return `Editorial photograph of ${objects}, real physical objects in warm daylight, one clear subject filling the frame, blank surfaces, no readable text, no logos, no interface.${fold}`;
 }
 
 function isFactDumpSubject(subject, coreFact) {
@@ -367,13 +478,15 @@ function isFactDumpSubject(subject, coreFact) {
   return false;
 }
 
-function coverSubjectNeedsFallback(subject, prompt, coreFact = '') {
+export function coverSubjectNeedsFallback(subject, prompt, coreFact = '') {
   const value = stripCoverSafetyInstructions(String(subject || '').trim());
   const promptValue = stripCoverSafetyInstructions(String(prompt || '').trim());
   if (!value || containsCyrillic(value) || containsCyrillic(promptValue)) return true;
+  if (isCoverHeadlineSubject(value, coreFact) || isCoverHeadlineSubject(promptValue, coreFact)) return true;
   if (isFactDumpSubject(value, coreFact) || isFactDumpSubject(promptValue, coreFact)) return true;
   if (promptHasBannedMetaphor(value) || promptHasBannedMetaphor(promptValue)) return true;
   if (isGenericItCliche(value) || isGenericItCliche(promptValue)) return true;
+  if (COVER_COMPUTER_RE.test(value) || COVER_COMPUTER_RE.test(promptValue)) return true;
   if (COVER_STOCK_CLICHE_RE.test(value) || COVER_STOCK_CLICHE_RE.test(promptValue)) return true;
   if (matchesVisualSafetyPattern(UI_VISUAL_RE, value) || matchesVisualSafetyPattern(UI_VISUAL_RE, promptValue)) {
     return true;
@@ -396,12 +509,22 @@ export function groundCoverVariant(variant, index = 0) {
   const newsTone = resolveNewsTone({ newsTone: variant.newsTone, coreFact });
   let visualSubject = String(variant.visualSubject || '').trim();
   let prompt = String(variant.prompt || '').trim();
+  const story = { coreFact, entities, sourceText: variant.sourceText };
+  const storySubject = isMilitaryNearMissStory(story)
+    ? pickCoverObjectVariant('militaryNearMiss', hashVisualSeed(coreFact))
+    : isCompanyBreachStory(story)
+      ? pickCoverObjectVariant('security', hashVisualSeed(coreFact))
+      : isAiSelfBuildStory(story)
+        ? pickCoverObjectVariant('aiSelfBuild', hashVisualSeed(coreFact))
+        : '';
+  const subjectMissesStory = storySubject && !/jet|aircraft|ship|freighter|vault|padlock|security key|robotic arm|compute module|assembler/i.test(visualSubject);
 
-  if (coverSubjectNeedsFallback(visualSubject, prompt, coreFact)) {
+  if (subjectMissesStory || coverSubjectNeedsFallback(visualSubject, prompt, coreFact)) {
     visualSubject = buildSafeCoverVisualSubject({
       visualSubject,
       coreFact,
       entities,
+      sourceText: variant.sourceText,
       index: hashVisualSeed(coreFact),
     });
     prompt = '';
@@ -534,7 +657,7 @@ export function buildSafeVisualSubject({
     return pickSafeVisualVariant('aiBrowserLaunch', index);
   }
 
-  if (isSafeCustomVisualSubject(rawSubject)) {
+  if (isSafeCustomVisualSubject(rawSubject, { look, coreFact: fact })) {
     return subject;
   }
 
@@ -723,11 +846,12 @@ export function buildGroundedPrompt({
         index: hashVisualSeed(fact),
       }))
     : buildSafeVisualSubject({ visualSubject, coreFact: fact, entities, index, look: visualLook });
-  const factClause = buildImageFactClause(fact);
+  const factClause = visualLook === 'cover' ? '' : buildImageFactClause(fact);
   const tone = resolveNewsTone({ newsTone, coreFact: fact });
 
+  const scene = factClause ? `${safeSubject}.${factClause}` : safeSubject;
   return (
-    `${safeSubject}.${factClause} ` +
+    `${scene} ` +
     'Concrete physical depiction (not abstract symbols of tone, not UI screenshots, not labeled objects, not dials or gauges). ' +
     buildAtmosphereClause({ newsTone: tone, coreFact: fact, index, look: visualLook })
   ).replace(/\s+/g, ' ').trim();
@@ -749,7 +873,7 @@ export function finalizeImagePrompt(prompt, { newsTone, coreFact, index = 0, loo
     .replace(/\bProfessional documentary photography\b[^.]*\./gi, '')
     .replace(/\bNo text, no letters, no numbers, no words, no logos\b[^.]*\./gi, '')
     .replace(/\bClearly depict cues for:[^.]*\./gi, '')
-    .replace(BRAND_TOKEN_RE, 'AI technology')
+    .replace(BRAND_TOKEN_RE, visualLook === 'cover' ? '' : 'AI technology')
     .replace(VERSION_NUMBER_RE, '')
     .replace(/\b(reasoning[\s-]?depth|brass physical reasoning-depth dial|brass dial|physical reasoning-depth dial)\b/gi, 'unmarked server hardware')
     .replace(/\b(neural network|node cluster|network visualization|data visualization|globe with labels|country names on globe)\b/gi, 'unmarked physical hardware')

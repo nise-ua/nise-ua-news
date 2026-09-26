@@ -136,7 +136,7 @@ export async function getDigestContent(digestId = 'latest', options = {}) {
   const {
     root = PIPELINE_ROOT,
     dbPath = join(root, 'data', 'news-digest.db'),
-    server = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 3000}`,
+    server = process.env.BASE_URL || process.env.SERVER_URL || `http://localhost:${process.env.PORT || 3000}`,
     apiKey = resolveApiKey(),
     fetchFn = globalThis.fetch.bind(globalThis),
     execFileSync = fsExecFileSync,

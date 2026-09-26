@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [3.1.0] — 2026-09-20
+
+### Changed
+
+- Digest prompts live in `news-digest-pipeline/prompts/` (Docker mount and local).
+- Media tasks use `LLM_MODEL` via a shared client; Cloudflare text LLM is opt-in (`CLOUDFLARE_LLM=1`).
+- Reel storyboard/critic copy bands come from one contract (frozen 6–11 / 8–12).
+- Media CLIs persist digest URLs through `production/lib/digest-store.js`.
+
+### Removed (archived)
+
+- Duplicate distribution setup markdown and an unused root music script (see `.archive/`).
+
+---
+
 ## [3.0.1] — 2026-08-17
 
 ### Baseline

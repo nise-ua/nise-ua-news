@@ -43,6 +43,15 @@ describe('summarizeCliFailure', () => {
     )).toMatch(/Мережева помилка/);
   });
 
+  it('skips the Node.js version banner and keeps the syntax error', () => {
+    const message = summarizeCliFailure(
+      'file:///app/production/image/src/generate-digest-cover.js:71\nSyntaxError: Identifier \'completeJson\' has already been declared\n    at ModuleJob.run (node:internal/modules/esm/module_job:413:25)\nNode.js v20.20.2\n',
+      '',
+    );
+    expect(message).toMatch(/SyntaxError: Identifier 'completeJson'/);
+    expect(message).not.toMatch(/^Node\.js v/);
+  });
+
   it('does not duplicate shot issues already on the Fatal line', () => {
     const message = summarizeCliFailure(
       'Fatal: Reel copy review could not finish in-band copy. Shot 1: detailText is missing\n    issues: detailText is missing\n    issues: none\n',

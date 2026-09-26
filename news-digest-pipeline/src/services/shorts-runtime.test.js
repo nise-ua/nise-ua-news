@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planShortsRuntime, SHORTS_INTRO_OUTRO_SEC, SHORTS_PAD_SEC } from '../../production/video/src/shorts-runtime.js';
+import { planShortsRuntime, SHORTS_INTRO_OUTRO_SEC, SHORTS_PAD_SEC } from '../../production/lib/shorts-runtime.js';
 
 describe('planShortsRuntime', () => {
   it('keeps intro/outro and pads when under 180s', () => {
