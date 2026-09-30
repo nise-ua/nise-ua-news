@@ -29,7 +29,7 @@ const BANNED_RE = new RegExp(
   'i'
 );
 
-const UI_VISUAL_RE = /\b(ui|interface|screen|dashboard|app mockup|chatgpt|openai|gpt[\s-]?[\d.]+|software panel|blog page|website screenshot|app screenshot|screenshot|chat interface|readable text|readable labels?|ui label|caption|headline on screen|browser interface|browser window|browser tab|app screen|control panel|engraved|embossed|inscription|typography|lettering|diagram|infographic|flowchart|schematic|data chart|neural network diagram|digital interface|cloud computing network symbols|map labels?|globe labels?|country names?|continent labels?|neural network|node cluster|network visualization|synaptic|data nodes|matrix code|binary digits|source code|code snippet|vertical text|string of characters)\b/i;
+const UI_VISUAL_RE = /\b(ui|interface|screens?|laptops?|dashboards?|app mockup|chatgpt|openai|gpt[\s-]?[\d.]+|software panel|blog page|website screenshot|app screenshot|screenshot|chat interface|readable text|readable labels?|ui label|caption|headline on screen|browser interface|browser window|browser tab|app screen|control panel|sticky notes?|bug fix notes?|task lists?|engraved|embossed|inscription|typography|lettering|diagram|infographic|flowchart|schematic|data chart|neural network diagram|digital interface|cloud computing network symbols|map labels?|globe labels?|country names?|continent labels?|neural network|node cluster|network visualization|synaptic|data nodes|matrix code|binary digits|source code|code snippet|vertical text|string of characters)\b/i;
 
 function matchesVisualSafetyPattern(re, text) {
   return new RegExp(re.source, re.flags.includes('i') ? re.flags : `${re.flags}i`).test(String(text || ''));
@@ -312,6 +312,7 @@ export function isSafeCustomVisualSubject(subject, { look = 'reel', coreFact = '
 function stripCoverSafetyInstructions(text) {
   return String(text || '')
     .replace(/\b(no|without|never)\s+(readable\s+)?(text|labels?|typography|writing|words|logos?|watermarks?|captions?)\b/gi, '')
+    .replace(/\b(no|without|never)\s+(screens?|laptops?|sticky notes?|bug fix notes?|task lists?)\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
 }

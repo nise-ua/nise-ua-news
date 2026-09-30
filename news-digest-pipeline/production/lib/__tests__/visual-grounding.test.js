@@ -193,6 +193,15 @@ describe('groundVisualList', () => {
 });
 
 describe('cover visual variety', () => {
+  it('rejects plural screens and notes that make image models paint text', () => {
+    const subject = 'A weary developer beside error-filled laptop screens, sticky notes, bug fix notes, and a glowing task list';
+    expect(coverSubjectNeedsFallback(
+      subject,
+      subject,
+      'A developer became addicted to vibe coding and worked to exhaustion.',
+    )).toBe(true);
+  });
+
   it('rejects literalized Claude Sonnet hardware and word-salad scenes', () => {
     const coreFact = 'Anthropic released Claude Sonnet 5.5, claiming it is about 30% faster while keeping the same pricing.';
     const subject = 'Editorial photograph of Sonnet claiming it is about 30 faster while keeping same pricing';
