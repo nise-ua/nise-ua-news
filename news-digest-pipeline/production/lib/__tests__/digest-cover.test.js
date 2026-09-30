@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  COVER_ASPECT,
   coverSelectionUserPrompt,
   fallbackCoverFromArticles,
   groundDigestCover,
@@ -8,7 +7,7 @@ import {
   parseCoverSelection,
   selectDigestCover,
 } from '../digest-cover.js';
-import { SAMPLE_DIGEST, SAMPLE_DIGEST_SARCASTIC } from './fixtures/digest.js';
+import { SAMPLE_DIGEST } from './fixtures/digest.js';
 import { parseDigestArticles } from '../digest.js';
 import { unstubGlobals } from './helpers.js';
 
@@ -91,31 +90,31 @@ describe('groundDigestCover', () => {
   it('uses articleIndex to rotate cover palette and composition', () => {
     const first = groundDigestCover({
       articleIndex: 1,
-      sourceText: 'OpenAI оновив ChatGPT.',
+      sourceText: 'Розробник працював ночами до виснаження.',
       url: '',
-      coreFact: 'OpenAI updated ChatGPT with a reasoning-depth slider',
-      entities: ['ChatGPT', 'OpenAI'],
-      newsTone: 'positive',
-      visualSubject: 'ChatGPT UI screen with labels',
-      prompt: 'ui screen',
+      coreFact: 'A developer worked through the night to exhaustion.',
+      entities: ['developer'],
+      newsTone: 'negative',
+      visualSubject: 'An exhausted developer at a late-night work desk, face in hands beside crumpled blank notes',
+      prompt: 'An exhausted developer at a late-night work desk beside crumpled blank notes.',
       pickReason: 'test',
     });
     const third = groundDigestCover({
       articleIndex: 3,
-      sourceText: 'OpenAI оновив ChatGPT.',
+      sourceText: 'Розробник працював ночами до виснаження.',
       url: '',
-      coreFact: 'OpenAI updated ChatGPT with a reasoning-depth slider',
-      entities: ['ChatGPT', 'OpenAI'],
-      newsTone: 'positive',
-      visualSubject: 'ChatGPT UI screen with labels',
-      prompt: 'ui screen',
+      coreFact: 'A developer worked through the night to exhaustion.',
+      entities: ['developer'],
+      newsTone: 'negative',
+      visualSubject: 'An exhausted developer at a late-night work desk, face in hands beside crumpled blank notes',
+      prompt: 'An exhausted developer at a late-night work desk beside crumpled blank notes.',
       pickReason: 'test',
     });
     expect(first.prompt).not.toBe(third.prompt);
   });
 
-  it('rebuilds unsafe LLM visuals into a sanitized coreFact prompt', () => {
-    const grounded = groundDigestCover({
+  it('fails closed when an abstract software story has only unsafe visuals', () => {
+    expect(() => groundDigestCover({
       articleIndex: 1,
       sourceText: 'Знову революція? OpenAI оновив ChatGPT.',
       url: '',
@@ -125,15 +124,7 @@ describe('groundDigestCover', () => {
       visualSubject: 'revolution in the streets with ChatGPT UI screens',
       prompt: 'curious funny revolution and a history book',
       pickReason: 'test',
-    });
-
-    expect(grounded.aspect).toBe(COVER_ASPECT);
-    expect(grounded.look).toBe('cover');
-    expect(grounded.prompt.toLowerCase()).not.toMatch(/\brevolution\b|history book|curious funny/);
-    expect(grounded.prompt).toMatch(/ZERO TEXT|no text/i);
-    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/chatgpt ui|revolution/);
-    expect(grounded.prompt.toLowerCase()).not.toMatch(/dark server aisle|documentary photography/);
-    expect(grounded.prompt).toMatch(/vivid|saturated|punchy|scroll/i);
+    })).toThrow(/no concrete, story-specific photographic scene/i);
   });
 
   it('preserves a safe LLM-provided cover scene', () => {
@@ -184,30 +175,81 @@ describe('selectDigestCover', () => {
   });
 
   it('uses the LLM pick and visual grounding when completeJson succeeds', async () => {
+    const digest = `#новини 1. Meta показала квадратний кишеньковий брелок із мікрофоном.
+https://example.com/pendant`;
     const completeJson = vi.fn()
       .mockResolvedValueOnce(JSON.stringify({
-        articleIndex: 3,
-        coreFact: 'ByteDance is developing a 10-trillion-parameter language model',
-        entities: ['ByteDance'],
+        articleIndex: 1,
+        coreFact: 'A company showed a square pocket pendant with a microphone',
+        entities: ['pocket pendant'],
         newsTone: 'neutral',
-        pickReason: 'Масштаб моделі.',
+        pickReason: 'Конкретний фізичний пристрій.',
       }))
       .mockResolvedValueOnce(JSON.stringify({
-        visualSubject: 'Researchers reviewing colorful unmarked hardware modules on a bright lab table',
-        prompt: 'Bright editorial photo of researchers beside vivid unmarked hardware modules, no screens or labels.',
+        visualSubject: 'A small square metal pocket pendant lying on a sunlit wooden table, microphone grille, no icons, no logos, no text',
+        prompt: 'A small square metal pocket pendant on a sunlit wooden table, vivid editorial photograph.',
       }));
 
-    const cover = await selectDigestCover(SAMPLE_DIGEST, { completeJson, log: () => {} });
+    const cover = await selectDigestCover(digest, { completeJson, log: () => {} });
     expect(completeJson).toHaveBeenCalledTimes(2);
-    expect(cover.articleIndex).toBe(3);
-    expect(cover.sourceText).toContain('ByteDance');
+    expect(cover.articleIndex).toBe(1);
+    expect(cover.sourceText).toContain('брелок');
     expect(cover.fallback).toBe(false);
-    expect(cover.visualSubject).toMatch(/researchers|hardware modules/i);
+    expect(cover.visualSubject).toMatch(/pocket pendant/i);
     expect(cover.prompt).toMatch(/ZERO TEXT|no text/i);
   });
 
+  it('rejects the Claude Sonnet word-salad cover and reselects a concrete story', async () => {
+    const digest = `#новини 1. Розробник описав залежність від vibe-coding: працював ночами до повного виснаження.
+https://example.com/vibe
+
+2. Anthropic випустила Claude Sonnet 5.5: модель стала на 30% швидшою за тієї самої ціни.
+https://example.com/sonnet
+
+3. Інша лабораторія показала новий програмний агент.
+https://example.com/agent`;
+    const completeJson = vi.fn()
+      .mockResolvedValueOnce(JSON.stringify({
+        articleIndex: 2,
+        coreFact: 'Anthropic released Claude Sonnet 5.5, claiming it is about 30% faster while keeping the same pricing.',
+        entities: ['Anthropic', 'Claude Sonnet 5.5'],
+        newsTone: 'positive',
+        pickReason: 'Відомий реліз.',
+      }))
+      .mockResolvedValueOnce(JSON.stringify({
+        visualSubject: 'Editorial photograph of Sonnet claiming it is about 30 faster while keeping same pricing beside beige computers and a globe',
+        prompt: 'Beige PCs, server racks, metal boxes and a globe surrounding Sonnet claiming a faster release.',
+      }))
+      .mockResolvedValueOnce(JSON.stringify({
+        visualSubject: 'Claude Sonnet as a beige computer box on a desk',
+        prompt: 'Editorial photo of a PC tower, globe and server rack representing the model.',
+      }))
+      .mockResolvedValueOnce(JSON.stringify({
+        articleIndex: 1,
+        coreFact: 'A developer described becoming addicted to vibe coding and working to exhaustion.',
+        entities: ['developer', 'vibe coding'],
+        newsTone: 'negative',
+        pickReason: 'Людська сцена виснаження конкретна й фотографічна.',
+      }))
+      .mockResolvedValueOnce(JSON.stringify({
+        visualSubject: 'An exhausted developer slumped at a cluttered late-night work desk, face in hands beside crumpled blank notes and an untouched meal',
+        prompt: 'An exhausted developer at a late-night work desk, face in hands, crumpled blank notes, dramatic editorial window light.',
+      }));
+
+    const cover = await selectDigestCover(digest, { completeJson, log: () => {}, rotationSeed: 0 });
+    const output = `${cover.visualSubject} ${cover.prompt}`.toLowerCase();
+
+    expect(completeJson).toHaveBeenCalledTimes(5);
+    expect(completeJson.mock.calls[3][1]).toContain('НЕ ОБИРАЙ відхилені блоки: 2');
+    expect(cover.articleIndex).toBe(1);
+    expect(cover.visualSubject).toMatch(/exhausted developer|work desk/i);
+    expect(output).not.toMatch(/sonnet claiming|server rack|\bpcs?\b|\bcomputers?\b|\bglobe\b|\bbox(?:es)?\b/);
+  });
+
   it('falls back to the lead story when the LLM fails', async () => {
-    const cover = await selectDigestCover(SAMPLE_DIGEST_SARCASTIC, {
+    const concreteDigest = `#новини 1. Meta показала квадратний брелок, схожий на Тамагочі.
+https://example.com/pendant`;
+    const cover = await selectDigestCover(concreteDigest, {
       completeJson: async () => {
         throw new Error('no credits');
       },
@@ -215,7 +257,7 @@ describe('selectDigestCover', () => {
     });
     expect(cover.articleIndex).toBe(1);
     expect(cover.fallback).toBe(true);
-    expect(cover.sourceText).toContain('OpenAI');
+    expect(cover.sourceText).toContain('брелок');
   });
 
   it('throws when the digest has no usable blocks', async () => {

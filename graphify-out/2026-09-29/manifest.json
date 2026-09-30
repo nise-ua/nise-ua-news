@@ -132,8 +132,8 @@
     "semantic_hash": ""
   },
   "news-digest-pipeline/production/image/src/overlay.js": {
-    "mtime": 1790738831.6635401,
-    "seen": 1790739087.214491,
+    "mtime": 1790390002.8186548,
+    "seen": 1790390982.0907478,
     "ast_hash": "7f4fc2883128b29a1ed43dbf83953454",
     "semantic_hash": "7f4fc2883128b29a1ed43dbf83953454"
   },
@@ -150,9 +150,9 @@
     "semantic_hash": "1211176d7fb8ea24f9dbd56c43e337a1"
   },
   "news-digest-pipeline/production/lib/__tests__/digest-cover.test.js": {
-    "mtime": 1790739069.5490677,
-    "seen": 1790739087.214493,
-    "ast_hash": "815841f34a1878adbcbe8c57e922b92f",
+    "mtime": 1790044685.1708713,
+    "seen": 1790390982.09075,
+    "ast_hash": "34dfd24e9c71a17b668a67547ac9230e",
     "semantic_hash": ""
   },
   "news-digest-pipeline/production/lib/__tests__/digest.test.js": {
@@ -228,9 +228,9 @@
     "semantic_hash": "f78fc3b7072a052a27213c0b8a6b6d71"
   },
   "news-digest-pipeline/production/lib/__tests__/visual-grounding.test.js": {
-    "mtime": 1790739052.9903324,
-    "seen": 1790739087.2145002,
-    "ast_hash": "a7f2791b53fa71b37c48118106b8fdf6",
+    "mtime": 1790390923.1351953,
+    "seen": 1790390982.0907578,
+    "ast_hash": "ec575f3f59eeb2468e5e0a7277be640a",
     "semantic_hash": ""
   },
   "news-digest-pipeline/production/lib/cloudflare-llm.js": {
@@ -240,9 +240,9 @@
     "semantic_hash": ""
   },
   "news-digest-pipeline/production/lib/digest-cover.js": {
-    "mtime": 1790739046.6947496,
-    "seen": 1790739087.2145011,
-    "ast_hash": "d1ba9bb917a551dd6acd59c6c03c63fe",
+    "mtime": 1790390918.521992,
+    "seen": 1790390982.0907588,
+    "ast_hash": "ded6acc2ada6912a963d48d99fa94c6b",
     "semantic_hash": ""
   },
   "news-digest-pipeline/production/lib/digest.js": {
@@ -324,9 +324,9 @@
     "semantic_hash": "50d2356c30d0247c4ce060f52b0eb0c9"
   },
   "news-digest-pipeline/production/lib/visual-grounding.js": {
-    "mtime": 1790739049.2689548,
-    "seen": 1790739087.214509,
-    "ast_hash": "9da3201326ba1657ab14fb49e38e3c63",
+    "mtime": 1790390974.65475,
+    "seen": 1790390982.0907671,
+    "ast_hash": "d32c78c38ae046a71ac4afe61ce1e8f8",
     "semantic_hash": ""
   },
   "news-digest-pipeline/production/lib/visual-grounding.test.js": {
@@ -348,8 +348,8 @@
     "semantic_hash": "36dbc28139f2e6bb465cc9dd872da23a"
   },
   "news-digest-pipeline/production/video/src/generate-clips.js": {
-    "mtime": 1790738831.6679518,
-    "seen": 1790739087.2145112,
+    "mtime": 1790390002.819014,
+    "seen": 1790390982.0907688,
     "ast_hash": "66eb141fb1a4f57a84563788018239a3",
     "semantic_hash": "66eb141fb1a4f57a84563788018239a3"
   },
@@ -876,9 +876,9 @@
     "semantic_hash": "5fbe1c9244eb1ea55b8a51dd9c34984a"
   },
   "news-digest-pipeline/production/lib/__tests__/llm-client.test.js": {
-    "mtime": 1790393463.1516461,
-    "seen": 1790739087.214497,
-    "ast_hash": "683ec705306b737d697b82a2ce860859",
+    "mtime": 1790044681.7506144,
+    "seen": 1790390982.090754,
+    "ast_hash": "d87fa7e9068e33b3b84d58d7130c9e47",
     "semantic_hash": ""
   },
   "news-digest-pipeline/production/lib/__tests__/reel-copy-contract.test.js": {
@@ -894,9 +894,9 @@
     "semantic_hash": ""
   },
   "news-digest-pipeline/production/lib/llm-client.js": {
-    "mtime": 1790393459.7961695,
-    "seen": 1790739087.2145028,
-    "ast_hash": "fe29f24f387ce0b6bf3c768e234f08e2",
+    "mtime": 1790044642.5870636,
+    "seen": 1790390982.090761,
+    "ast_hash": "d5a450bbcdab8ed39ee25cb9abff53c7",
     "semantic_hash": ""
   },
   "news-digest-pipeline/production/lib/reel-copy-contract.js": {
@@ -912,9 +912,9 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1790391405.5963938,
-    "seen": 1790739087.214551,
-    "ast_hash": "ab0ccdf01b6a4ba7df48030b48f0cbd5",
+    "mtime": 1789878326.6565988,
+    "seen": 1789878401.564688,
+    "ast_hash": "41407547f4bfd3a04b7a1aef47638bb2",
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
@@ -924,26 +924,26 @@
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1790391407.145379,
-    "seen": 1790739087.2145522,
-    "ast_hash": "d461b2eca91e46909babc11557339d7f",
+    "mtime": 1789878325.7836413,
+    "seen": 1789878401.564689,
+    "ast_hash": "48d603f848f18fb28165b8ca97fa3687",
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1790391411.7905402,
-    "seen": 1790739087.2145522,
-    "ast_hash": "fa8d49acc75dc87c480913441dd0f613",
+    "mtime": 1790041598.2527115,
+    "seen": 1790044176.465253,
+    "ast_hash": "30d70fbe0549f5f1391a47e2ea1fbec0",
     "semantic_hash": ""
   },
   "README_\u0422\u0417.md": {
-    "mtime": 1790738831.6635683,
-    "seen": 1790739087.214553,
+    "mtime": 1790390002.818978,
+    "seen": 1790390982.090812,
     "ast_hash": "599545f9c35ec73baf26f40946fa32dd",
     "semantic_hash": ""
   },
   "SECURITY_AUDIT_2026-04-13.md": {
-    "mtime": 1790738831.6635845,
-    "seen": 1790739087.214553,
+    "mtime": 1790390002.8190045,
+    "seen": 1790390982.090812,
     "ast_hash": "a593bc5d9116e569cabc46bd5b3470bb",
     "semantic_hash": ""
   },
@@ -960,8 +960,8 @@
     "semantic_hash": ""
   },
   "news-digest-pipeline/distribution/README.md": {
-    "mtime": 1790738831.667909,
-    "seen": 1790739087.2145548,
+    "mtime": 1790390002.8190002,
+    "seen": 1790390982.090813,
     "ast_hash": "ce5a00e3c4797a8559647c25e644359d",
     "semantic_hash": ""
   },
@@ -1038,8 +1038,8 @@
     "semantic_hash": ""
   },
   "news-digest-pipeline/docs/telegram-setup.md": {
-    "mtime": 1790738831.6636019,
-    "seen": 1790739087.214561,
+    "mtime": 1790390002.8189833,
+    "seen": 1790390982.0908191,
     "ast_hash": "80bd3b93129e9e407777e71599ec491e",
     "semantic_hash": ""
   },
@@ -1050,9 +1050,9 @@
     "semantic_hash": ""
   },
   "news-digest-pipeline/docs/ugreen-docker.md": {
-    "mtime": 1790391417.3115263,
-    "seen": 1790739087.214562,
-    "ast_hash": "a51d1166af187a082753c29125691d5f",
+    "mtime": 1790041597.414821,
+    "seen": 1790044176.4652631,
+    "ast_hash": "18f6f82a14e1853671347cc76582bff8",
     "semantic_hash": ""
   },
   "news-digest-pipeline/docs/unified-image-pipeline.md": {

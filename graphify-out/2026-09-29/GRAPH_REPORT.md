@@ -1,17 +1,17 @@
-# Graph Report - news  (2026-09-29)
+# Graph Report - news  (2026-09-25)
 
 ## Corpus Check
-- 192 files · ~129,164 words
+- 192 files · ~127,768 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 14 file(s) not represented in the graph (top: (none) 8, .mdc 2, .disabled 1)
 
 ## Summary
-- 1568 nodes · 3453 edges · 103 communities (85 shown, 18 thin omitted)
+- 1563 nodes · 3444 edges · 92 communities (75 shown, 17 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 49 edges (avg confidence: 0.88)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `2faf272a`
+- Built from commit: `c4da1f8d`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -20,7 +20,7 @@
 - generate-digest-cover.js
 - reel-ukrainian-copy.js
 - visual-grounding.js
-- tts-pronunciation.js
+- generate-clips.js
 - generate-reel.js
 - dependencies
 - reel-copy-review.js
@@ -29,37 +29,33 @@
 - background-music.js
 - News Digest Pipeline v3.1.0
 - manifest.json
-- vitest
+- lib/digest.js
 - ref_fs
 - local-fetcher.js
 - digest-generator.js
 - video-generator.js
-- reel-copy-contract.js
+- storyboard.js
 - digest-workflow.js
 - generate.js
 - settings.js
-- ref_child_process
+- fb-profile-watcher.js
 - src/index.js
 - auth.js
 - publishers/index.js
-- image-generator.js
+- hashtags.js
 - config.js
 - facebook-story.js
 - 4. Duration and Recovery Dynamics
-- telegram-bot.js
-- cursor-cloud-agent.js
-- publish-digest.test.js
+- db/index.js
+- youtube.js
 - collect.js
 - framework-state-mode.sh
 - schema.sql
 - digest-image-file.js
 - popup.js
 - lib/shorts-runtime.js
-- db/index.js
-- reviewReelStoryboard
 - Security Audit Report
-- version.js
-- buildReelCaption
+- vitest
 - monitor.sh
 - restart-on-open.sh
 - mcp.json
@@ -69,9 +65,7 @@
 - bump-version.sh
 - switch-repo-access.sh
 - Changelog
-- ffmpeg-helpers.js
 - Facebook Silent Post Removal & Shadow Restriction: Full 2025–2026 Research
-- dotenv
 - 2. Facebook Personal Profile (Publication via Patchright)
 - package.json
 - Full Publication Scenario
@@ -82,7 +76,6 @@
 - Image Generation API for Instagram Pipeline — April 2026 Update
 - Technical Description: Facebook & Instagram Reels Layout Template for News Blocks
 - Current Working Implementation (Aug 2026)
-- queue-manager.js
 - Document Structure
 - Telegram Setup: Bot and Channel Publication
 - tts.js
@@ -93,7 +86,6 @@
 - generate-voiceover.js
 - News Digest Pipeline
 - Reel Image Workflow
-- stitch-real-test.mjs
 - Step-by-Step Instructions (iOS 26)
 - Audio Pipeline — TTS Voice-Over для Reels + Подкаст
 - PROMPT: ARCHITECT (DEEP VISIONARY ANALYTICS)
@@ -102,9 +94,6 @@
 - Project Manifest
 - Unified Social Image Pipeline
 - HTML Template Reel Images (alternative path)
-- digest-format.js
-- publishToTelegram
-- model-catalog.js
 - Prompt for Digest Assembly
 - README.md
 - Media Production Pipeline
@@ -127,7 +116,7 @@
 7. `groundVisualVariant()` - 23 edges
 8. `repairShotCopy()` - 20 edges
 9. `looksUnfinishedSentence()` - 20 edges
-10. `buildSafeCoverVisualSubject()` - 19 edges
+10. `publishDigest()` - 19 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Key production components` --references--> `mergeShotVideoAndAudio()`  [INFERRED]
@@ -136,23 +125,23 @@
   news-digest-pipeline/docs/facebook-shadow-ban-research.md → news-digest-pipeline/src/services/publishers/facebook-visibility.js
 - `How to use the new FB Image Publisher` --references--> `publishDigest()`  [INFERRED]
   news-digest-pipeline/docs/unified-image-pipeline.md → news-digest-pipeline/src/services/publishers/index.js
-- `Reel Image Workflow` --references--> `assertFinishedReelCopy()`  [INFERRED]
-  news-digest-pipeline/docs/reel-image-workflow.md → news-digest-pipeline/production/lib/reel-ukrainian-copy.js
-- `How to write new production-lib tests` --references--> `withEnv()`  [INFERRED]
-  news-digest-pipeline/docs/testing.md → news-digest-pipeline/production/lib/__tests__/helpers.js
+- `Current production-lib coverage` --references--> `getAudioDuration()`  [INFERRED]
+  news-digest-pipeline/docs/testing.md → news-digest-pipeline/production/lib/ffmpeg-helpers.js
+- `Current production-lib coverage` --references--> `mergeShotVideoAndAudio()`  [INFERRED]
+  news-digest-pipeline/docs/testing.md → news-digest-pipeline/production/lib/ffmpeg-helpers.js
 
 ## Import Cycles
 - None detected.
 
-## Communities (103 total, 18 thin omitted)
+## Communities (92 total, 17 thin omitted)
 
 ### Community 0 - "stitch.js"
-Cohesion: 0.20
-Nodes (14): reelMusicPathFor(), ASSETS_DIR, __dirname, FFMPEG, findStaticBackgroundMusic(), isUsableMusic(), mixVoiceoverWithMusic(), resolveBackgroundMusic() (+6 more)
+Cohesion: 0.18
+Nodes (16): DEFAULT_MUSIC_DURATION_SEC, reelMusicPathFor(), ASSETS_DIR, __dirname, FFMPEG, findStaticBackgroundMusic(), isUsableMusic(), mixVoiceoverWithMusic() (+8 more)
 
 ### Community 1 - "generate-digest-cover.js"
-Cohesion: 0.09
-Nodes (51): genAI, generateAiBackgroundsForShots(), openai, claude, completeJson(), coverFallbackEnabled(), DB_PATH, __dirname (+43 more)
+Cohesion: 0.06
+Nodes (73): genAI, generateAiBackgroundsForShots(), openai, claude, completeJson(), coverFallbackEnabled(), DB_PATH, __dirname (+65 more)
 
 ### Community 2 - "reel-ukrainian-copy.js"
 Cohesion: 0.20
@@ -160,71 +149,71 @@ Nodes (29): Frozen control: finished overlay copy, localizeShot(), asFinishedUkr
 
 ### Community 3 - "visual-grounding.js"
 Cohesion: 0.09
-Nodes (66): COVER_SELECTION_SYSTEM_PROMPT, COVER_VISUAL_SYSTEM_PROMPT, coverSelectionUserPrompt(), coverVisualUserPrompt(), FALLBACK_STORY_HINTS, fallbackCoverFromArticles(), firstSentence(), groundCoverVisual() (+58 more)
+Nodes (65): COVER_ASPECT, COVER_SELECTION_SYSTEM_PROMPT, COVER_VISUAL_SYSTEM_PROMPT, coverSelectionUserPrompt(), coverVisualUserPrompt(), FALLBACK_STORY_HINTS, fallbackCoverFromArticles(), firstSentence() (+57 more)
 
-### Community 4 - "tts-pronunciation.js"
-Cohesion: 0.15
-Nodes (18): capitalizeUkrainian(), CHAR_MAP, ENGLISH_PHONETIC_RULES, KEEP_LATIN, lookupPronunciation(), numberToUkrainian(), prepareTtsText(), PRONUNCIATION_MAP (+10 more)
+### Community 4 - "generate-clips.js"
+Cohesion: 0.07
+Nodes (44): charsPerLine(), finishHeadline(), headerRowBottom(), layoutReelOverlayText(), tryLayout(), overlayCopyTop(), overlayTextHasEveryWord(), REEL_HEADER_LAYOUT (+36 more)
 
 ### Community 5 - "generate-reel.js"
-Cohesion: 0.10
-Nodes (44): DB_PATH, __dirname, fallbackStoryboard(), firstSentence(), main(), createReviewedStoryboard(), OUTPUT_DIR, removeStaleTempRuns() (+36 more)
+Cohesion: 0.09
+Nodes (51): DB_PATH, __dirname, fallbackStoryboard(), firstSentence(), main(), createReviewedStoryboard(), OUTPUT_DIR, removeStaleTempRuns() (+43 more)
 
 ### Community 6 - "dependencies"
 Cohesion: 0.11
 Nodes (18): dependencies, @anthropic-ai/sdk, better-sqlite3, cheerio, cors, dotenv, express, express-rate-limit (+10 more)
 
 ### Community 7 - "reel-copy-review.js"
-Cohesion: 0.19
-Nodes (29): alignSpokenToHeadline(), capitalizeUkrainian(), contentTokens(), contextIssues(), COPY_FIELDS, COPY_REVIEW_MAX_ROUNDS, copyTooSimilar(), copyUnitsFrom() (+21 more)
+Cohesion: 0.14
+Nodes (39): alignSpokenToHeadline(), applyCopyFields(), buildReviewUserPrompt(), capitalizeUkrainian(), contentTokens(), contextIssues(), COPY_FIELDS, COPY_REVIEW_MAX_ROUNDS (+31 more)
 
 ### Community 8 - "facebook-page-browser.js"
-Cohesion: 0.16
-Nodes (27): clickableLoggedInMarker(), clickFirstVisible(), DEFAULT_PROFILE_DIR, __dirname, insertDigest(), isVisible(), log(), looksLoggedIn() (+19 more)
+Cohesion: 0.14
+Nodes (30): __dirname, log(), main(), clickableLoggedInMarker(), clickFirstVisible(), DEFAULT_PROFILE_DIR, __dirname, insertDigest() (+22 more)
 
 ### Community 9 - "publishers/postiz.js"
-Cohesion: 0.15
-Nodes (26): getClient(), statsCache, aggregatePostizAnalytics(), collectPosts(), createPostizClient(), facebookPostMatchKey(), findPostizPostByFacebookRef(), isHttpUrl() (+18 more)
+Cohesion: 0.16
+Nodes (24): joinOpeningHashtagToLead(), aggregatePostizAnalytics(), captionFor(), collectPosts(), facebookPostMatchKey(), findPostizPostByFacebookRef(), isHttpUrl(), listPostizPosts() (+16 more)
 
 ### Community 10 - "background-music.js"
-Cohesion: 0.13
-Nodes (30): addClap(), addHats(), addKick(), addPad(), ASSETS_DIR, buildMusicConfig(), chordFreqs(), DEFAULT_MUSIC_DURATION_SEC (+22 more)
+Cohesion: 0.16
+Nodes (27): addClap(), addHats(), addKick(), addPad(), ASSETS_DIR, buildMusicConfig(), chordFreqs(), __dirname (+19 more)
 
 ### Community 11 - "News Digest Pipeline v3.1.0"
-Cohesion: 0.06
-Nodes (31): 1. Fork and Clone, 2. Configuration, 3. Launch, 4. UGREEN NAS (the running app), 5. Production (Docker / VPS + Traefik), 6. Restart, API, Architecture (+23 more)
+Cohesion: 0.07
+Nodes (30): 1. Fork and Clone, 2. Configuration, 3. Launch, 4. Local Docker / UGREEN NAS (no Traefik), 5. Production (Docker / VPS + Traefik), 6. Restart, API, Architecture (+22 more)
 
 ### Community 12 - "manifest.json"
 Cohesion: 0.06
 Nodes (30): action, default_icon, default_popup, default_title, background, service_worker, commands, _execute_action (+22 more)
 
-### Community 13 - "vitest"
-Cohesion: 0.06
-Nodes (57): Commands, How to write new production-lib tests, Production / pipeline tests, Refactor checklist (agents), Two test styles (do not mix casually), cloudflareError(), cloudflareLlmModel(), completeCloudflareJson() (+49 more)
+### Community 13 - "lib/digest.js"
+Cohesion: 0.10
+Nodes (34): Commands, Current production-lib coverage, How to write new production-lib tests, Production / pipeline tests, Refactor checklist (agents), Two test styles (do not mix casually), __dirname, escapeSqlLiteral() (+26 more)
 
 ### Community 14 - "ref_fs"
-Cohesion: 0.06
-Nodes (56): __dirname, escapeHtml(), fillTemplate(), FRAME_HEIGHT, FRAME_WIDTH, launchChromium(), readTemplate(), renderFrameToPng() (+48 more)
+Cohesion: 0.11
+Nodes (29): __dirname, escapeHtml(), fillTemplate(), FRAME_HEIGHT, FRAME_WIDTH, launchChromium(), readTemplate(), renderFrameToPng() (+21 more)
 
 ### Community 15 - "local-fetcher.js"
 Cohesion: 0.14
 Nodes (22): AUTH_HEADERS, closeActiveTab(), CONTENT_SELECTORS, __dirname, extractFromHtml(), fetchArticlesWithoutContent(), getActiveTabSource(), getActiveTabUrl() (+14 more)
 
 ### Community 16 - "digest-generator.js"
-Cohesion: 0.20
-Nodes (18): updateArticleCommentary(), updateArticleStatus(), ASSEMBLY_MAX_TOKENS, callModel(), COMMENTARY_MAX_TOKENS, completionWasTruncated(), extractChatCompletionText(), generateDigest() (+10 more)
+Cohesion: 0.08
+Nodes (45): MODEL_CATALOG, priceFor(), assignArticlesToDigest(), createDigest(), getDigests(), updateArticleCommentary(), updateArticleStatus(), buildCursorDigestPrompt() (+37 more)
 
 ### Community 17 - "video-generator.js"
-Cohesion: 0.14
-Nodes (23): humanizeFetchFailure(), summarizeCliFailure(), buildScriptArgs(), __dirname, findActiveVideoJob(), finishVideoJob(), generateVideoForDigest(), getVideoJob() (+15 more)
+Cohesion: 0.07
+Nodes (45): normalizeReelFrameMode(), withActiveJobs(), humanizeFetchFailure(), summarizeCliFailure(), coverScriptPath(), __dirname, findActiveImageJob(), finishImageJob() (+37 more)
 
-### Community 18 - "reel-copy-contract.js"
-Cohesion: 0.17
-Nodes (16): criticSystemPrompt(), FACEBOOK_SPOKEN_WORD_MAX, FACEBOOK_SPOKEN_WORD_MIN, FEED_HEADLINE_WORD_MAX, FEED_HEADLINE_WORD_MIN, reelCopyPromptRules(), SHORTS_SPOKEN_WORD_MAX, SHORTS_SPOKEN_WORD_MIN (+8 more)
+### Community 18 - "storyboard.js"
+Cohesion: 0.14
+Nodes (18): criticSystemPrompt(), FACEBOOK_SPOKEN_WORD_MAX, FACEBOOK_SPOKEN_WORD_MIN, FEED_HEADLINE_WORD_MAX, FEED_HEADLINE_WORD_MIN, reelCopyPromptRules(), SHORTS_SPOKEN_WORD_MAX, SHORTS_SPOKEN_WORD_MIN (+10 more)
 
 ### Community 19 - "digest-workflow.js"
-Cohesion: 0.20
-Nodes (17): createDashboard(), context(), render(), showError(), channels, digestWorkflow(), escapeHtml(), formatDateTime() (+9 more)
+Cohesion: 0.13
+Nodes (22): createDashboard(), context(), render(), showError(), channels, digestWorkflow(), escapeHtml(), formatDateTime() (+14 more)
 
 ### Community 20 - "generate.js"
 Cohesion: 0.12
@@ -232,51 +221,47 @@ Nodes (30): claude, __dirname, fetchImageBuffer(), genAI, generateHeadlinesAndPr
 
 ### Community 21 - "settings.js"
 Cohesion: 0.18
-Nodes (13): LLM_VENDORS, paths, atomicWrite(), buildSettingsPayload(), ENV_WRITABLE, isInt(), maskSecret(), REEL_FRAME_MODES (+5 more)
+Nodes (13): paths, atomicWrite(), buildSettingsPayload(), ENV_WRITABLE, isInt(), maskSecret(), REEL_FRAME_MODES, router (+5 more)
 
-### Community 22 - "ref_child_process"
-Cohesion: 0.38
-Nodes (5): __dirname, log(), main(), sleep(), ref_child_process
+### Community 22 - "fb-profile-watcher.js"
+Cohesion: 0.47
+Nodes (4): __dirname, log(), main(), sleep()
 
 ### Community 23 - "src/index.js"
-Cohesion: 0.15
-Nodes (14): appConfig, apiLimiter, app, __dirname, __filename, generateLimiter, imageGenerateLimiter, publishLimiter (+6 more)
+Cohesion: 0.11
+Nodes (20): appConfig, apiLimiter, app, __dirname, __filename, generateLimiter, imageGenerateLimiter, publishLimiter (+12 more)
 
 ### Community 24 - "auth.js"
-Cohesion: 0.22
-Nodes (14): apiAuth(), tokenMatches(), authDisabled(), clearLoginAttempts(), dashboardAuth(), getClientIp(), isLoginBlocked(), loginAttempts (+6 more)
+Cohesion: 0.24
+Nodes (13): apiAuth(), tokenMatches(), authDisabled(), clearLoginAttempts(), dashboardAuth(), getClientIp(), isLoginBlocked(), loginAttempts (+5 more)
 
 ### Community 25 - "publishers/index.js"
-Cohesion: 0.24
-Nodes (10): publishImageToFacebook(), digestVideoUrl(), __dirname, localVideoPathFromUrl(), VIDEO_OUTPUT_DIR, publishVideoToFacebook(), publishDigest(), firstFacebookRelease() (+2 more)
+Cohesion: 0.17
+Nodes (16): updateDigest(), publishImageToFacebook(), digestVideoUrl(), __dirname, localVideoPathFromUrl(), VIDEO_OUTPUT_DIR, publishVideoToFacebook(), publishDigest() (+8 more)
 
-### Community 26 - "image-generator.js"
-Cohesion: 0.13
-Nodes (22): getArticlesByDigestId(), withActiveJobs(), coverScriptPath(), __dirname, findActiveImageJob(), finishImageJob(), getImageJob(), jobs (+14 more)
+### Community 26 - "hashtags.js"
+Cohesion: 0.53
+Nodes (4): buildDynamicHashtags(), normalizeWord(), replaceHashtagFooter(), STOP_WORDS
 
 ### Community 27 - "config.js"
-Cohesion: 0.25
-Nodes (13): buildConfig(), __dirname, localPromptsDir, normalizePublishBackend(), normalizeReelFrameMode(), parentDir, parseConfigMd(), parsePostizChannelIds() (+5 more)
+Cohesion: 0.23
+Nodes (13): buildConfig(), __dirname, LLM_VENDORS, localPromptsDir, normalizePublishBackend(), parentDir, parseConfigMd(), parsePostizChannelIds() (+5 more)
 
 ### Community 28 - "facebook-story.js"
-Cohesion: 0.28
-Nodes (14): publishReelToFacebook(), bufferForFacebookStory(), execFileAsync, probeDurationSeconds(), publishStoryToFacebook(), trimVideo(), loadVideoBuffer(), finishPageVideoUpload() (+6 more)
+Cohesion: 0.23
+Nodes (16): publishReelToFacebook(), bufferForFacebookStory(), execFileAsync, probeDurationSeconds(), publishStoryToFacebook(), trimVideo(), loadVideoBuffer(), finishPageVideoUpload() (+8 more)
 
 ### Community 29 - "4. Duration and Recovery Dynamics"
 Cohesion: 0.50
 Nodes (4): 4. Duration and Recovery Dynamics, Automatic Removal, Typical Timelines, What Worsens the Situation
 
-### Community 30 - "telegram-bot.js"
-Cohesion: 0.38
-Nodes (9): Webhook URL, getArticleCount(), handleGenerate(), handleStatus(), handleTelegramUpdate(), handleUrls(), sendMessage(), setupTelegramBot() (+1 more)
+### Community 30 - "db/index.js"
+Cohesion: 0.15
+Nodes (25): Webhook URL, deleteArticle(), __dirname, getArticleCount(), getArticlesByDigestId(), getDb(), getDigest(), getNewArticles() (+17 more)
 
-### Community 31 - "cursor-cloud-agent.js"
-Cohesion: 0.18
-Nodes (17): buildCursorDigestPrompt(), buildCursorModelSelection(), CURSOR_MODEL_ALIASES, CURSOR_POLL_INTERVAL_MS, CURSOR_POLL_TIMEOUT_MS, CURSOR_TWO_PARAGRAPH_RULES, cursorRequest(), DEFAULT_CURSOR_MODEL (+9 more)
-
-### Community 32 - "publish-digest.test.js"
-Cohesion: 0.24
-Nodes (7): config, digest, { localVideoPathFromUrlMock }, getYouTubeOAuth2Client(), publishToYouTube(), { insertMock, createReadStreamMock, statSyncMock }, googleapis
+### Community 32 - "youtube.js"
+Cohesion: 0.47
+Nodes (3): getYouTubeOAuth2Client(), publishToYouTube(), { insertMock, createReadStreamMock, statSyncMock }
 
 ### Community 33 - "collect.js"
 Cohesion: 0.39
@@ -302,49 +287,29 @@ Nodes (5): loadSettings(), saveSettings(), sendCollectMessage(), setup(), update
 Cohesion: 0.62
 Nodes (4): planShortsRuntime(), SHORTS_INTRO_OUTRO_SEC, SHORTS_MAX_SEC, SHORTS_PAD_SEC
 
-### Community 39 - "db/index.js"
-Cohesion: 0.21
-Nodes (14): assignArticlesToDigest(), createDigest(), deleteArticle(), __dirname, getDigest(), getDigests(), initDb(), insertArticle() (+6 more)
-
-### Community 40 - "reviewReelStoryboard"
-Cohesion: 0.22
-Nodes (12): completeJson(), applyCopyFields(), buildReviewUserPrompt(), defaultCompleteJson(), findCopyIssues(), formatCopyReviewFailure(), formatCopyReviewTable(), ReelCopyReviewError (+4 more)
-
 ### Community 41 - "Security Audit Report"
 Cohesion: 0.07
 Nodes (28): Dependency and Tooling Notes, Evidence, Evidence, Evidence, Evidence, Evidence, Executive Summary, F-01: Public admin API and dashboard without authentication (+20 more)
 
-### Community 42 - "version.js"
-Cohesion: 0.20
-Nodes (8): router, appBuildDate, appVersion, root, ref_node_child_process, ref_node_fs, ref_node_path, ref_node_url
-
-### Community 43 - "buildReelCaption"
-Cohesion: 0.70
-Nodes (3): buildFacebookPostPermalink(), buildReelCaption(), captionFor()
+### Community 43 - "vitest"
+Cohesion: 0.31
+Nodes (5): initDb(), buildFacebookPostPermalink(), buildReelCaption(), ref_os, vitest
 
 ### Community 54 - "Changelog"
 Cohesion: 0.07
 Nodes (27): [0.1.0] — 2026-04-03, [2.0.0] — 2026-04-11, [2.0.1] — 2026-04-12, [2.0.2] — 2026-04-13, [2.0.3] — 2026-04-13, [2.0.4] — 2026-04-13, [3.0.1] — 2026-08-17, [3.1.0] — 2026-09-20 (+19 more)
 
-### Community 55 - "ffmpeg-helpers.js"
-Cohesion: 0.40
-Nodes (9): Current production-lib coverage, buildMusicMixFilter(), getAudioDuration(), getMediaDuration(), getVideoDuration(), mergeAudioWithVideo(), mergeShotVideoAndAudio(), runMusicMix() (+1 more)
-
 ### Community 56 - "Facebook Silent Post Removal & Shadow Restriction: Full 2025–2026 Research"
 Cohesion: 0.12
 Nodes (16): 1. Meta Official Documentation: Does Silent Removal Exist?, 2. Types of Restrictions: Four Different Mechanisms, 3. Known Causes of Silent Post Removal, 5. Recommended Actions, 6. Technical Background: Andromeda System (2024–2025), Automation Detection, Behavioral Patterns, Conclusion (+8 more)
-
-### Community 57 - "dotenv"
-Cohesion: 0.27
-Nodes (8): __dirname, log(), main(), __dirname, main(), refreshPageToken(), refreshSpecificPageToken(), dotenv
 
 ### Community 58 - "2. Facebook Personal Profile (Publication via Patchright)"
 Cohesion: 0.10
 Nodes (19): 1.1. Create a Meta Developer App, 1.2. Get a Page Access Token, 1.3. Exchange for a Long-Lived Token, 1.4. Page text posts (composer, not Graph `/feed`), 1.5. Limitations, 1. Facebook Graph API (Publication to Page), 2.1. Why Browser Automation?, 2.2. Why Patchright? (+11 more)
 
 ### Community 59 - "package.json"
-Cohesion: 0.12
-Nodes (15): description, devDependencies, vitest, main, name, type, version, @anthropic-ai/sdk (+7 more)
+Cohesion: 0.13
+Nodes (14): description, devDependencies, vitest, main, name, type, version, @anthropic-ai/sdk (+6 more)
 
 ### Community 60 - "Full Publication Scenario"
 Cohesion: 0.12
@@ -378,10 +343,6 @@ Nodes (14): 1. Platform Requirements: FB/IG Reels Safe Zones, 2. Text Box ("Plas
 Cohesion: 0.13
 Nodes (14): Concept, Configuration (`.env`), Current Working Implementation (Aug 2026), Key production components, Locked V1 Reel Style, Model Comparison (April 2026), Original Research (Kling/Veo/Seedance — not required anymore), Pipeline (UI button → final reel) (+6 more)
 
-### Community 68 - "queue-manager.js"
-Cohesion: 0.38
-Nodes (8): getDb(), getNewArticles(), resetStuckProcessingArticles(), notify(), notifyDigestReady(), processQueue(), startQueueManager(), sweepStaleProcessing()
-
 ### Community 69 - "Document Structure"
 Cohesion: 0.13
 Nodes (14): 1. Introduction and Project Overview, 2. Current State (AS-IS), 3. Target State (TO-BE), 4. System Architecture, 5. Component Specification, 6. Data Formats, 7. API Specification, 8. Implementation Phases (+6 more)
@@ -391,8 +352,8 @@ Cohesion: 0.08
 Nodes (25): 1. Telegram Bot, 2. Webhook for Receiving URLs, 3. Channel Publication, 4. Splitting Long Messages, 5. iOS Shortcut for Sending URLs, 6. Environment Variables, 7. Troubleshooting, Bot cannot send a message to the channel (+17 more)
 
 ### Community 71 - "tts.js"
-Cohesion: 0.31
-Nodes (12): defaultFfmpegPath(), defaultFfprobePath(), require, buildExecMock(), completeClause(), DEFAULT_EDGE_VOICE, EDGE_VOICE, generatePerArticleAudio() (+4 more)
+Cohesion: 0.22
+Nodes (18): buildMusicMixFilter(), defaultFfmpegPath(), defaultFfprobePath(), getAudioDuration(), getMediaDuration(), getVideoDuration(), mergeAudioWithVideo(), require (+10 more)
 
 ### Community 72 - "VPS Setup — News Digest Pipeline"
 Cohesion: 0.15
@@ -403,28 +364,24 @@ Cohesion: 0.15
 Nodes (12): 1. Kling 3.0 / Kling O3 — ⭐⭐⭐⭐⭐ Best for Storyboard Pipelines, 2. Veo 3.1 Lite — ⭐⭐⭐⭐⭐ Cheapest High Quality, 3. Runway Gen-4.5 — ⭐⭐⭐⭐ Best Visual Fidelity, Backup/Budget: Veo 3.1 Lite (Gemini API), Comparison Table (April 2026), Costs (April 2026), Detailed Breakdown, FFmpeg Stitching: Minimal Working Code (+4 more)
 
 ### Community 74 - "ref_path"
-Cohesion: 0.15
-Nodes (15): __dirname, projectRoot(), reportFatal(), ROOT, scriptDir(), __dirname, GENERATE_REEL, authorizationUrl (+7 more)
+Cohesion: 0.11
+Nodes (17): __dirname, GENERATE_REEL, { join }, main(), authorizationUrl, oauth2Client, scopes, server (+9 more)
 
 ### Community 75 - "Prompt for News Processing"
 Cohesion: 0.25
 Nodes (7): CRITICAL ANTI-INSTRUCTIONS, FORMATTING RULES, INVISIBLE INTERNAL LOGIC, Prompt for News Processing, STEP 0. SEMANTIC TRANSLATION (INTERNAL, NOT VISIBLE), STRICT LENGTH LIMIT (MOST IMPORTANT RULE), TONE AND STYLE REQUIREMENTS
 
 ### Community 76 - "generate-voiceover.js"
-Cohesion: 0.24
-Nodes (9): __dirname, generateTTS(), main(), openai, OUTPUT_DIR, prepareAudioScript(), ROOT, news_digest_pipeline_production_lib_tts_getaudioduration (+1 more)
+Cohesion: 0.18
+Nodes (14): __dirname, generateTTS(), main(), openai, OUTPUT_DIR, prepareAudioScript(), ROOT, __dirname (+6 more)
 
 ### Community 77 - "News Digest Pipeline"
-Cohesion: 0.17
-Nodes (11): Autonomy, Dashboard UI, Digest Format, File Paths, News Digest Pipeline, Processing Flow, Project Description, Reel and Image Generation (+3 more)
+Cohesion: 0.18
+Nodes (10): Autonomy, Dashboard UI, Digest Format, File Paths, News Digest Pipeline, Processing Flow, Project Description, Reel and Image Generation (+2 more)
 
 ### Community 78 - "Reel Image Workflow"
 Cohesion: 0.18
 Nodes (10): 1. Review overlay copy (Reels and Shorts), 2. Generate backgrounds only for review (Reels and Shorts), 3. Generate the full reel or Short after approval, 4. Generate carousel images only, CLI workflow, Dynamic shot count and language, Provider configuration, Reel Image Workflow (+2 more)
-
-### Community 79 - "stitch-real-test.mjs"
-Cohesion: 0.32
-Nodes (7): DB_PATH, __dirname, IMAGE_DIR, loadLatestDigestItems(), main(), OUTPUT_DIR, toSpokenText()
 
 ### Community 80 - "Step-by-Step Instructions (iOS 26)"
 Cohesion: 0.22
@@ -448,7 +405,7 @@ Nodes (7): Canonical NAS deploy (this household), Chrome plugin → UGREEN app, 
 
 ### Community 85 - "Project Manifest"
 Cohesion: 0.29
-Nodes (6): Dashboard UI, File deletion policy, Project Manifest, Reel / Image Generation Instructions, Running app is the NAS, Subagent Task Delegation
+Nodes (6): Dashboard UI, File deletion policy, Project Manifest, Reel / Image Generation Instructions, Restart after every app fix, Subagent Task Delegation
 
 ### Community 86 - "Unified Social Image Pipeline"
 Cohesion: 0.29
@@ -457,14 +414,6 @@ Nodes (6): Architecture, Future Improvements, How to use the new FB Image Publis
 ### Community 87 - "HTML Template Reel Images (alternative path)"
 Cohesion: 0.29
 Nodes (6): Commands, HTML Template Reel Images (alternative path), Layout contract, Templates, Tests, When to use which
-
-### Community 88 - "digest-format.js"
-Cohesion: 0.60
-Nodes (4): DEFAULT_OPENING_HASHTAG, joinOpeningHashtagToLead(), normalizeDigestFormat(), stripTrailingHashtags()
-
-### Community 89 - "publishToTelegram"
-Cohesion: 0.70
-Nodes (4): publishToTelegram(), sendOne(), sleep(), splitMessage()
 
 ### Community 91 - "Prompt for Digest Assembly"
 Cohesion: 0.33
@@ -487,24 +436,24 @@ Cohesion: 0.50
 Nodes (3): One-time Google Cloud + OAuth, Quota, YouTube Shorts setup
 
 ## Knowledge Gaps
-- **537 isolated node(s):** `restart-on-open.sh script`, `figma`, `manifest_version`, `name`, `version` (+532 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 613 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **18 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **535 isolated node(s):** `restart-on-open.sh script`, `figma`, `manifest_version`, `name`, `version` (+530 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 611 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **17 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `vitest` connect `vitest` to `generate-digest-cover.js`, `reel-ukrainian-copy.js`, `visual-grounding.js`, `generate-reel.js`, `facebook-page-browser.js`, `publishers/postiz.js`, `ref_fs`, `digest-generator.js`, `video-generator.js`, `reel-copy-contract.js`, `digest-workflow.js`, `auth.js`, `publishers/index.js`, `image-generator.js`, `config.js`, `cursor-cloud-agent.js`, `publish-digest.test.js`, `digest-image-file.js`, `lib/shorts-runtime.js`, `db/index.js`, `reviewReelStoryboard`, `buildReelCaption`, `ffmpeg-helpers.js`, `package.json`, `tts.js`, `ref_path`, `digest-format.js`, `model-catalog.js`?**
-  _High betweenness centrality (0.167) - this node is a cross-community bridge._
-- **Why does `Facebook Silent Post Removal & Shadow Restriction: Full 2025–2026 Research` connect `Facebook Silent Post Removal & Shadow Restriction: Full 2025–2026 Research` to `4. Duration and Recovery Dynamics`?**
-  _High betweenness centrality (0.100) - this node is a cross-community bridge._
+- **Why does `vitest` connect `vitest` to `generate-digest-cover.js`, `reel-ukrainian-copy.js`, `visual-grounding.js`, `generate-clips.js`, `generate-reel.js`, `reel-copy-review.js`, `facebook-page-browser.js`, `publishers/postiz.js`, `lib/digest.js`, `ref_fs`, `digest-generator.js`, `video-generator.js`, `storyboard.js`, `digest-workflow.js`, `auth.js`, `publishers/index.js`, `hashtags.js`, `config.js`, `facebook-story.js`, `youtube.js`, `digest-image-file.js`, `lib/shorts-runtime.js`, `package.json`, `tts.js`, `ref_path`, `generate-voiceover.js`?**
+  _High betweenness centrality (0.162) - this node is a cross-community bridge._
 - **Why does `checkFacebookPostVisibility()` connect `facebook-page-browser.js` to `Facebook Silent Post Removal & Shadow Restriction: Full 2025–2026 Research`?**
-  _High betweenness centrality (0.099) - this node is a cross-community bridge._
+  _High betweenness centrality (0.096) - this node is a cross-community bridge._
 - **Are the 3 inferred relationships involving `log()` (e.g. with `createReviewedStoryboard()` and `tts.test.js`) actually correct?**
   _`log()` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `restart-on-open.sh script`, `figma`, `manifest_version` to the rest of the system?**
-  _537 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _535 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `generate-digest-cover.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.08771929824561403 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.060828680575962385 - nodes in this community are weakly interconnected._
 - **Should `visual-grounding.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.08611670020120725 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.08695652173913043 - nodes in this community are weakly interconnected._
+- **Should `generate-clips.js` be split into smaller, more focused modules?**
+  _Cohesion score 0.07294117647058823 - nodes in this community are weakly interconnected._
