@@ -70,6 +70,13 @@ function pickCoverObjectVariant(category, index = 0) {
 const COVER_STOCK_CLICHE_RE =
   /\b(computing workstation|modular computing|crystal prism|generic ai workstation|presenter on stage|coffee on desk|colorful LED indicators on a bright studio desk|headshot|portrait of|close-up of a (man|woman|person)|man in a (red )?hat|red baseball cap|unidentified (man|person)|random (man|person)|stock photo of a (man|woman)|gaming pc|rgb pc|custom pc|pc tower|beige pc tower|modern gaming rig|urban rooftop|rooftop with antennas|blank equipment boxes)\b/i;
 
+/** Props image models invent when an abstract software story has no photographable action. */
+const COVER_INVENTED_TECH_PROP_RE =
+  /\b(servers?|server racks?|server hall|server room|data ?center|datacenter|pcs?|personal computers?|desktop computers?|computers?|computer hardware|hardware modules?|compute modules?|workstations?|globes?|desk spheres?|equipment boxes?|metal boxes?|crates?)\b/i;
+
+const COVER_PHYSICAL_STORY_RE =
+  /\b(phone|iphone|smartphone|foldable|hinge|screen|device|pendant|keychain|wallet|payment card|cash envelope|vault|padlock|keys?|aircraft|fighter jet|ship|freighter|robot|robotic arm|vehicle|car|rocket|satellite dish|chip|semiconductor|wafer|circuit board|motherboard|arcade|controller|luggage|passport)\b/i;
+
 const PRIVACY_FACT_RE =
   /\b(contractor|subcontractor|live chats?|user chats?|confidential|privacy leak|human reviewer|content moderator)\b/i;
 const PRIVACY_FACT_UK_RE = /підрядник|конфіденц|живі чати|чати користувач/i;
@@ -89,6 +96,8 @@ const MILITARY_NEAR_MISS_RE =
 const COMPANY_BREACH_UK_RE = /зламав|злам|парол|креденшал/i;
 const AI_SELF_BUILD_RE =
   /будує сам себе|наступну версію|тисяч\w* агент|swarm of agents|builds the next version|agents? (?:to )?build/i;
+const TRAVEL_PURCHASE_RE =
+  /\b(book(?:s|ed|ing)? travel|travel booking|complete(?:s|d)? purchases?|buy(?:s|ing)? tickets?)\b/i;
 
 const SAFE_VISUAL_VARIANTS = {
   aiSafetyIncident: [
@@ -397,6 +406,9 @@ export function buildSafeCoverVisualSubject({
   if (isAiSelfBuildStory(story)) {
     return objectScene('aiSelfBuild') || photographOfStory(coreFact);
   }
+  if (TRAVEL_PURCHASE_RE.test(storyCorpus(story))) {
+    return 'Hands placing a blank payment card beside a passport and colorful luggage on a bright travel desk, no screens, no logos, no text';
+  }
 
   const subject = String(visualSubject || '').trim();
   if (
@@ -404,13 +416,17 @@ export function buildSafeCoverVisualSubject({
     && !containsCyrillic(subject)
     && !isGenericItCliche(subject)
     && !COVER_STOCK_CLICHE_RE.test(subject)
+    && !coverUsesInventedPhysicalProps(subject, { coreFact, sourceText })
   ) {
     return sanitizeTextForImagePrompt(subject);
   }
 
-  // Uncategorized news used to fall through to a headline sentence or a
-  // datacenter/cable stock photo. Photograph this story's own objects instead.
-  return photographOfStory(coreFact);
+  // Only derive a deterministic photograph when the fact itself names a
+  // physical object. Abstract software/model claims must be reselected.
+  if (COVER_PHYSICAL_STORY_RE.test(storyCorpus({ coreFact, entities, sourceText }))) {
+    return photographOfStory(coreFact);
+  }
+  return '';
 }
 
 function normalizeForCompare(text) {
@@ -425,7 +441,24 @@ const COVER_SCENE_RE =
   /\b(hands?|desk|table|room|hall|workbench|bench|close-up|macro|overhead|sunlit|daylight|window light|studio|laboratory|lab|wallet|envelope|vault|jet|jets|aircraft|ship|freighter|hinge|luggage|passport|podium|gavel|conference|photograph|photo of|holding|placing|tucking|folded|half-open)\b/i;
 
 const COVER_NEWS_VERB_RE =
-  /\b(released?|announc\w+|report\w+|outperform\w+|unveiled?|introduced?|launched?|updated?|develop\w+|testing|tested|said|says|removed|discontinued|debut\w+)\b/i;
+  /\b(released?|announc\w+|claim\w+|report\w+|outperform\w+|unveiled?|introduced?|launched?|updated?|develop\w+|testing|tested|said|says|removed|discontinued|debut\w+)\b/i;
+
+function coverUsesInventedPhysicalProps(text, { coreFact = '', sourceText = '' } = {}) {
+  const scene = String(text || '');
+  if (!COVER_INVENTED_TECH_PROP_RE.test(scene)) return false;
+  const story = `${coreFact}\n${sourceText}`;
+  const sceneProps = scene.match(COVER_INVENTED_TECH_PROP_RE)?.[0] || '';
+  if (/\b(globe|desk sphere)\b/i.test(sceneProps)) {
+    return !/\b(physical globe|desk globe|toy globe)\b/i.test(story);
+  }
+  if (/\b(box|crate)\b/i.test(sceneProps)) {
+    return !/\b(box|crate|package|shipment)\b/i.test(story);
+  }
+  if (/\b(server|computer|pc|workstation|hardware|compute module|data ?center)\b/i.test(sceneProps)) {
+    return !/\b(server|computer|pc|workstation|hardware|compute module|data ?center)\b/i.test(story);
+  }
+  return false;
+}
 
 function contentWordOverlap(left, right) {
   const stop = new Set(['a', 'an', 'the', 'with', 'and', 'that', 'which', 'for', 'from', 'into', 'its', 'their', 'new', 'this', 'was', 'were', 'are', 'has', 'have', 'had', 'after', 'during', 'than', 'can', 'could']);
@@ -478,7 +511,7 @@ function isFactDumpSubject(subject, coreFact) {
   return false;
 }
 
-export function coverSubjectNeedsFallback(subject, prompt, coreFact = '') {
+export function coverSubjectNeedsFallback(subject, prompt, coreFact = '', context = {}) {
   const value = stripCoverSafetyInstructions(String(subject || '').trim());
   const promptValue = stripCoverSafetyInstructions(String(prompt || '').trim());
   if (!value || containsCyrillic(value) || containsCyrillic(promptValue)) return true;
@@ -488,6 +521,10 @@ export function coverSubjectNeedsFallback(subject, prompt, coreFact = '') {
   if (isGenericItCliche(value) || isGenericItCliche(promptValue)) return true;
   if (COVER_COMPUTER_RE.test(value) || COVER_COMPUTER_RE.test(promptValue)) return true;
   if (COVER_STOCK_CLICHE_RE.test(value) || COVER_STOCK_CLICHE_RE.test(promptValue)) return true;
+  const story = { coreFact, sourceText: context.sourceText || '' };
+  if (coverUsesInventedPhysicalProps(value, story) || coverUsesInventedPhysicalProps(promptValue, story)) {
+    return true;
+  }
   if (matchesVisualSafetyPattern(UI_VISUAL_RE, value) || matchesVisualSafetyPattern(UI_VISUAL_RE, promptValue)) {
     return true;
   }
@@ -519,7 +556,12 @@ export function groundCoverVariant(variant, index = 0) {
         : '';
   const subjectMissesStory = storySubject && !/jet|aircraft|ship|freighter|vault|padlock|security key|robotic arm|compute module|assembler/i.test(visualSubject);
 
-  if (subjectMissesStory || coverSubjectNeedsFallback(visualSubject, prompt, coreFact)) {
+  if (subjectMissesStory || coverSubjectNeedsFallback(
+    visualSubject,
+    prompt,
+    coreFact,
+    { sourceText: variant.sourceText },
+  )) {
     visualSubject = buildSafeCoverVisualSubject({
       visualSubject,
       coreFact,
@@ -530,6 +572,10 @@ export function groundCoverVariant(variant, index = 0) {
     prompt = '';
   } else {
     visualSubject = sanitizeTextForImagePrompt(visualSubject);
+  }
+
+  if (!visualSubject) {
+    throw new Error('Cover story has no concrete, story-specific photographic scene');
   }
 
   if (!prompt) {

@@ -6,6 +6,7 @@ import {
   buildGroundedPrompt,
   buildSafeVisualSubject,
   containsCyrillic,
+  coverSubjectNeedsFallback,
   groundCoverVariant,
   groundVisualVariant,
   groundVisualList,
@@ -192,13 +193,21 @@ describe('groundVisualList', () => {
 });
 
 describe('cover visual variety', () => {
+  it('rejects literalized Claude Sonnet hardware and word-salad scenes', () => {
+    const coreFact = 'Anthropic released Claude Sonnet 5.5, claiming it is about 30% faster while keeping the same pricing.';
+    const subject = 'Editorial photograph of Sonnet claiming it is about 30 faster while keeping same pricing';
+    const prompt = 'Beige computers, PCs, server racks, boxes and a globe around a Sonnet model.';
+
+    expect(coverSubjectNeedsFallback(subject, prompt, coreFact)).toBe(true);
+  });
+
   it('rotates cover atmosphere by index when the LLM subject is kept', () => {
     const base = {
-      coreFact: 'OpenAI updates ChatGPT with a reasoning-depth slider',
-      entities: ['OpenAI', 'ChatGPT'],
-      newsTone: 'positive',
-      visualSubject: 'Hands adjusting unmarked analog sliders on a colorful hardware control panel with LED indicators only',
-      prompt: 'Bright studio photo of unmarked analog sliders with vivid LED accents, no screens or typography.',
+      coreFact: 'A developer described becoming addicted to coding and working to exhaustion',
+      entities: ['developer'],
+      newsTone: 'negative',
+      visualSubject: 'An exhausted developer slumped at a cluttered late-night work desk, face in hands beside crumpled blank notes',
+      prompt: 'An exhausted developer at a late-night work desk, face in hands beside crumpled blank notes.',
       look: 'cover',
     };
     const first = groundCoverVariant({ ...base }, 0);
@@ -206,7 +215,7 @@ describe('cover visual variety', () => {
     expect(first.prompt).not.toBe(second.prompt);
     expect(first.visualSubject).toBe(second.visualSubject);
     expect(first.prompt).toMatch(/vivid|saturated|punchy|scroll/i);
-    expect(first.prompt).not.toMatch(/fiber optic|server rack|data center/i);
+    expect(first.prompt).not.toMatch(/fiber optic|server rack|data center|computer/i);
   });
 
   it('rejects datacenter clichés as custom cover subjects', () => {
