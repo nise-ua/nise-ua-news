@@ -69,7 +69,7 @@ Full gate: `npm run test:all`. New production-lib tests go in
 
 ## Running app
 
-The live app is the UGREEN NAS container at http://127.0.0.1:3010. After application changes, deploy with `news-digest/scripts/deploy-nas.sh` and confirm `curl -sS http://127.0.0.1:3010/health`. A local restart on port 3000 does not update the NAS. See `news-digest-pipeline/docs/ugreen-docker.md`.
+The live app is the UGREEN NAS container (host port **3010**). After application changes, deploy with the homelab `news-digest/scripts/deploy-nas.sh` script and confirm `/health` on the LAN URL from `.cursor/rules/nas.local.mdc`. A local restart on port 3000 does not update the NAS. See `news-digest-pipeline/docs/ugreen-docker.md`.
 
 ## Dashboard UI
 

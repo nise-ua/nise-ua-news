@@ -120,8 +120,9 @@ caption/video/publish). Those are Vitest-only.
 
 Dashboard viewport and primary-control checks live in
 `src/public/dashboard-reality-check.test.js` (Patchright). Default run uses a
-local fixture. Set `DASHBOARD_BASE_URL=http://127.0.0.1:3010` to point the
-same file at the NAS. Screenshots go to `output/qa/dashboard-reality-check/`.
+local fixture. Set `DASHBOARD_BASE_URL` to the LAN dashboard URL (see gitignored
+`.cursor/rules/nas.local.mdc`) to point the same file at the NAS. Screenshots go
+to `output/qa/dashboard-reality-check/`.
 
 ## How to write new production-lib tests
 

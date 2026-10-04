@@ -49,18 +49,14 @@ When changing `news-digest-pipeline/production/lib` or adding tests, read
 
 ### Running app is the NAS
 
-The household app is the UGREEN container at http://127.0.0.1:3010
-(`/volume1/docker/news-digest`, SSH `nas-user@127.0.0.1` port 122). The laptop
-process on port 3000 is only a local preview.
+The household app is the UGREEN container (host port **3010**). The laptop
+process on port 3000 is only a local preview. Connection details stay in the
+gitignored local rule `.cursor/rules/nas.local.mdc` (not this file).
 
 After every application fix or code change (including small dashboard, pipeline,
 production-lib, video/reel, and other server-loaded changes), deploy so the NAS
-image matches this repo, then confirm health:
-
-```bash
-news-digest/scripts/deploy-nas.sh
-curl -sS http://127.0.0.1:3010/health
-```
+image matches this repo, then confirm health with the homelab
+`news-digest/scripts/deploy-nas.sh` script and a `/health` check on the LAN URL.
 
 `news-digest-pipeline/scripts/restart-local.sh` updates the laptop only. A local
 `./restart.sh` wrapper at the git root is optional and gitignored. See

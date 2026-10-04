@@ -24,7 +24,7 @@ Screenshots and `report.md` land in `news-digest-pipeline/output/qa/dashboard-re
 To run the same assertions against the NAS app:
 
 ```bash
-DASHBOARD_BASE_URL=http://127.0.0.1:3010 npx vitest run src/public/dashboard-reality-check.test.js
+DASHBOARD_BASE_URL="$NEWS_DIGEST_URL" npx vitest run src/public/dashboard-reality-check.test.js
 ```
 
 Report the Vitest result and that folder path. Do not change digest voice, reel copy, or image grounding.

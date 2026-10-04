@@ -1,22 +1,17 @@
 ## Canonical NAS deploy (this household)
 
-The live app is the NAS container, not the laptop process on port 3000. Application code is baked into the image at `/volume1/docker/news-digest`. Restarting localhost, or editing files only on the laptop, does not change what the dashboard and Chrome plugin use.
+The live app is the NAS container, not the laptop process on port 3000. Application code is baked into the image on the NAS compose share. Restarting localhost, or editing files only on the laptop, does not change what the dashboard and Chrome plugin use.
 
-After every application change, deploy this repo and confirm health:
+LAN host, SSH, and the deploy-script path are **not** in this repo. Copy them from gitignored `.cursor/rules/nas.local.mdc` (news repo) or `.env.ugreen` (homelab repo).
 
-```bash
-news-digest/scripts/deploy-nas.sh
-curl -sS http://127.0.0.1:3010/health
-```
+After every application change, run the homelab `news-digest/scripts/deploy-nas.sh` script and confirm `/health` on the LAN dashboard URL.
 
 | | |
 |---|---|
-| NAS | `127.0.0.1` (`/volume1/docker/news-digest`) |
-| SSH | `nas-user@127.0.0.1` port **122** |
-| Dashboard | http://127.0.0.1:3010 |
+| NAS compose dir | `/volume1/docker/news-digest` (typical UGREEN share layout) |
 | Host port | **3010** (Sure already uses 3000; container listens on 3000) |
 
-Chrome plugin: load `extension/`, URL `http://127.0.0.1:3010`, Bearer = `API_SECRET_KEY` from `news-digest-pipeline/.env`.
+Chrome plugin: load `extension/`, URL = NAS dashboard base URL, Bearer = `API_SECRET_KEY` from `news-digest-pipeline/.env`.
 
 
 Run the dashboard on a UGREEN NAS (Container Manager / Docker), then send articles from Chrome on your laptop.
@@ -26,7 +21,7 @@ Run the dashboard on a UGREEN NAS (Container Manager / Docker), then send articl
 - Container on port **3000** (no Traefik)
 - Persistent SQLite in `./data`
 - Prompt files mounted from `news-digest-pipeline/prompts`
-- Chrome extension posts to `http://127.0.0.1:3010/api/articles/batch`
+- Chrome extension posts to `{BASE_URL}/api/articles/batch`
 
 Facebook Profile composer (Patchright) still needs a Mac. Covers/reels need the same API keys as local.
 
@@ -59,7 +54,7 @@ Copy `news-digest-pipeline/.env.example` to `.env` on the NAS and fill:
 |---|---|---|
 | `NODE_ENV` | yes | `production` (enables API + dashboard auth) |
 | `PORT` | yes | `3000` |
-| `BASE_URL` | yes | `http://127.0.0.1:3010` |
+| `BASE_URL` | yes | LAN dashboard URL (host port 3010) |
 | `API_SECRET_KEY` | yes | Bearer key for Chrome plugin + API |
 | `DASHBOARD_USER` | yes | Basic auth user (default `admin`) |
 | `DASHBOARD_PASSWORD` | yes | Dashboard login password |
@@ -100,7 +95,7 @@ Use different values for `API_SECRET_KEY` and `DASHBOARD_PASSWORD`.
 3. Compose file: `docker-compose.ugreen.yml`.
 4. Build and start.
 
-Or SSH into the NAS:
+Or SSH into the NAS (host/user/key from `.env.ugreen`):
 
 ```bash
 cd /volume1/docker/news-digest
@@ -109,11 +104,7 @@ docker compose ps
 curl -sS http://127.0.0.1:3010/health
 ```
 
-Open the dashboard from a PC on the same LAN:
-
-```text
-http://127.0.0.1:3010
-```
+Open the dashboard from a PC on the same LAN using `BASE_URL`.
 
 Login: `DASHBOARD_USER` / `DASHBOARD_PASSWORD`.
 
@@ -124,7 +115,7 @@ If the page does not load, in UGREEN **Control Panel → Firewall** allow inboun
 1. Chrome → `chrome://extensions` → Developer mode → **Load unpacked**.
 2. Select the repo `extension/` folder.
 3. Open the plugin popup.
-4. **UGREEN / app URL:** `http://127.0.0.1:3010` (no trailing slash).
+4. **UGREEN / app URL:** the NAS `BASE_URL` (no trailing slash).
 5. **API_SECRET_KEY:** the same value as in NAS `.env`.
 6. **Save destination**.
 7. Open a news article, refresh the tab once after installing, then **Collect Current Page**.
@@ -134,4 +125,4 @@ The plugin POSTs scraped `{ url, title, content }` to `/api/articles/batch`. Pro
 ## Notes
 
 - Mixed HTTP on LAN is expected. Do not put this port on the public internet without a reverse proxy and TLS.
-- The live app is this NAS image. Rebuild after code changes with `news-digest/scripts/deploy-nas.sh`, then check http://127.0.0.1:3010/health.
+- The live app is this NAS image. Rebuild after code changes with the homelab deploy script, then check `/health`.

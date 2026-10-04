@@ -1,13 +1,13 @@
 # Graph Report - news  (2026-10-04)
 
 ## Corpus Check
-- 499 files · ~985,830 words
+- 501 files · ~987,029 words
 - Verdict: corpus is large enough that graph structure adds value.
-- Unclassified: 28 file(s) not represented in the graph (top: .excalidrawlib 11, (none) 9, .mdc 2)
+- Unclassified: 29 file(s) not represented in the graph (top: .excalidrawlib 11, (none) 9, .mdc 3)
 
 ## Summary
-- 5485 nodes · 12589 edges · 276 communities (255 shown, 21 thin omitted)
-- Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 325 edges (avg confidence: 0.87)
+- 5496 nodes · 12625 edges · 274 communities (253 shown, 21 thin omitted)
+- Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 327 edges (avg confidence: 0.87)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
@@ -16,30 +16,30 @@
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- ref_path
+- stitch.js
 - generate-digest-cover.js
-- reel-ukrainian-copy.js
+- ref_path
 - visual-grounding.js
-- workflow-compiler.mjs
+- render-sequence.mjs
 - generate-reel.js
 - dependencies
 - reel-copy-review.js
-- facebook-page-browser.js
+- ref_node_child_process
 - publishers/postiz.js
 - background-music.js
 - News Digest Pipeline v3.1.2
 - manifest.json
-- generate-voiceover.js
+- llm-client.js
 - offline-font-browser.test.mjs
 - local-fetcher.js
 - digest-generator.js
 - video-generator.js
-- joint-layout-browser.test.mjs
+- ChromeVisualBrowser
 - digest-workflow.js
 - overlay.js
 - archify.mjs
 - compileWorkflowInternal
-- render-frame.js
+- ref_fs
 - auth.js
 - generate-validators.mjs
 - image-generator.js
@@ -56,7 +56,7 @@
 - popup.js
 - render-architecture.mjs
 - visual-check.mjs
-- lib/digest.js
+- vitest
 - Findings
 - ref_node_os
 - atomic-output-recovery.test.mjs
@@ -85,14 +85,14 @@
 - renderer-atomic-write.test.mjs
 - Document Structure
 - Telegram Setup: Bot and Channel Publication
-- vitest
+- utils.mjs
 - VPS Setup — News Digest Pipeline
 - Video Generation API for Instagram Reels Pipeline — April 2026 Update
 - atomic-output.mjs
 - Prompt for News Processing
 - tts-pronunciation.js
 - News Digest Pipeline
-- diagnostics.mjs
+- cli.mjs
 - src/index.js
 - Step-by-Step Instructions (iOS 26)
 - Audio Pipeline — TTS Voice-Over для Reels + Подкаст
@@ -129,12 +129,12 @@
 - update-notifier.test.mjs
 - finalize.mjs
 - joint-layout-contract.test.mjs
-- reel-copy-contract.js
+- brand-marks.test.mjs
 - preview.mjs
 - layout-rules.test.mjs
 - check-render-output.mjs
 - release-package-gates.test.mjs
-- isFinitePoint
+- config.js
 - repository-evidence.mjs
 - $defs
 - architecture-delta.test.mjs
@@ -143,7 +143,7 @@
 - preview-contract.test.mjs
 - workflow-compiler.test.mjs
 - i18n.test.mjs
-- createReadableLayout
+- workflow-compiler.mjs
 - check-update.mjs
 - properties
 - properties
@@ -151,12 +151,12 @@
 - scripts
 - desktop-readability.mjs
 - properties
-- vertical-edge.test.mjs
+- output-path.mjs
 - Authoring contract
 - properties
 - inspectActiveClaim
 - finalize
-- relationship-permalink.test.mjs
+- ref_node_fs
 - properties
 - properties
 - update-contract.mjs
@@ -166,9 +166,9 @@
 - workflow.schema.json
 - golden.mjs
 - Archify
-- facebook-story.js
+- portable-path.mjs
 - properties
-- delivery-sidecar-path.test.mjs
+- skill-metadata.test.mjs
 - legend-contract.test.mjs
 - items
 - properties
@@ -189,13 +189,13 @@
 - workflow-compiler-hard-contract.test.mjs
 - items
 - viewer-chrome-layout.test.mjs
-- dashboard-reality-check.test.js
+- facebook-page-browser.js
 - PipeCdp
 - createLifecycleGridRouter
 - validateArchitectureDeltaHtml
 - items
 - edge-label-color.test.mjs
-- reel-overlay-theme.test.js
+- generate-clips.js
 - Archify JSON IR Schemas
 - entries
 - legendEntry
@@ -208,11 +208,11 @@
 - entries
 - v1-compatibility.test.mjs
 - repository-evidence-types.test.mjs
-- facebook-page-match.js
+- intent-trace.test.mjs
 - Quick Start
 - Workflow Renderer
 - translations
-- ref_node_child_process
+- ref_node_url
 - semantic-radar.test.mjs
 - workflow-action-pinning.test.mjs
 - release-identity.test.mjs
@@ -222,7 +222,7 @@
 - real-repository-proof.test.mjs
 - sequence-column-fit.test.mjs
 - workflow-migration.test.mjs
-- assertFinishedReelCopy
+- Reel Image Workflow
 - Sequence Renderer
 - dataflow.schema.json
 - lifecycle.schema.json
@@ -230,8 +230,8 @@
 - compareArchitecture
 - workflow-v2.mjs
 - repository-evidence-replacement.test.mjs
-- degraded.test.mjs
-- reader-layout-browser.test.mjs
+- semantic-lens.test.mjs
+- semantic-zoom.test.mjs
 - workflow-vertical-label.test.mjs
 - Data Flow Renderer
 - size
@@ -241,7 +241,7 @@
 - viewBox
 - viewBox
 - viewBox
-- reel-overlay-text.js
+- share-card-export.test.mjs
 - Third-party notices
 - generated-artifact-xml.test.mjs
 - focus
@@ -278,23 +278,21 @@
 - dashboard-reality-check/SKILL.md
 - authored-straight-routes.test.mjs
 - copy-site-assets.test.mjs
-- crossover-state-browser.test.mjs
+- cover-image-review.js
 - label-clearance.test.mjs
 - workflow-migration-geometry.mjs
-- animation.test.mjs
-- route-journey.test.mjs
-- publish-digest.test.js
+- article-fetcher.js
+- digest-format.js
 - Security Audit Report
 - collectDesktopReadability
 - architecture-leading-space.test.mjs
 - delivery-update.mjs
-- publishToTelegram
 
 ## God Nodes (most connected - your core abstractions)
 1. `compileWorkflowInternal()` - 174 edges
 2. `asArray()` - 71 edges
 3. `createRouter()` - 58 edges
-4. `vitest` - 47 edges
+4. `vitest` - 48 edges
 5. `log()` - 45 edges
 6. `commandDeliver()` - 41 edges
 7. `rectsOverlap()` - 39 edges
@@ -311,53 +309,53 @@
   .agents/skills/archify/renderers/sequence/README.md → .agents/skills/archify/test/finalize-paths.test.mjs
 - `Existing candidate handoff` --references--> `finalize()`  [INFERRED]
   .agents/skills/archify/SKILL.md → .agents/skills/archify/test/finalize-paths.test.mjs
-- `Key production components` --references--> `mergeShotVideoAndAudio()`  [INFERRED]
-  news-digest-pipeline/production/video/README.md → news-digest-pipeline/production/lib/ffmpeg-helpers.js
+- `Facebook cover: no scene catalog` --references--> `pickBestVariant()`  [INFERRED]
+  news-digest-pipeline/docs/reel-image-workflow.md → news-digest-pipeline/production/image/src/generate.js
 
 ## Import Cycles
 - None detected.
 
-## Communities (276 total, 21 thin omitted)
+## Communities (274 total, 21 thin omitted)
 
-### Community 0 - "ref_path"
-Cohesion: 0.05
-Nodes (62): buildMusicMixFilter(), runMusicMix(), __dirname, projectRoot(), reportFatal(), scriptDir(), __dirname, GENERATE_REEL (+54 more)
+### Community 0 - "stitch.js"
+Cohesion: 0.09
+Nodes (46): Current production-lib coverage, buildMusicMixFilter(), defaultFfmpegPath(), defaultFfprobePath(), getAudioDuration(), getMediaDuration(), getVideoDuration(), mergeAudioWithVideo() (+38 more)
 
 ### Community 1 - "generate-digest-cover.js"
-Cohesion: 0.06
-Nodes (68): genAI, generateAiBackgroundsForShots(), openai, claude, claude, completeJson(), coverFallbackEnabled(), DB_PATH (+60 more)
+Cohesion: 0.08
+Nodes (57): genAI, generateAiBackgroundsForShots(), openai, claude, completeJson(), coverFallbackEnabled(), coverReviewAttempts(), DB_PATH (+49 more)
 
-### Community 2 - "reel-ukrainian-copy.js"
-Cohesion: 0.22
-Nodes (25): asFinishedUkrainianSentence(), bandScore(), capitalizeUkrainian(), completeSentencesFrom(), ensureTerminalPunctuation(), ensureUkrainianOnScreenCopy(), entityChunks(), extractedDetailCandidatesFrom() (+17 more)
+### Community 2 - "ref_path"
+Cohesion: 0.05
+Nodes (57): description, devDependencies, vitest, main, name, type, version, __dirname (+49 more)
 
 ### Community 3 - "visual-grounding.js"
-Cohesion: 0.07
-Nodes (73): DEPLOYMENT_BOUNDARY_KINDS, deploymentOwnershipDiagnostics(), membership(), PRIVATE_STATE_TYPES, subject(), validateEngineeringProfile(), COVER_ASPECT, COVER_SELECTION_SYSTEM_PROMPT (+65 more)
+Cohesion: 0.08
+Nodes (71): DEPLOYMENT_BOUNDARY_KINDS, deploymentOwnershipDiagnostics(), membership(), PRIVATE_STATE_TYPES, subject(), COVER_ASPECT, COVER_SELECTION_SYSTEM_PROMPT, COVER_VISUAL_SYSTEM_PROMPT (+63 more)
 
-### Community 4 - "workflow-compiler.mjs"
-Cohesion: 0.04
-Nodes (133): componentContext(), renderBoundaryFrame(), renderBoundaryLabel(), renderComponent(), renderSvg(), compositionFrames, __dirname, layout (+125 more)
+### Community 4 - "render-sequence.mjs"
+Cohesion: 0.11
+Nodes (39): renderLegend(), arrowClass, compositionFrames, contentBottom, __dirname, layout, LEGEND_CATALOG, legendEntries() (+31 more)
 
 ### Community 5 - "generate-reel.js"
 Cohesion: 0.08
-Nodes (44): DB_PATH, __dirname, fallbackStoryboard(), firstSentence(), main(), createReviewedStoryboard(), OUTPUT_DIR, removeStaleTempRuns() (+36 more)
+Nodes (43): DB_PATH, __dirname, fallbackStoryboard(), firstSentence(), main(), createReviewedStoryboard(), OUTPUT_DIR, removeStaleTempRuns() (+35 more)
 
 ### Community 6 - "dependencies"
 Cohesion: 0.11
 Nodes (18): dependencies, @anthropic-ai/sdk, better-sqlite3, cheerio, cors, dotenv, express, express-rate-limit (+10 more)
 
 ### Community 7 - "reel-copy-review.js"
-Cohesion: 0.13
-Nodes (42): completeJson(), alignSpokenToHeadline(), applyCopyFields(), buildReviewUserPrompt(), capitalizeUkrainian(), contentTokens(), contextIssues(), COPY_FIELDS (+34 more)
+Cohesion: 0.06
+Nodes (88): Frozen control: finished overlay copy, completeJson(), criticSystemPrompt(), FACEBOOK_SPOKEN_WORD_MAX, FACEBOOK_SPOKEN_WORD_MIN, FEED_HEADLINE_WORD_MAX, FEED_HEADLINE_WORD_MIN, reelCopyPromptRules() (+80 more)
 
-### Community 8 - "facebook-page-browser.js"
-Cohesion: 0.38
-Nodes (15): clickableLoggedInMarker(), clickFirstVisible(), DEFAULT_PROFILE_DIR, __dirname, insertDigest(), isVisible(), log(), looksLoggedIn() (+7 more)
+### Community 8 - "ref_node_child_process"
+Cohesion: 0.08
+Nodes (41): browser(), click(), focus(), key(), load(), move(), point(), run() (+33 more)
 
 ### Community 9 - "publishers/postiz.js"
-Cohesion: 0.13
-Nodes (27): getClient(), router, statsCache, aggregatePostizAnalytics(), captionFor(), collectPosts(), createPostizClient(), facebookPostMatchKey() (+19 more)
+Cohesion: 0.12
+Nodes (30): getClient(), statsCache, buildFacebookPostPermalink(), buildReelCaption(), aggregatePostizAnalytics(), captionFor(), collectPosts(), createPostizClient() (+22 more)
 
 ### Community 10 - "background-music.js"
 Cohesion: 0.13
@@ -371,29 +369,29 @@ Nodes (21): API, Architecture, Articles, Before Launching, Dashboard, Digests, D
 Cohesion: 0.06
 Nodes (30): action, default_icon, default_popup, default_title, background, service_worker, commands, _execute_action (+22 more)
 
-### Community 13 - "generate-voiceover.js"
-Cohesion: 0.12
-Nodes (30): __dirname, generateTTS(), main(), openai, OUTPUT_DIR, prepareAudioScript(), ROOT, cloudflareError() (+22 more)
+### Community 13 - "llm-client.js"
+Cohesion: 0.20
+Nodes (21): cloudflareError(), cloudflareLlmModel(), completeCloudflareJson(), completeCloudflareJsonText(), DEFAULT_CLOUDFLARE_LLM_MODEL, extractJsonObject(), extractLlmText(), postCloudflare() (+13 more)
 
 ### Community 14 - "offline-font-browser.test.mjs"
-Cohesion: 0.05
-Nodes (20): Architecture layout repair, Choose the repair scope, One coherent repair, Output path contracts, directCorridorBlockers(), __dirname, generatedRoot, repoRoot (+12 more)
+Cohesion: 0.04
+Nodes (24): Architecture layout repair, Choose the repair scope, One coherent repair, Output path contracts, directCorridorBlockers(), checker, cli, skillRoot (+16 more)
 
 ### Community 15 - "local-fetcher.js"
-Cohesion: 0.14
-Nodes (22): AUTH_HEADERS, closeActiveTab(), CONTENT_SELECTORS, __dirname, extractFromHtml(), fetchArticlesWithoutContent(), getActiveTabSource(), getActiveTabUrl() (+14 more)
+Cohesion: 0.23
+Nodes (16): AUTH_HEADERS, closeActiveTab(), CONTENT_SELECTORS, __dirname, extractFromHtml(), fetchArticlesWithoutContent(), getActiveTabSource(), getActiveTabUrl() (+8 more)
 
 ### Community 16 - "digest-generator.js"
-Cohesion: 0.08
-Nodes (55): Webhook URL, assignArticlesToDigest(), createDigest(), deleteArticle(), __dirname, getArticleCount(), getArticlesByDigestId(), getDb() (+47 more)
+Cohesion: 0.12
+Nodes (37): assignArticlesToDigest(), createDigest(), __dirname, getArticlesByDigestId(), getDb(), getDigest(), getDigests(), getNewArticles() (+29 more)
 
 ### Community 17 - "video-generator.js"
-Cohesion: 0.09
-Nodes (36): buildConfig(), __dirname, localPromptsDir, normalizePublishBackend(), normalizeReelFrameMode(), parentDir, parseConfigMd(), parsePostizChannelIds() (+28 more)
+Cohesion: 0.14
+Nodes (23): humanizeFetchFailure(), summarizeCliFailure(), buildScriptArgs(), __dirname, findActiveVideoJob(), finishVideoJob(), generateVideoForDigest(), getVideoJob() (+15 more)
 
-### Community 18 - "joint-layout-browser.test.mjs"
-Cohesion: 0.12
-Nodes (15): evaluate(), assertRuntimeLegendReturn(), canonicalExport(), compare(), configured, joint(), load(), skillRoot (+7 more)
+### Community 18 - "ChromeVisualBrowser"
+Cohesion: 0.04
+Nodes (41): ChromeVisualBrowser, evaluate(), findChrome(), findOnPath(), root, root, load(), pairedOpacity() (+33 more)
 
 ### Community 19 - "digest-workflow.js"
 Cohesion: 0.20
@@ -409,11 +407,11 @@ Nodes (115): acquireDeliveryLock(), artifactIdentity(), assertDeliveryOwnership(
 
 ### Community 22 - "compileWorkflowInternal"
 Cohesion: 0.05
-Nodes (119): throwDiagnosticError(), withDiagnosticRecordingSuppressed(), workflow(), joinRoutePoints(), rectsOverlap(), variantAccent(), compileWorkflowInternal(), acceptsFix() (+111 more)
+Nodes (115): anchor(), joinRoutePoints(), pointInBox(), pointRectDistance(), segmentIntersectsRect(), segmentRectClearance(), variantAccent(), compileWorkflowInternal() (+107 more)
 
-### Community 23 - "render-frame.js"
-Cohesion: 0.19
-Nodes (19): __dirname, escapeHtml(), fillTemplate(), FRAME_HEIGHT, FRAME_WIDTH, launchChromium(), readTemplate(), renderFrameToPng() (+11 more)
+### Community 23 - "ref_fs"
+Cohesion: 0.13
+Nodes (24): __dirname, escapeHtml(), fillTemplate(), FRAME_HEIGHT, FRAME_WIDTH, launchChromium(), readTemplate(), renderFrameToPng() (+16 more)
 
 ### Community 24 - "auth.js"
 Cohesion: 0.24
@@ -429,15 +427,15 @@ Nodes (21): withActiveJobs(), coverScriptPath(), __dirname, findActiveImageJob()
 
 ### Community 27 - "render-lifecycle.mjs"
 Cohesion: 0.06
-Nodes (52): hasAutomaticRouteGeometry(), renderConnectionLabel(), renderConnectionPath(), pathFor(), renderFlowLabel(), renderFlowPath(), routeVia(), authoredOutgoing (+44 more)
+Nodes (92): renderComponent(), renderConnectionLabel(), renderConnectionPath(), renderSvg(), automaticPorts, compositionFrames, __dirname, flowLabelSize() (+84 more)
 
 ### Community 28 - ".send"
-Cohesion: 0.03
-Nodes (103): ChromeVisualBrowser, findChrome(), findOnPath(), click(), key(), load(), record(), run() (+95 more)
+Cohesion: 0.05
+Nodes (64): click(), key(), load(), record(), run(), skillRoot, cases, evaluate() (+56 more)
 
 ### Community 29 - "geometry.mjs"
 Cohesion: 0.09
-Nodes (74): boundaryRect(), validateArchitecture(), flowLabelSize(), validateDataflow(), bandGeometry(), laneRowOrder(), validateLifecycle(), validateSequence() (+66 more)
+Nodes (79): validateArchitecture(), flowSides(), validateDataflow(), transitionLabelRects(), transitionSides(), validateLifecycle(), recordDiagnostic(), anchorFitsCanvas() (+71 more)
 
 ### Community 30 - "architecture-delta.mjs"
 Cohesion: 0.18
@@ -448,8 +446,8 @@ Cohesion: 0.18
 Nodes (16): LLM_VENDORS, buildCursorModelSelection(), CURSOR_MODEL_ALIASES, CURSOR_POLL_INTERVAL_MS, CURSOR_POLL_TIMEOUT_MS, CURSOR_TWO_PARAGRAPH_RULES, cursorRequest(), DEFAULT_CURSOR_MODEL (+8 more)
 
 ### Community 32 - "createRouter"
-Cohesion: 0.09
-Nodes (66): createRouter(), alignFacingPorts(), automaticEndpoint(), cachePath(), candidateSidePairs(), collinearBacktrack(), collinearOverlapLength(), computePath() (+58 more)
+Cohesion: 0.07
+Nodes (67): createRouter(), alignFacingPorts(), automaticEndpoint(), cachePath(), candidateSidePairs(), collinearBacktrack(), collinearOverlapLength(), computePath() (+59 more)
 
 ### Community 33 - "collect.js"
 Cohesion: 0.39
@@ -472,16 +470,16 @@ Cohesion: 0.67
 Nodes (5): loadSettings(), saveSettings(), sendCollectMessage(), setup(), updateStatus()
 
 ### Community 38 - "render-architecture.mjs"
-Cohesion: 0.06
-Nodes (50): DEFAULT_GRID, gridLayout(), resolveComponentPos(), validateGridPlacement(), placeAutomaticLabels(), reservedLabelRect(), architectureLegendEntries, autoViewBoxFor() (+42 more)
+Cohesion: 0.05
+Nodes (56): DEFAULT_GRID, gridLayout(), resolveComponentPos(), validateGridPlacement(), placeAutomaticLabels(), reservedLabelRect(), architectureLegendEntries, autoViewBoxFor() (+48 more)
 
 ### Community 39 - "visual-check.mjs"
 Cohesion: 0.09
-Nodes (56): appendEvidenceCleanupWarning(), appendEvidencePublicationFailure(), baseReceipt(), beginVisualEvidenceWrite(), CHROME_NO_SANDBOX_ENV, cleanupStagedEvidence(), commitVisualEvidence(), contactSheetHtml() (+48 more)
+Nodes (53): appendEvidenceCleanupWarning(), appendEvidencePublicationFailure(), baseReceipt(), beginVisualEvidenceWrite(), CHROME_NO_SANDBOX_ENV, cleanupStagedEvidence(), commitVisualEvidence(), contactSheetHtml() (+45 more)
 
-### Community 40 - "lib/digest.js"
-Cohesion: 0.17
-Nodes (22): __dirname, escapeSqlLiteral(), extractInlineUrl(), getDigestContent(), loadDigestByIdFromDb(), loadDigestFromLocalFiles(), loadLatestDigestFromDb(), parseDigestArticles() (+14 more)
+### Community 40 - "vitest"
+Cohesion: 0.10
+Nodes (34): Commands, How to write new production-lib tests, Production / pipeline tests, Refactor checklist (agents), Two test styles (do not mix casually), __dirname, escapeSqlLiteral(), extractInlineUrl() (+26 more)
 
 ### Community 41 - "Findings"
 Cohesion: 0.10
@@ -489,7 +487,7 @@ Nodes (21): Evidence, Evidence, Evidence, Evidence, Evidence, F-01: Public admin
 
 ### Community 42 - "ref_node_os"
 Cohesion: 0.04
-Nodes (25): cli, root, script, CASES, __dirname, skillRoot, tmp, CASES (+17 more)
+Nodes (26): repoRoot, CASES, __dirname, skillRoot, tmp, cli, skillRoot, cli (+18 more)
 
 ### Community 43 - "atomic-output-recovery.test.mjs"
 Cohesion: 0.23
@@ -533,7 +531,7 @@ Nodes (14): Goal, Headline Generation Prompt, Implementation Phases, Instagram L
 
 ### Community 63 - "ref_node_path"
 Cohesion: 0.06
-Nodes (22): failureDetails(), launchTarget(), launchTimeout(), openArtifact(), OPENERS, openLoopbackUrl(), result(), target (+14 more)
+Nodes (23): failureDetails(), launchTarget(), launchTimeout(), openArtifact(), OPENERS, openLoopbackUrl(), result(), target (+15 more)
 
 ### Community 64 - "Text-to-Speech API for Automated Content Pipeline — April 2026 Update"
 Cohesion: 0.13
@@ -552,8 +550,8 @@ Cohesion: 0.13
 Nodes (14): Concept, Configuration (`.env`), Current Working Implementation (Aug 2026), Key production components, Locked V1 Reel Style, Model Comparison (April 2026), Original Research (Kling/Veo/Seedance — not required anymore), Pipeline (UI button → final reel) (+6 more)
 
 ### Community 68 - "renderer-atomic-write.test.mjs"
-Cohesion: 0.10
-Nodes (11): CAPTURE_VIEWPORTS, VISUAL_CHECK_VIEWPORTS, delivery(), identity(), inputs(), workspace(), here, loadWorkflow() (+3 more)
+Cohesion: 0.18
+Nodes (5): here, loadWorkflow(), skillRoot, workflowFixture, writeWorkflow()
 
 ### Community 69 - "Document Structure"
 Cohesion: 0.13
@@ -563,9 +561,9 @@ Nodes (14): 1. Introduction and Project Overview, 2. Current State (AS-IS), 3. T
 Cohesion: 0.08
 Nodes (25): 1. Telegram Bot, 2. Webhook for Receiving URLs, 3. Channel Publication, 4. Splitting Long Messages, 5. iOS Shortcut for Sending URLs, 6. Environment Variables, 7. Troubleshooting, Bot cannot send a message to the channel (+17 more)
 
-### Community 71 - "vitest"
-Cohesion: 0.13
-Nodes (30): Commands, Current production-lib coverage, How to write new production-lib tests, Production / pipeline tests, Refactor checklist (agents), Two test styles (do not mix casually), defaultFfmpegPath(), defaultFfprobePath() (+22 more)
+### Community 71 - "utils.mjs"
+Cohesion: 0.11
+Nodes (31): componentContext(), BUILTIN_CATALOGS, CANONICAL_KEYS, CANONICAL_PLACEHOLDERS, catalogFor(), DEFAULT_LOCALE, ESCAPE_MAP, extractPlaceholders() (+23 more)
 
 ### Community 72 - "VPS Setup — News Digest Pipeline"
 Cohesion: 0.15
@@ -576,8 +574,8 @@ Cohesion: 0.15
 Nodes (12): 1. Kling 3.0 / Kling O3 — ⭐⭐⭐⭐⭐ Best for Storyboard Pipelines, 2. Veo 3.1 Lite — ⭐⭐⭐⭐⭐ Cheapest High Quality, 3. Runway Gen-4.5 — ⭐⭐⭐⭐ Best Visual Fidelity, Backup/Budget: Veo 3.1 Lite (Gemini API), Comparison Table (April 2026), Costs (April 2026), Detailed Breakdown, FFmpeg Stitching: Minimal Working Code (+4 more)
 
 ### Community 74 - "atomic-output.mjs"
-Cohesion: 0.14
-Nodes (48): captureOwnedDeliverySidecars(), args, backupOwnedPublishedEntry(), backupPublicRegularFileBinding(), captureAtomicOutput(), captureRegularFileBinding(), captureRegularFileHandle(), captureRequestedEntry() (+40 more)
+Cohesion: 0.13
+Nodes (49): captureOwnedDeliverySidecars(), args, backupOwnedPublishedEntry(), restoreOwnedBackup(), unlinkOwnedEntry(), backupPublicRegularFileBinding(), captureAtomicOutput(), captureRegularFileBinding() (+41 more)
 
 ### Community 75 - "Prompt for News Processing"
 Cohesion: 0.25
@@ -591,13 +589,13 @@ Nodes (16): capitalizeUkrainian(), CHAR_MAP, ENGLISH_PHONETIC_RULES, KEEP_LATIN,
 Cohesion: 0.17
 Nodes (11): Autonomy, Dashboard UI, Digest Format, File Paths, News Digest Pipeline, Processing Flow, Project Description, Reel and Image Generation (+3 more)
 
-### Community 78 - "diagnostics.mjs"
-Cohesion: 0.21
-Nodes (15): boundaryKey, fallbackDiagnostic(), formatDiagnostics(), installRendererDiagnosticBoundary(), normalizedDiagnostic(), plainObject(), readerSignal, recorded (+7 more)
+### Community 78 - "cli.mjs"
+Cohesion: 0.11
+Nodes (36): applyLocaleTranslations(), isFilesystemError(), loadDiagram(), loadDiagramWithBrandMarks(), outputPathGuards, RELATIONSHIP_COLLECTIONS, SEMANTIC_COLLECTIONS, stageRenderedHtml() (+28 more)
 
 ### Community 79 - "src/index.js"
-Cohesion: 0.05
-Nodes (46): description, devDependencies, vitest, main, name, type, version, appConfig (+38 more)
+Cohesion: 0.08
+Nodes (32): Webhook URL, appConfig, deleteArticle(), getArticleCount(), insertArticle(), resetArticleToNew(), resetErrorArticles(), apiLimiter (+24 more)
 
 ### Community 80 - "Step-by-Step Instructions (iOS 26)"
 Cohesion: 0.12
@@ -612,12 +610,12 @@ Cohesion: 0.22
 Nodes (8): FORMATTING, PROMPT: ARCHITECT (DEEP VISIONARY ANALYTICS), Prompt for Deep Analytics, REQUIRED ELEMENTS (INSIDE THE TEXT), RULE ZERO READING (INTERNAL), STRICT PROHIBITIONS (ZERO TOLERANCE), STRUCTURE: "CAMERA ZOOM OUT" METHOD, TONE AND STYLE (CRITICAL)
 
 ### Community 83 - "brand-marks.mjs"
-Cohesion: 0.07
-Nodes (41): asUrl(), attribute(), BASIC_HTML_REFERENCES, beforeDeadline(), captureBrandReference(), captureRemoteBrand(), captureTimeoutMilliseconds(), checkedFetch() (+33 more)
+Cohesion: 0.11
+Nodes (34): asUrl(), attribute(), BASIC_HTML_REFERENCES, beforeDeadline(), captureBrandReference(), captureRemoteBrand(), captureTimeoutMilliseconds(), checkedFetch() (+26 more)
 
 ### Community 84 - "publishers/index.js"
-Cohesion: 0.19
-Nodes (13): buildFacebookPostPermalink(), buildReelCaption(), publishImageToFacebook(), digestVideoUrl(), __dirname, localVideoPathFromUrl(), VIDEO_OUTPUT_DIR, publishVideoToFacebook() (+5 more)
+Cohesion: 0.10
+Nodes (33): publishImageToFacebook(), publishReelToFacebook(), bufferForFacebookStory(), execFileAsync, probeDurationSeconds(), publishStoryToFacebook(), trimVideo(), digestVideoUrl() (+25 more)
 
 ### Community 85 - "Project Manifest"
 Cohesion: 0.29
@@ -668,8 +666,8 @@ Cohesion: 0.12
 Nodes (7): cli, deliveryPendingPath(), deliveryProvenancePath(), deliverySidecarPath(), __dirname, skillRoot, tmp
 
 ### Community 97 - "preview.test.mjs"
-Cohesion: 0.07
-Nodes (15): CASES, __dirname, skillRoot, template, tmp, __dirname, repoRoot, skillRoot (+7 more)
+Cohesion: 0.05
+Nodes (18): CASES, __dirname, skillRoot, template, tmp, __dirname, repoRoot, skillRoot (+10 more)
 
 ### Community 105 - "hashtags.js"
 Cohesion: 0.53
@@ -688,8 +686,8 @@ Cohesion: 0.05
 Nodes (44): $ref, type, type, $ref, minimum, type, $ref, $ref (+36 more)
 
 ### Community 109 - "path-semantics.mjs"
-Cohesion: 0.07
-Nodes (73): defaultDeliveryPaths(), visualEvidenceOwnershipMatches(), sequence(), authoredOutputDiagnostic(), canonicalFuturePath(), nativeOutputDiagnostic(), OutputPathError, pathIsInside() (+65 more)
+Cohesion: 0.14
+Nodes (38): visualEvidenceOwnershipMatches(), absolutePath(), compareFutureLocations(), compareKnownEntries(), compareUnmaterializedNames(), containedBy(), futureWindowsNameRisk(), hasStableIdentity() (+30 more)
 
 ### Community 110 - "output-path.test.mjs"
 Cohesion: 0.05
@@ -701,27 +699,27 @@ Nodes (37): captureReachShareCard(), captureRouteShareCard(), captureRouteVisual
 
 ### Community 112 - "visual-check.test.mjs"
 Cohesion: 0.08
-Nodes (10): CHROME_STARTUP_TIMEOUT_MS, chromeVisualBrowserArgs(), runBrowserCheck(), summarizeBrowserEvidence(), browserFor(), __dirname, png, skillRoot (+2 more)
+Nodes (9): CHROME_STARTUP_TIMEOUT_MS, chromeVisualBrowserArgs(), summarizeBrowserEvidence(), browserFor(), __dirname, png, skillRoot, tmp (+1 more)
 
 ### Community 113 - "update-notifier.test.mjs"
 Cohesion: 0.07
 Nodes (27): isMainModule(), assertUnsafeCacheStateIsIgnored(), baseTime, checkerPath, committedStateFiles(), compactStateSource(), contractPath, currentResult() (+19 more)
 
 ### Community 114 - "finalize.mjs"
-Cohesion: 0.09
-Nodes (43): allChecksPassed(), browserEvidence(), captureReceipt(), compactFinalizeReceipt(), defaultFinalizeReceiptPath(), defaultFinalizeSummaryPath(), durationMs(), exactViewportCoverage() (+35 more)
+Cohesion: 0.07
+Nodes (51): allChecksPassed(), browserEvidence(), captureReceipt(), compactFinalizeReceipt(), defaultFinalizeReceiptPath(), defaultFinalizeSummaryPath(), durationMs(), exactViewportCoverage() (+43 more)
 
 ### Community 115 - "joint-layout-contract.test.mjs"
 Cohesion: 0.09
 Nodes (17): cli, outerRoute(), renderer, root, run(), setup(), validate(), before() (+9 more)
 
-### Community 116 - "reel-copy-contract.js"
-Cohesion: 0.17
-Nodes (16): criticSystemPrompt(), FACEBOOK_SPOKEN_WORD_MAX, FACEBOOK_SPOKEN_WORD_MIN, FEED_HEADLINE_WORD_MAX, FEED_HEADLINE_WORD_MIN, reelCopyPromptRules(), SHORTS_SPOKEN_WORD_MAX, SHORTS_SPOKEN_WORD_MIN (+8 more)
+### Community 116 - "brand-marks.test.mjs"
+Cohesion: 0.07
+Nodes (22): BRAND_MARKS, capture(), cases, cli, diagramTypes, digest, icon, run() (+14 more)
 
 ### Community 117 - "preview.mjs"
 Cohesion: 0.13
-Nodes (33): atomicOutputError(), atomicOutputFailure(), captureOwnedDirectory(), cleanupOwnedDirectory(), cliPath, compactMessage(), diagramTypes, here (+25 more)
+Nodes (34): atomicOutputError(), atomicOutputFailure(), captureOwnedDirectory(), cleanupOwnedDirectory(), cliPath, compactMessage(), diagramTypes, here (+26 more)
 
 ### Community 118 - "layout-rules.test.mjs"
 Cohesion: 0.06
@@ -732,12 +730,12 @@ Cohesion: 0.08
 Nodes (23): attrEntries(), checks, collectLegendCollisions(), collectNonFiniteAttrs(), collectRelationshipCrossings(), composition, crossProduct(), decodeNumericReferences() (+15 more)
 
 ### Community 120 - "release-package-gates.test.mjs"
-Cohesion: 0.10
-Nodes (10): canonicalNotices, git(), repositoryFixture(), stagerPath, write(), currentNodeMajor, __dirname, repoRoot (+2 more)
+Cohesion: 0.06
+Nodes (24): canonicalNotices, git(), repositoryFixture(), stagerPath, write(), ARRAY_FIELDS, assertFriendlyFailure(), __dirname (+16 more)
 
-### Community 121 - "isFinitePoint"
-Cohesion: 0.13
-Nodes (28): isFinitePoint(), boundsForPoints(), boundsForRects(), cleanRouteDetourProblems(), collinearOverlap(), DEFAULTS, emptyControlPointClearance(), expandedRect() (+20 more)
+### Community 121 - "config.js"
+Cohesion: 0.10
+Nodes (28): buildConfig(), __dirname, localPromptsDir, normalizePublishBackend(), normalizeReelFrameMode(), parentDir, parseConfigMd(), parsePostizChannelIds() (+20 more)
 
 ### Community 122 - "repository-evidence.mjs"
 Cohesion: 0.29
@@ -771,9 +769,9 @@ Nodes (17): asciiGroupLabelTextRect(), assertReadableAdjacentResult(), assertRec
 Cohesion: 0.13
 Nodes (17): assertLocalizedViewer(), AUTHORED_TEXT_KEYS, authoredExample(), BROWSER_LOCALES, cli, __dirname, ES_TRANSLATIONS, evaluate() (+9 more)
 
-### Community 130 - "createReadableLayout"
-Cohesion: 0.22
-Nodes (13): authoredNodeHeight(), authoredNodeWidth(), canonicalReadableWorkflow(), createReadableLayout(), hasAbsoluteWorkflowPins(), hasVerticalStack(), nodeWidthContributor(), readableGroupBounds() (+5 more)
+### Community 130 - "workflow-compiler.mjs"
+Cohesion: 0.10
+Nodes (36): renderStageHeader(), stageHeaderText(), withDiagnosticRecordingSuppressed(), workflow(), componentText, availableNodeTextWidth(), minimumNodeTextWidth(), authoredNodeHeight() (+28 more)
 
 ### Community 131 - "check-update.mjs"
 Cohesion: 0.11
@@ -803,9 +801,9 @@ Nodes (24): DECLARED_WIDE_READER_CONTRACT, DECLARED_WIDE_READER_MAX_WIDTH, DECLA
 Cohesion: 0.08
 Nodes (24): $ref, enum, $ref, properties, $ref, animation, engineering_profile, locale (+16 more)
 
-### Community 138 - "vertical-edge.test.mjs"
-Cohesion: 0.25
-Nodes (5): bin, __dirname, REPRO, skillRoot, tmp
+### Community 138 - "output-path.mjs"
+Cohesion: 0.21
+Nodes (21): defaultDeliveryPaths(), authoredOutputDiagnostic(), canonicalFuturePath(), nativeOutputDiagnostic(), OutputPathError, pathIsInside(), rejectWindowsIpcShare(), resolveNativeOutputDirectory() (+13 more)
 
 ### Community 139 - "Authoring contract"
 Cohesion: 0.09
@@ -823,9 +821,9 @@ Nodes (23): acquireOperation(), assertBoundedRegularFile(), corruptClaimStatus()
 Cohesion: 0.15
 Nodes (18): Authoring defaults, Composition and meaning, Evidence and schema, Layout and routing, Presentation and modes, A new candidate at an existing output path, Automated browser evidence, Delivery contract (+10 more)
 
-### Community 143 - "relationship-permalink.test.mjs"
-Cohesion: 0.11
-Nodes (9): CASES, __dirname, repoRoot, skillRoot, tmp, CASES, __dirname, skillRoot (+1 more)
+### Community 143 - "ref_node_fs"
+Cohesion: 0.04
+Nodes (32): authoringContract, authoringDefaults, __dirname, schemaReadme, skill, skillRoot, CASES, __dirname (+24 more)
 
 ### Community 144 - "properties"
 Cohesion: 0.09
@@ -840,8 +838,8 @@ Cohesion: 0.22
 Nodes (17): validateCachedCandidate(), compareNumericIdentifiers(), comparePrerelease(), compareSemver(), DEFAULT_MANIFEST_URL, EXPECTED_REPOSITORY, hasExactKeys(), isPlainObject() (+9 more)
 
 ### Community 147 - "brand-content-encoding.test.mjs"
-Cohesion: 0.05
-Nodes (28): __dirname, skillRoot, capture(), cli, compressors, digest, icon, negotiated() (+20 more)
+Cohesion: 0.10
+Nodes (13): __dirname, skillRoot, capture(), cli, compressors, digest, icon, negotiated() (+5 more)
 
 ### Community 148 - "offline-self-containment.test.mjs"
 Cohesion: 0.19
@@ -863,17 +861,17 @@ Nodes (15): check(), __dirname, expectFailure(), GOLDEN, landingPage, landingVer
 Cohesion: 0.18
 Nodes (16): Repository evidence, Validate and deliver, architecture(), dataflow(), lifecycle(), Archify, Delivery, Existing candidate handoff (+8 more)
 
-### Community 153 - "facebook-story.js"
-Cohesion: 0.28
-Nodes (14): publishReelToFacebook(), bufferForFacebookStory(), execFileAsync, probeDurationSeconds(), publishStoryToFacebook(), trimVideo(), loadVideoBuffer(), finishPageVideoUpload() (+6 more)
+### Community 153 - "portable-path.mjs"
+Cohesion: 0.24
+Nodes (14): sequence(), assertProfile(), classifySemanticCollision(), collisionError(), createSemanticIndex(), findSemanticCollision(), pathError(), PORTABLE_PATH_PROFILES (+6 more)
 
 ### Community 154 - "properties"
 Cohesion: 0.11
 Nodes (17): additionalProperties, $ref, const, $id, additionalProperties, required, type, properties (+9 more)
 
-### Community 155 - "delivery-sidecar-path.test.mjs"
+### Community 155 - "skill-metadata.test.mjs"
 Cohesion: 0.25
-Nodes (3): cli, input, skillRoot
+Nodes (7): authoringContract, defaults, frontmatter, here, skill, skillRoot, updateAwareness
 
 ### Community 156 - "legend-contract.test.mjs"
 Cohesion: 0.15
@@ -896,8 +894,8 @@ Cohesion: 0.19
 Nodes (19): collectArrows(), collectCompositionFrames(), collectLegendBoxes(), collectRelationshipLabelMasks(), collectSequenceColumnSpace(), collectUntransformedNodeRects(), estimatedTextWidth(), isCommand() (+11 more)
 
 ### Community 161 - "ref_node_assert"
-Cohesion: 0.02
-Nodes (99): root, authoringContract, authoringDefaults, __dirname, schemaReadme, skill, skillRoot, here (+91 more)
+Cohesion: 0.03
+Nodes (49): CASES, __dirname, NODE_COLLECTION, skillRoot, tmp, cli, root, skillRoot (+41 more)
 
 ### Community 162 - "path-boundary-contract.test.mjs"
 Cohesion: 0.12
@@ -932,8 +930,8 @@ Cohesion: 0.22
 Nodes (3): __dirname, skillRoot, tmp
 
 ### Community 170 - "ref_node_crypto"
-Cohesion: 0.04
-Nodes (30): base, cases, cli, head, skillRoot, checker, cli, skillRoot (+22 more)
+Cohesion: 0.05
+Nodes (26): base, cases, cli, head, skillRoot, cli, __dirname, example (+18 more)
 
 ### Community 171 - "items"
 Cohesion: 0.23
@@ -952,12 +950,12 @@ Cohesion: 0.21
 Nodes (13): items, type, items, minItems, type, items, type, additionalProperties (+5 more)
 
 ### Community 175 - "viewer-chrome-layout.test.mjs"
-Cohesion: 0.10
-Nodes (16): cli, fixture(), git(), here, skillRoot, CASES, __dirname, edgePaintHitsUnderDock() (+8 more)
+Cohesion: 0.16
+Nodes (10): CASES, __dirname, edgePaintHitsUnderDock(), evaluate(), finalGeometry(), load(), resize(), skillRoot (+2 more)
 
-### Community 176 - "dashboard-reality-check.test.js"
-Cohesion: 0.12
-Nodes (18): __dirname, log(), main(), notify(), PROFILE_DIR, publishToFacebook(), rand(), sleep() (+10 more)
+### Community 176 - "facebook-page-browser.js"
+Cohesion: 0.07
+Nodes (48): __dirname, log(), main(), __dirname, log(), main(), notify(), PROFILE_DIR (+40 more)
 
 ### Community 177 - "PipeCdp"
 Cohesion: 0.26
@@ -979,9 +977,9 @@ Nodes (12): items, type, additionalProperties, required, type, items, items, min
 Cohesion: 0.20
 Nodes (10): CASES, classForEdge(), classForLabel(), cli, __dirname, escapePattern(), PRESETS, skillRoot (+2 more)
 
-### Community 182 - "reel-overlay-theme.test.js"
-Cohesion: 0.25
-Nodes (13): installClickObserver(), arm(), sample(), analyzeTextRegionBrightness(), BRIGHTNESS_THRESHOLD, getOverlayThemeColors(), luminanceFromChannels(), pickOverlayTheme() (+5 more)
+### Community 182 - "generate-clips.js"
+Cohesion: 0.12
+Nodes (29): installClickObserver(), arm(), sample(), charsPerLine(), finishHeadline(), headerRowBottom(), layoutReelOverlayText(), tryLayout() (+21 more)
 
 ### Community 183 - "Archify JSON IR Schemas"
 Cohesion: 0.18
@@ -1031,9 +1029,9 @@ Nodes (4): __dirname, OFFICIAL_V1_EXAMPLES, skillRoot, tmp
 Cohesion: 0.22
 Nodes (6): cli, fixture(), git(), here, skillRoot, TYPES
 
-### Community 195 - "facebook-page-match.js"
-Cohesion: 0.26
-Nodes (12): fingerprintMessage(), isBrowserComposerPost(), messagesMatch(), pickLatestMatchingBrowserPost(), pickLatestMatchingFeedPost(), resolveLatestBrowserPost(), resolveLatestMatchingFeedPost(), publishToFacebook() (+4 more)
+### Community 195 - "intent-trace.test.mjs"
+Cohesion: 0.29
+Nodes (4): CASES, __dirname, skillRoot, tmp
 
 ### Community 196 - "Quick Start"
 Cohesion: 0.20
@@ -1047,9 +1045,9 @@ Nodes (9): Design Rules, Fixed v1, Input, Layout contracts, Legend, Migration an
 Cohesion: 0.22
 Nodes (9): maxLength, minLength, type, translations, pattern, additionalProperties, maxProperties, propertyNames (+1 more)
 
-### Community 199 - "ref_node_child_process"
+### Community 199 - "ref_node_url"
 Cohesion: 0.04
-Nodes (23): __dirname, outputRoot, skillRoot, TARGETS, skillRoot, CASES, __dirname, skillRoot (+15 more)
+Nodes (28): __dirname, outputRoot, skillRoot, TARGETS, CASES, __dirname, skillRoot, tmp (+20 more)
 
 ### Community 200 - "semantic-radar.test.mjs"
 Cohesion: 0.17
@@ -1087,9 +1085,9 @@ Nodes (6): __dirname, labelledSequence(), render(), renderOutcome(), skillRoot, 
 Cohesion: 0.14
 Nodes (5): cli, __dirname, fixture, skillRoot, tmp
 
-### Community 209 - "assertFinishedReelCopy"
-Cohesion: 0.15
-Nodes (13): 1. Review overlay copy (Reels and Shorts), 2. Generate backgrounds only for review (Reels and Shorts), 3. Generate the full reel or Short after approval, 4. Generate carousel images only, CLI workflow, Dynamic shot count and language, Frozen control: finished overlay copy, Provider configuration (+5 more)
+### Community 209 - "Reel Image Workflow"
+Cohesion: 0.17
+Nodes (11): 1. Review overlay copy (Reels and Shorts), 2. Generate backgrounds only for review (Reels and Shorts), 3. Generate the full reel or Short after approval, 4. Generate carousel images only, CLI workflow, Dynamic shot count and language, Facebook cover: no scene catalog, Provider configuration (+3 more)
 
 ### Community 210 - "Sequence Renderer"
 Cohesion: 0.29
@@ -1119,13 +1117,13 @@ Nodes (10): clone(), diagnostic(), expandableViewBox(), legacyLayoutProbe(), leg
 Cohesion: 0.33
 Nodes (5): cases, cli, fixture(), installReplacement(), skillRoot
 
-### Community 217 - "degraded.test.mjs"
-Cohesion: 0.20
-Nodes (9): ARRAY_FIELDS, assertFriendlyFailure(), __dirname, EXAMPLES, installedRoot, render(), skillRoot, tmp (+1 more)
+### Community 217 - "semantic-lens.test.mjs"
+Cohesion: 0.29
+Nodes (4): CASES, __dirname, skillRoot, tmp
 
-### Community 218 - "reader-layout-browser.test.mjs"
-Cohesion: 0.26
-Nodes (9): cases, chromeConfigured, evaluate(), load(), media(), skillRoot, snapshot(), stable() (+1 more)
+### Community 218 - "semantic-zoom.test.mjs"
+Cohesion: 0.29
+Nodes (4): CASES, __dirname, skillRoot, tmp
 
 ### Community 219 - "workflow-vertical-label.test.mjs"
 Cohesion: 0.32
@@ -1163,9 +1161,9 @@ Nodes (6): viewBox, items, maxItems, minItems, prefixItems, type
 Cohesion: 0.33
 Nodes (6): viewBox, items, maxItems, minItems, prefixItems, type
 
-### Community 228 - "reel-overlay-text.js"
-Cohesion: 0.36
-Nodes (10): charsPerLine(), finishHeadline(), headerRowBottom(), layoutReelOverlayText(), tryLayout(), overlayCopyTop(), overlayTextHasEveryWord(), REEL_HEADER_LAYOUT (+2 more)
+### Community 228 - "share-card-export.test.mjs"
+Cohesion: 0.29
+Nodes (4): CASES, here, skillRoot, tmp
 
 ### Community 229 - "Third-party notices"
 Cohesion: 0.33
@@ -1295,9 +1293,9 @@ Nodes (4): cases, common, skillRoot, tmp
 Cohesion: 0.22
 Nodes (4): canonicalAssets, repoRoot, testDirectory, ref_scripts_copy_site_assets_mjs
 
-### Community 265 - "crossover-state-browser.test.mjs"
-Cohesion: 0.33
-Nodes (6): load(), pairedOpacity(), run(), samplePairs(), shareExport(), skillRoot
+### Community 265 - "cover-image-review.js"
+Cohesion: 0.67
+Nodes (5): COVER_IMAGE_REVIEW_SYSTEM, coverImageReviewUserPrompt(), parseCoverImageReview(), reviewCoverImage(), sniffImageMediaType()
 
 ### Community 266 - "label-clearance.test.mjs"
 Cohesion: 0.36
@@ -1307,17 +1305,13 @@ Nodes (7): attr(), checkLabel(), find(), parts(), root, text(), tmp
 Cohesion: 0.46
 Nodes (7): clone(), createHorizontalRankMapper(), createMappedWorkflowCandidate(), intrinsicWorkflow(), mapExplicitCoordinates(), mappedNumber(), planningWorkflow()
 
-### Community 268 - "animation.test.mjs"
-Cohesion: 0.25
-Nodes (5): CASES, __dirname, NODE_COLLECTION, skillRoot, tmp
+### Community 268 - "article-fetcher.js"
+Cohesion: 0.38
+Nodes (6): CONTENT_SELECTORS, extractFromHtml(), fetchArticleContent(), fetchWithCheerio(), NOTE: this is a best-effort server-side fetch. Perplexity /page/ URLs are, cheerio
 
-### Community 269 - "route-journey.test.mjs"
-Cohesion: 0.25
-Nodes (5): CASES, __dirname, skillRoot, template, tmp
-
-### Community 270 - "publish-digest.test.js"
-Cohesion: 0.32
-Nodes (6): config, digest, { localVideoPathFromUrlMock }, getYouTubeOAuth2Client(), publishToYouTube(), googleapis
+### Community 269 - "digest-format.js"
+Cohesion: 0.60
+Nodes (4): DEFAULT_OPENING_HASHTAG, joinOpeningHashtagToLead(), normalizeDigestFormat(), stripTrailingHashtags()
 
 ### Community 271 - "Security Audit Report"
 Cohesion: 0.25
@@ -1335,10 +1329,6 @@ Nodes (5): checker, cli, fixture(), root, run()
 Cohesion: 0.70
 Nodes (4): childPath, normalize(), startDeliveryUpdateCheck(), unavailable()
 
-### Community 275 - "publishToTelegram"
-Cohesion: 0.70
-Nodes (4): publishToTelegram(), sendOne(), sleep(), splitMessage()
-
 ## Knowledge Gaps
 - **1872 isolated node(s):** `__dirname`, `skillRoot`, `TYPES`, `DELIVERY_SIDECAR_SUFFIXES`, `COMPARE_SIDECAR_SUFFIXES` (+1867 more)
   These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 2358 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
@@ -1347,17 +1337,17 @@ Nodes (4): publishToTelegram(), sendOne(), sleep(), splitMessage()
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `vitest` connect `vitest` to `ref_path`, `generate-digest-cover.js`, `reel-ukrainian-copy.js`, `visual-grounding.js`, `generate-reel.js`, `reel-copy-review.js`, `publishers/postiz.js`, `generate-voiceover.js`, `publish-digest.test.js`, `digest-generator.js`, `video-generator.js`, `digest-workflow.js`, `render-frame.js`, `auth.js`, `image-generator.js`, `cursor-cloud-agent.js`, `digest-image-file.js`, `lib/digest.js`, `dashboard-reality-check.test.js`, `ref_node_path`, `facebook-page-match.js`, `src/index.js`, `publishers/index.js`, `reel-overlay-text.js`, `hashtags.js`, `reel-copy-contract.js`?**
-  _High betweenness centrality (0.077) - this node is a cross-community bridge._
-- **Why does `checkFacebookPostVisibility()` connect `facebook-page-match.js` to `Facebook Silent Post Removal & Shadow Restriction: Full 2025–2026 Research`?**
-  _High betweenness centrality (0.040) - this node is a cross-community bridge._
-- **Why does `Symptom: "Couldn't Load Post" for another user` connect `Facebook Silent Post Removal & Shadow Restriction: Full 2025–2026 Research` to `facebook-page-match.js`?**
-  _High betweenness centrality (0.040) - this node is a cross-community bridge._
+- **Why does `vitest` connect `vitest` to `stitch.js`, `generate-digest-cover.js`, `ref_path`, `visual-grounding.js`, `generate-reel.js`, `reel-copy-review.js`, `cover-image-review.js`, `publishers/postiz.js`, `llm-client.js`, `digest-format.js`, `digest-generator.js`, `video-generator.js`, `digest-workflow.js`, `ref_fs`, `auth.js`, `image-generator.js`, `cursor-cloud-agent.js`, `digest-image-file.js`, `facebook-page-browser.js`, `generate-clips.js`, `ref_node_path`, `publishers/index.js`, `hashtags.js`, `config.js`?**
+  _High betweenness centrality (0.078) - this node is a cross-community bridge._
+- **Why does `checkFacebookPostVisibility()` connect `facebook-page-browser.js` to `Facebook Silent Post Removal & Shadow Restriction: Full 2025–2026 Research`?**
+  _High betweenness centrality (0.041) - this node is a cross-community bridge._
+- **Why does `Symptom: "Couldn't Load Post" for another user` connect `Facebook Silent Post Removal & Shadow Restriction: Full 2025–2026 Research` to `facebook-page-browser.js`?**
+  _High betweenness centrality (0.041) - this node is a cross-community bridge._
 - **Are the 4 inferred relationships involving `compileWorkflowInternal()` (e.g. with `acceptsFix()` and `compareCost()`) actually correct?**
   _`compileWorkflowInternal()` has 4 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `__dirname`, `skillRoot`, `TYPES` to the rest of the system?**
   _1872 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `ref_path` be split into smaller, more focused modules?**
-  _Cohesion score 0.05333333333333334 - nodes in this community are weakly interconnected._
+- **Should `stitch.js` be split into smaller, more focused modules?**
+  _Cohesion score 0.08708272859216255 - nodes in this community are weakly interconnected._
 - **Should `generate-digest-cover.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.06493506493506493 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07787698412698413 - nodes in this community are weakly interconnected._

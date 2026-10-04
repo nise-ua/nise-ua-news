@@ -1,6 +1,6 @@
-# News Digest Pipeline v3.1.3
+# News Digest Pipeline v3.1.4
 
-[![Version](https://img.shields.io/badge/version-3.1.3-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.1.4-blue)](CHANGELOG.md)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Claude API](https://img.shields.io/badge/Claude_API-Opus_4-d97706?logo=anthropic&logoColor=white)](https://www.anthropic.com/)
 [![OpenAI](https://img.shields.io/badge/OpenAI-Compatible-412991?logo=openai&logoColor=white)](https://openai.com/)
@@ -142,12 +142,9 @@ Dashboard: `http://localhost:3000` (login: `admin` / your `DASHBOARD_PASSWORD`)
 
 ### 4. UGREEN NAS (the running app)
 
-The household dashboard is http://127.0.0.1:3010. Deploy the current tree there:
-
-```bash
-news-digest/scripts/deploy-nas.sh
-curl -sS http://127.0.0.1:3010/health
-```
+The household dashboard runs on the NAS (host port **3010**). Deploy with the
+homelab `news-digest/scripts/deploy-nas.sh` script and check `/health` on the
+LAN URL from gitignored `.cursor/rules/nas.local.mdc`.
 
 `docker compose -f docker-compose.ugreen.yml` on the laptop is only a local preview. Full steps: [ugreen-docker.md](news-digest-pipeline/docs/ugreen-docker.md).
 
@@ -170,7 +167,7 @@ docker compose up -d --build
 
 #### NAS (live app)
 ```bash
-news-digest/scripts/deploy-nas.sh
+# Homelab ops repo: news-digest/scripts/deploy-nas.sh
 ```
 
 #### Local run (npm, laptop only)

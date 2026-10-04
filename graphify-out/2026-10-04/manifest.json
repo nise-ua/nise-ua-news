@@ -96,10 +96,10 @@
     "semantic_hash": "9d4ac7fb7ec2330ab80f148d29829505"
   },
   "news-digest-pipeline/production/html-reel/src/fetch-ai-backgrounds.js": {
-    "mtime": 1788892126.8786368,
-    "seen": 1789874183.288754,
-    "ast_hash": "5571e2bf75d8d292d5a0afff97d76a36",
-    "semantic_hash": "5571e2bf75d8d292d5a0afff97d76a36"
+    "mtime": 1791135878.8650775,
+    "seen": 1791135936.604061,
+    "ast_hash": "0cb255890ca8ee7db53a1e84be474351",
+    "semantic_hash": ""
   },
   "news-digest-pipeline/production/html-reel/src/generate-reel-html.js": {
     "mtime": 1789878219.5919707,
@@ -120,9 +120,9 @@
     "semantic_hash": "38c051916fa65df86453a8e16f4d8b3f"
   },
   "news-digest-pipeline/production/image/src/generate-digest-cover.js": {
-    "mtime": 1790044160.1068702,
-    "seen": 1790044176.46519,
-    "ast_hash": "2a7e013423e2a5a53875d843e4937162",
+    "mtime": 1791135877.500699,
+    "seen": 1791135936.604064,
+    "ast_hash": "a6fb4411a3231d366197f35515b42832",
     "semantic_hash": ""
   },
   "news-digest-pipeline/production/image/src/generate.js": {
@@ -192,9 +192,9 @@
     "semantic_hash": "6b75ea67df436e53518b605edd7d0254"
   },
   "news-digest-pipeline/production/lib/__tests__/image-backends.test.js": {
-    "mtime": 1790044914.8179846,
-    "seen": 1790390982.090754,
-    "ast_hash": "77c1d5c48d444b815b4b77004c844cbe",
+    "mtime": 1791135918.4716833,
+    "seen": 1791135936.60407,
+    "ast_hash": "d684552f60821b6e20d9f40e2db55631",
     "semantic_hash": ""
   },
   "news-digest-pipeline/production/lib/__tests__/logging.test.js": {
@@ -258,9 +258,9 @@
     "semantic_hash": "a8e9f8d37df188de890f589db8b126df"
   },
   "news-digest-pipeline/production/lib/image-backends.js": {
-    "mtime": 1790044905.493675,
-    "seen": 1790390982.090761,
-    "ast_hash": "5938e41c930399953469f54579f2feeb",
+    "mtime": 1791135876.845556,
+    "seen": 1791135936.604077,
+    "ast_hash": "3a16405cc0f6685e2445c9b5f3738874",
     "semantic_hash": ""
   },
   "news-digest-pipeline/production/lib/logging.js": {
@@ -354,9 +354,9 @@
     "semantic_hash": "66eb141fb1a4f57a84563788018239a3"
   },
   "news-digest-pipeline/production/video/src/generate-reel.js": {
-    "mtime": 1789878207.4543333,
-    "seen": 1789878401.564648,
-    "ast_hash": "0f445c6f2fc9579a2b6aa6688b4bd70d",
+    "mtime": 1791135878.1560519,
+    "seen": 1791135936.604087,
+    "ast_hash": "38b07b5d502b01855c1744b1895dc107",
     "semantic_hash": ""
   },
   "news-digest-pipeline/production/video/src/shorts-runtime.js": {

@@ -8,8 +8,8 @@
 #   3. Create a Project with this compose file, or:
 #        docker compose -f docker-compose.ugreen.yml up -d --build
 #
-# Prefer the homelab deploy: news-digest/scripts/deploy-nas.sh
-# Host 3010 (Sure already uses 3000). Dashboard: http://127.0.0.1:3010
+# Prefer the homelab deploy script: news-digest/scripts/deploy-nas.sh
+# Host 3010 (Sure already uses 3000). Dashboard is the NAS LAN URL.
 
 services:
   news-digest:
