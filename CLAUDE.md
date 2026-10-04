@@ -22,7 +22,8 @@ Collecting news from Perplexity via a Chrome extension (folder `extension/`) and
 ## Reel and Image Generation
 
 For reel/image tasks, read `news-digest-pipeline/docs/reel-image-workflow.md`
-before running commands. Review overlay copy first:
+before running commands. Do not hardcode cover scenes or object geometry
+(see `.cursor/rules/no-visual-hardcoding.mdc`). Review overlay copy first:
 
 ```bash
 cd news-digest-pipeline

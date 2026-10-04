@@ -12,6 +12,7 @@ import {
   coverSubjectNeedsFallback,
   groundCoverVariant,
   inferNewsToneFromFact,
+  isPhotographicCoverScene,
 } from './visual-grounding.js';
 
 export const COVER_ASPECT = '4:5';
@@ -60,7 +61,7 @@ Requirements:
 - For classic game / OS-from-scratch stories: retro CRT, arcade stick, or bare motherboard on a workbench — never a sleek modern PC tower
 - No author sarcasm as imagery (revolution, history book, joke framing)
 - Show physical objects and actions from the news, not abstract "AI" symbolism
-- If this story has no concrete story-specific photographic scene, reply with {"unvisualizable":true}; never invent computers, PCs, server racks, globes, boxes, or hardware
+- If this story has no photographable person, object, place, or action, reply with {"unvisualizable":true}. A cup of coffee, a burger, a classroom, a Rubik's cube, or a checkout counter is enough. Never invent computers, PCs, server racks, globes, boxes, or hardware the article does not name.
 - Never turn a product or model name into a physical object
 
 Reply with JSON only:
@@ -95,85 +96,6 @@ function firstSentence(text) {
   const source = String(text || '').trim();
   const match = source.match(/^[^.!?]+[.!?]/);
   return (match ? match[0] : source).trim();
-}
-
-const FALLBACK_STORY_HINTS = [
-  {
-    score: 10,
-    re: /вайб.?код|vibe.?cod|залежн\w*\s+від\s+код|coding addiction|не спить через код|exhausted developer/i,
-    coreFact: 'A developer described becoming addicted to vibe coding and working to exhaustion.',
-    entities: ['developer', 'vibe coding'],
-    newsTone: 'negative',
-    scene: 'An exhausted developer slumped at a cluttered late-night work desk, face in hands beside crumpled blank notes and an untouched meal, dramatic window light, no screens, no text',
-  },
-  {
-    score: 5,
-    re: /літак|судно|корабл|абордаж|fighter jets?|military aircraft|warship|cargo ship/i,
-    coreFact: 'Military aircraft were sent toward a ship after a faulty automated intelligence report.',
-    entities: ['military aircraft', 'cargo ship'],
-    newsTone: 'negative',
-  },
-  {
-    score: 8,
-    re: /брелок|тамагочі|tamagotchi|keychain|pendant/i,
-    coreFact: 'A company showed a small square pocket pendant that listens through a microphone.',
-    entities: ['pocket pendant'],
-    newsTone: 'neutral',
-    scene: 'A small square metal pocket pendant lying on a sunlit wooden table, microphone grille, no icons, no logos, no text',
-  },
-  {
-    score: 4,
-    re: /зламав|злам|парол|креденшал|hacked|breach|credentials/i,
-    coreFact: 'An AI model broke into company systems and collected credentials during a safety test.',
-    entities: ['credentials'],
-    newsTone: 'negative',
-    scene: 'A heavy vault door ajar beside a padlock and blank metal keys on a sunlit desk, no icons, no racks, no text',
-  },
-  {
-    score: 3,
-    re: /будує сам себе|наступну версію|тисяч\w* агент|swarm of agents|builds the next version/i,
-    coreFact: 'An AI lab is using swarms of agents to build the next version of its own model.',
-    entities: ['AI agents'],
-    newsTone: 'neutral',
-  },
-];
-
-export function fallbackCoverFromArticles(articles, {
-  excludedArticleIndexes = [],
-  requireConcrete = false,
-} = {}) {
-  if (!articles?.[0]?.text) {
-    throw new Error('Digest has no news blocks to illustrate');
-  }
-  const excluded = new Set(excludedArticleIndexes);
-  const firstAllowed = articles.findIndex((_, index) => !excluded.has(index + 1));
-  let best = { index: firstAllowed >= 0 ? firstAllowed : 0, story: null, score: 0 };
-  articles.forEach((article, index) => {
-    if (excluded.has(index + 1)) return;
-    const text = String(article?.text || '');
-    for (const story of FALLBACK_STORY_HINTS) {
-      if (story.re.test(text) && story.score > best.score) {
-        best = { index, story, score: story.score };
-      }
-    }
-  });
-  if (requireConcrete && !best.story?.scene) {
-    throw new Error('Digest has no deterministic concrete cover fallback');
-  }
-  const article = articles[best.index];
-  const coreFact = best.story?.coreFact || firstSentence(article.text);
-  return {
-    articleIndex: best.index + 1,
-    sourceText: article.text,
-    url: article.url || '',
-    coreFact,
-    entities: best.story?.entities || [],
-    newsTone: best.story?.newsTone || inferNewsToneFromFact(coreFact),
-    visualSubject: best.story?.scene || '',
-    prompt: '',
-    pickReason: 'Провідний блок дайджесту (запасний вибір без LLM).',
-    fallback: true,
-  };
 }
 
 export function parseCoverSelection(raw, articles) {
@@ -277,6 +199,11 @@ export async function groundCoverVisual(selection, { completeJson, log = () => {
         retried.prompt,
         selection.coreFact,
         { sourceText: selection.sourceText },
+      ) || isPhotographicCoverScene(
+        retried.visualSubject,
+        retried.prompt,
+        selection.coreFact,
+        { sourceText: selection.sourceText },
       )) {
         grounded = retried;
       } else {
@@ -310,11 +237,27 @@ export function groundDigestCover(selection, { rotationSeed = 0 } = {}) {
   };
 }
 
+function coverCandidateFromArticle(article, index) {
+  const coreFact = firstSentence(article?.text);
+  return {
+    articleIndex: index + 1,
+    sourceText: article?.text || '',
+    url: article?.url || '',
+    coreFact,
+    entities: [],
+    newsTone: inferNewsToneFromFact(coreFact),
+    visualSubject: '',
+    prompt: '',
+    pickReason: '',
+    fallback: false,
+  };
+}
+
 /**
  * Pick and ground the Facebook cover subject.
  * `completeJson(systemPrompt, userPrompt)` must return JSON text (called twice:
- * story selection, then visual grounding).
- * If omitted or it throws, falls back to the first digest block.
+ * story selection, then visual grounding). The LLM chooses the news block and
+ * invents the photograph; there is no catalog of fallback scenes.
  */
 export async function selectDigestCover(digestText, {
   completeJson,
@@ -325,54 +268,65 @@ export async function selectDigestCover(digestText, {
   if (articles.length === 0) {
     throw new Error('Digest has no news blocks to illustrate');
   }
+  if (typeof completeJson !== 'function') {
+    throw new Error('Cover selection requires an LLM');
+  }
 
   let selection = null;
   const rejectedArticleIndexes = new Set();
-  if (typeof completeJson === 'function') {
-    while (!selection && rejectedArticleIndexes.size < articles.length) {
-      try {
-        const userPrompt = coverSelectionUserPrompt(articles, [...rejectedArticleIndexes]);
-        let raw = await completeJson(COVER_SELECTION_SYSTEM_PROMPT, userPrompt);
-        let candidate = parseCoverSelection(raw, articles);
-        if (containsCyrillic(candidate.coreFact)) {
-          log('Cover selection coreFact was not English, retrying...');
-          raw = await completeJson(
-            COVER_SELECTION_SYSTEM_PROMPT,
-            `${userPrompt}\n\nCRITICAL: coreFact MUST be English Latin script only. No Cyrillic. Example: "Anthropic is testing Claude Money, a chatbot linked to a bank account."`,
-          );
-          const retried = parseCoverSelection(raw, articles);
-          if (!containsCyrillic(retried.coreFact)) {
-            candidate = retried;
-          }
+  while (!selection && rejectedArticleIndexes.size < articles.length) {
+    try {
+      const userPrompt = coverSelectionUserPrompt(articles, [...rejectedArticleIndexes]);
+      let raw = await completeJson(COVER_SELECTION_SYSTEM_PROMPT, userPrompt);
+      let candidate = parseCoverSelection(raw, articles);
+      if (containsCyrillic(candidate.coreFact)) {
+        log('Cover selection coreFact was not English, retrying...');
+        raw = await completeJson(
+          COVER_SELECTION_SYSTEM_PROMPT,
+          `${userPrompt}\n\nCRITICAL: coreFact MUST be English Latin script only. No Cyrillic. Example: "Anthropic is testing Claude Money, a chatbot linked to a bank account."`,
+        );
+        const retried = parseCoverSelection(raw, articles);
+        if (!containsCyrillic(retried.coreFact)) {
+          candidate = retried;
         }
-        if (rejectedArticleIndexes.has(candidate.articleIndex)) {
-          log(`Cover selector repeated rejected article #${candidate.articleIndex}`);
-          break;
-        }
-        const groundedCandidate = await groundCoverVisual(candidate, { completeJson, log });
-        if (groundedCandidate) {
-          selection = groundedCandidate;
-        } else {
-          rejectedArticleIndexes.add(candidate.articleIndex);
-          log(`Rejecting cover article #${candidate.articleIndex}; selecting another digest story`);
-        }
-      } catch (err) {
-        log(`Cover selection LLM failed: ${err.message}`);
-        break;
+      }
+      if (rejectedArticleIndexes.has(candidate.articleIndex)) {
+        log(`Cover selector repeated rejected article #${candidate.articleIndex}`);
+        const next = articles.findIndex((_, index) => !rejectedArticleIndexes.has(index + 1));
+        if (next < 0) break;
+        candidate = coverCandidateFromArticle(articles[next], next);
+      }
+      const groundedCandidate = await groundCoverVisual(candidate, { completeJson, log });
+      if (groundedCandidate) {
+        selection = groundedCandidate;
+      } else {
+        rejectedArticleIndexes.add(candidate.articleIndex);
+        log(`Rejecting cover article #${candidate.articleIndex}; selecting another digest story`);
+      }
+    } catch (err) {
+      log(`Cover selection LLM failed: ${err.message}`);
+      break;
+    }
+  }
+
+  if (!selection) {
+    for (let index = 0; index < articles.length && !selection; index += 1) {
+      if (rejectedArticleIndexes.has(index + 1)) continue;
+      log(`Cover visual for remaining article #${index + 1}`);
+      const groundedCandidate = await groundCoverVisual(
+        coverCandidateFromArticle(articles[index], index),
+        { completeJson, log },
+      );
+      if (groundedCandidate) {
+        selection = groundedCandidate;
+      } else {
+        rejectedArticleIndexes.add(index + 1);
       }
     }
   }
 
   if (!selection) {
-    selection = fallbackCoverFromArticles(articles, {
-      excludedArticleIndexes: [...rejectedArticleIndexes],
-      requireConcrete: rejectedArticleIndexes.size > 0,
-    });
-    const fallbackGrounded = await groundCoverVisual(selection, { log });
-    if (!fallbackGrounded) {
-      throw new Error('Digest has no concrete, story-specific cover scene');
-    }
-    selection = fallbackGrounded;
+    throw new Error('Cover LLM did not produce a photographic scene');
   }
 
   const grounded = groundDigestCover(selection, { rotationSeed });

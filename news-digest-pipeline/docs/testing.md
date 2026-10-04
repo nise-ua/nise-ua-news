@@ -118,6 +118,11 @@ Logging / path helpers (do not reimplement `[HH:MM:SS]` log or
 App / publisher tests live under `src/` (hashtags, model catalog, Facebook
 caption/video/publish). Those are Vitest-only.
 
+Dashboard viewport and primary-control checks live in
+`src/public/dashboard-reality-check.test.js` (Patchright). Default run uses a
+local fixture. Set `DASHBOARD_BASE_URL=http://127.0.0.1:3010` to point the
+same file at the NAS. Screenshots go to `output/qa/dashboard-reality-check/`.
+
 ## How to write new production-lib tests
 
 Reuse helpers instead of hitting the network, sqlite, or ffmpeg:

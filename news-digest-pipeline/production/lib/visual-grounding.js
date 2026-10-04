@@ -512,6 +512,22 @@ function isFactDumpSubject(subject, coreFact) {
   return false;
 }
 
+/** After an LLM retry: keep a real photograph, still drop racks / headlines / sarcasm. */
+export function isPhotographicCoverScene(subject, prompt, coreFact = '', context = {}) {
+  const value = stripCoverSafetyInstructions(String(subject || '').trim());
+  const promptValue = stripCoverSafetyInstructions(String(prompt || '').trim());
+  if (!value || containsCyrillic(value) || containsCyrillic(promptValue)) return false;
+  if (promptHasBannedMetaphor(value) || promptHasBannedMetaphor(promptValue)) return false;
+  if (isCoverHeadlineSubject(value, coreFact) || isFactDumpSubject(value, coreFact)) return false;
+  if (COVER_COMPUTER_RE.test(value) || COVER_COMPUTER_RE.test(promptValue)) return false;
+  if (COVER_STOCK_CLICHE_RE.test(value) || COVER_STOCK_CLICHE_RE.test(promptValue)) return false;
+  const story = { coreFact, sourceText: context.sourceText || '' };
+  if (coverUsesInventedPhysicalProps(value, story) || coverUsesInventedPhysicalProps(promptValue, story)) {
+    return false;
+  }
+  return COVER_SCENE_RE.test(value) || COVER_SCENE_RE.test(promptValue);
+}
+
 export function coverSubjectNeedsFallback(subject, prompt, coreFact = '', context = {}) {
   const value = stripCoverSafetyInstructions(String(subject || '').trim());
   const promptValue = stripCoverSafetyInstructions(String(prompt || '').trim());
@@ -545,37 +561,27 @@ export function groundCoverVariant(variant, index = 0) {
     : [];
   const coreFact = String(variant.coreFact || '').trim();
   const newsTone = resolveNewsTone({ newsTone: variant.newsTone, coreFact });
-  let visualSubject = String(variant.visualSubject || '').trim();
+  let visualSubject = sanitizeTextForImagePrompt(String(variant.visualSubject || '').trim());
   let prompt = String(variant.prompt || '').trim();
-  const story = { coreFact, entities, sourceText: variant.sourceText };
-  const storySubject = isMilitaryNearMissStory(story)
-    ? pickCoverObjectVariant('militaryNearMiss', hashVisualSeed(coreFact))
-    : isCompanyBreachStory(story)
-      ? pickCoverObjectVariant('security', hashVisualSeed(coreFact))
-      : isAiSelfBuildStory(story)
-        ? pickCoverObjectVariant('aiSelfBuild', hashVisualSeed(coreFact))
-        : '';
-  const subjectMissesStory = storySubject && !/jet|aircraft|ship|freighter|vault|padlock|security key|robotic arm|compute module|assembler/i.test(visualSubject);
 
-  if (subjectMissesStory || coverSubjectNeedsFallback(
-    visualSubject,
-    prompt,
-    coreFact,
-    { sourceText: variant.sourceText },
-  )) {
-    visualSubject = buildSafeCoverVisualSubject({
-      visualSubject,
-      coreFact,
-      entities,
-      sourceText: variant.sourceText,
-      index: hashVisualSeed(coreFact),
-    });
-    prompt = '';
-  } else {
-    visualSubject = sanitizeTextForImagePrompt(visualSubject);
-  }
-
-  if (!visualSubject) {
+  if (
+    !visualSubject
+    || containsCyrillic(visualSubject)
+    || (
+      coverSubjectNeedsFallback(
+        visualSubject,
+        prompt,
+        coreFact,
+        { sourceText: variant.sourceText },
+      )
+      && !isPhotographicCoverScene(
+        visualSubject,
+        prompt,
+        coreFact,
+        { sourceText: variant.sourceText },
+      )
+    )
+  ) {
     throw new Error('Cover story has no concrete, story-specific photographic scene');
   }
 

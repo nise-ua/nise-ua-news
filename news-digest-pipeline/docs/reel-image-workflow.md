@@ -38,6 +38,22 @@ The shared implementation is:
 The reel path grounds prompts both after storyboard generation and immediately
 before the image provider call. This protects the fallback path as well.
 
+## Facebook cover: no scene catalog
+
+The cover path (`production/lib/digest-cover.js`,
+`production/image/src/generate-digest-cover.js`) must let the LLM pick the
+news block and describe the photograph. Do not add story→scene hint lists,
+per-object geometry patches (Rubik’s Cube 3×3, extra fingers), or a second
+regex catalog that duplicates `visual-grounding.js`.
+
+Impossible objects in the **pixels** (four stickers on a cube face) are a
+post-generation **vision** check (`production/lib/cover-image-review.js`)
+on the PNG, then regenerate. `reel-copy-review` only reviews overlay text.
+Carousel `pickBestVariant` in `production/image/src/generate.js` ranks
+variants; it does not validate geometry.
+
+Cursor contract: `.cursor/rules/no-visual-hardcoding.mdc`.
+
 ## Reel layout contract
 
 These rules apply to the final reel text overlay:

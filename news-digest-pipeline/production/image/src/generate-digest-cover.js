@@ -16,7 +16,7 @@ import '../../lib/prefer-ipv4.js';
  *   node production/image/src/generate-digest-cover.js <digest-id>
  */
 
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { config as dotenvConfig } from 'dotenv';
 import OpenAI from 'openai';
@@ -44,7 +44,8 @@ import {
   resolveCoverImageVendor,
   safeLogUrl,
 } from '../../lib/image-backends.js';
-import { completeJsonText } from '../../lib/llm-client.js';
+import { reviewCoverImage } from '../../lib/cover-image-review.js';
+import { completeJsonText, completeJsonWithImage } from '../../lib/llm-client.js';
 import { log, projectRoot, reportFatal, scriptDir } from '../../lib/logging.js';
 
 const __dirname = scriptDir(import.meta.url);
@@ -77,6 +78,20 @@ async function saveCoverImage(imageUrl, filepath) {
   const response = await fetch(imageUrl);
   if (!response.ok) throw new Error(`Failed to download cover image (${response.status})`);
   writeFileSync(filepath, Buffer.from(await response.arrayBuffer()));
+}
+
+async function inspectCoverImage(systemPrompt, userPrompt, { mediaType, base64 } = {}) {
+  return JSON.stringify(await completeJsonWithImage(systemPrompt, userPrompt, {
+    mediaType,
+    base64,
+    maxTokens: 256,
+    title: 'NiSeNews digest cover review',
+  }));
+}
+
+function coverReviewAttempts() {
+  const n = Number(process.env.COVER_IMAGE_REVIEW_MAX_ATTEMPTS || 3);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 3;
 }
 
 async function persistCoverUrl(digestId, publicUrl) {
@@ -156,7 +171,7 @@ async function main() {
         () => generateImage(prompt, {
           vendor: 'openrouter',
           aspect: COVER_ASPECT,
-          model: 'google/gemini-2.5-flash-image',
+          model: 'google/gemini-3.1-flash-image',
           title: 'NiSeNews digest cover',
           log,
         }),
@@ -177,35 +192,52 @@ async function main() {
       : null,
   };
 
+  const filename = digestCoverFilename();
+  const filepath = join(OUTPUT_DIR, filename);
   let imageUrl;
   let usedVendor = vendor;
   let lastError;
-  for (const currentVendor of vendorChain) {
-    try {
-      imageUrl = await generateCoverImage(cover.prompt, currentVendor, imageDeps, { allowFallback });
-      usedVendor = currentVendor;
-      if (currentVendor !== vendor) {
-        log(`Cover OK via fallback vendor ${currentVendor}`);
-      }
-      break;
-    } catch (err) {
-      lastError = err;
-      const nextVendor = vendorChain[vendorChain.indexOf(currentVendor) + 1];
-      if (nextVendor) {
-        log(`Cover ${currentVendor} failed (${err.message}); trying ${nextVendor}...`);
+  let lastReview;
+
+  for (let attempt = 1; attempt <= coverReviewAttempts(); attempt += 1) {
+    imageUrl = null;
+    lastError = null;
+    for (const currentVendor of vendorChain) {
+      try {
+        imageUrl = await generateCoverImage(cover.prompt, currentVendor, imageDeps, { allowFallback });
+        usedVendor = currentVendor;
+        if (currentVendor !== vendor) {
+          log(`Cover OK via fallback vendor ${currentVendor}`);
+        }
+        break;
+      } catch (err) {
+        lastError = err;
+        const nextVendor = vendorChain[vendorChain.indexOf(currentVendor) + 1];
+        if (nextVendor) {
+          log(`Cover ${currentVendor} failed (${err.message}); trying ${nextVendor}...`);
+        }
       }
     }
+    if (!imageUrl && lastError) throw lastError;
+    if (!imageUrl) {
+      throw new Error('Cover image generation returned no payload');
+    }
+    log(`Cover image OK ${safeLogUrl(imageUrl)}`);
+    await saveCoverImage(imageUrl, filepath);
+    const buffer = imagePayloadToBuffer(imageUrl) || readFileSync(filepath);
+    lastReview = await reviewCoverImage({
+      buffer,
+      visualSubject: cover.visualSubject,
+      inspectJson: inspectCoverImage,
+      log,
+    });
+    if (lastReview.ok || lastReview.skipped) break;
+    log(`Cover visual review failed (attempt ${attempt}): ${lastReview.reason}`);
   }
-  if (!imageUrl && lastError) throw lastError;
 
-  if (!imageUrl) {
-    throw new Error('Cover image generation returned no payload');
+  if (lastReview && !lastReview.ok && !lastReview.skipped) {
+    throw new Error(`Cover image failed visual review: ${lastReview.reason}`);
   }
-  log(`Cover image OK ${safeLogUrl(imageUrl)}`);
-
-  const filename = digestCoverFilename();
-  const filepath = join(OUTPUT_DIR, filename);
-  await saveCoverImage(imageUrl, filepath);
 
   const sidecar = {
     articleIndex: cover.articleIndex,
@@ -217,6 +249,7 @@ async function main() {
     fallback: cover.fallback,
     aspect: COVER_ASPECT,
     vendor: usedVendor,
+    visualReview: lastReview?.skipped ? 'skipped' : (lastReview?.ok ? 'passed' : 'rejected'),
   };
   writeFileSync(filepath.replace(/\.png$/i, '.json'), `${JSON.stringify(sidecar, null, 2)}\n`);
 

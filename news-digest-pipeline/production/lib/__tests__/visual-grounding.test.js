@@ -235,66 +235,70 @@ describe('cover visual variety', () => {
     )).toBe(false);
   });
 
-  it('falls back to an English object scene when the LLM subject is unsafe', () => {
-    const grounded = groundCoverVariant({
+  it('does not replace an unsafe LLM cover with a catalog scene', () => {
+    expect(() => groundCoverVariant({
       coreFact: 'Meta released Muse, a personal AI agent that books travel and completes purchases.',
       entities: ['Meta', 'Muse'],
       newsTone: 'positive',
       visualSubject: 'ChatGPT UI screen with readable labels on a laptop',
       prompt: 'UI dashboard with readable text',
       look: 'cover',
-    }, 0);
-
-    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/\bchatgpt\b|\bui\b|readable labels/);
-    expect(grounded.prompt).toMatch(/ZERO TEXT|no text/i);
-    expect(containsCyrillic(grounded.prompt)).toBe(false);
+    }, 0)).toThrow(/no concrete, story-specific photographic scene/i);
   });
 
-  it('grounds reported AI deception as a safety incident, not generic controls', () => {
+  it('keeps an LLM safety-lab scene for reported AI deception', () => {
     const grounded = groundCoverVariant({
       coreFact: "OpenAI reported 27 episodes of troubling behavior in models that hid errors, fabricated data, and accessed API keys",
       entities: ['OpenAI', 'models', 'API keys'],
       newsTone: 'negative',
-      visualSubject: 'Hands adjusting unmarked analog sliders on a colorful hardware control panel',
-      prompt: 'Bright studio photo of analog sliders with LED indicators.',
+      visualSubject: 'Sealed evidence tray holding blank access tokens beneath a vivid amber warning light in an AI safety lab, no labels no logos no watermarks',
+      prompt: 'Forensic AI safety lab with a sealed evidence tray and amber warning light, vivid editorial light, no screens.',
       look: 'cover',
     }, 0);
 
-    expect(grounded.visualSubject).toMatch(/safety lab|forensic|security keys|warning beacon|evidence/i);
-    expect(grounded.visualSubject).not.toMatch(/slider|gaming pc|pc tower|generic workstation/i);
+    expect(grounded.visualSubject).toMatch(/safety lab|forensic|evidence|warning/i);
     expect(grounded.prompt).toMatch(/ZERO TEXT|no text/i);
   });
 
-  it('grounds a faulty-intel ship story as aircraft over water', () => {
+  it('keeps the LLM aircraft scene for a ship near-miss story', () => {
     const grounded = groundCoverVariant({
-      coreFact: 'Anthropic нарешті чесно показала, як виглядає «під наглядом людини».',
+      coreFact: 'Military aircraft were sent toward a cargo ship after a faulty report.',
       sourceText: 'Літаки вже в небі, абордаж готують біля китайського судна.',
-      entities: [],
+      entities: ['military aircraft', 'cargo ship'],
       newsTone: 'negative',
-      visualSubject: 'Sunlit technology scene with unmarked hardware, warm daylight and vivid color',
-      prompt: '',
+      visualSubject: 'Fighter jets flying low over a large cargo ship on a vivid blue sea at sunset, no hull names no tail insignia no watermarks',
+      prompt: 'Fighter jets over a cargo ship at sunset, editorial photograph, no text.',
       look: 'cover',
     }, 0);
-    expect(grounded.visualSubject).toMatch(/jet|aircraft|cargo ship|freighter/i);
-    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/cable tray|unmarked hardware|server hall/);
+    expect(grounded.visualSubject).toMatch(/jet|aircraft|cargo ship/i);
     expect(grounded.prompt).toMatch(/aircraft|ship|jet/i);
   });
 
-  it('grounds a Ukrainian Claude Money story as bank objects, not a rooftop', () => {
+  it('keeps the LLM bank-object scene for Claude Money', () => {
+    const custom = 'Hands tucking a blank payment card into a worn wallet next to sealed cash envelopes, warm window light, no card numbers no bank names no screens no watermarks';
     const grounded = groundCoverVariant({
-      coreFact: 'Anthropic тестує чатбот Claude Money, який може розбиратися, куди зникла зарплата з банківського рахунку',
+      coreFact: 'Anthropic is testing Claude Money, a chatbot linked to a bank account',
+      entities: ['Anthropic', 'Claude Money'],
+      newsTone: 'negative',
+      visualSubject: custom,
+      prompt: `${custom}. Vivid editorial cover photo.`,
+      look: 'cover',
+    }, 0);
+
+    expect(grounded.visualSubject).toMatch(/wallet|payment card|envelopes/i);
+    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/rooftop|antenna|cell tower/);
+    expect(containsCyrillic(grounded.prompt)).toBe(false);
+  });
+
+  it('rejects a rooftop stock cover instead of swapping in a finance template', () => {
+    expect(() => groundCoverVariant({
+      coreFact: 'Anthropic is testing Claude Money, a chatbot linked to a bank account',
       entities: ['Anthropic', 'Claude Money'],
       newsTone: 'negative',
       visualSubject: 'Vivid urban rooftop with antennas and blank equipment boxes against a saturated sunset sky, no billboard text no logos no watermarks',
       prompt: '',
       look: 'cover',
-    }, 0);
-
-    expect(grounded.visualSubject).toMatch(/wallet|envelope|vault|payment card/i);
-    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/rooftop|antenna|cell tower/);
-    expect(grounded.prompt).toMatch(/bank account|salary|wallet|envelope|vault/i);
-    expect(grounded.prompt.toLowerCase()).not.toMatch(/rooftop|antenna/);
-    expect(containsCyrillic(grounded.prompt)).toBe(false);
+    }, 0)).toThrow(/no concrete, story-specific photographic scene/i);
   });
 
   it('keeps a safe English cover scene even when coreFact is Ukrainian', () => {
@@ -312,108 +316,56 @@ describe('cover visual variety', () => {
     expect(grounded.visualSubject.toLowerCase()).not.toMatch(/rooftop|server rack/);
   });
 
-  it('grounds an AI extinction-debate story as a forum, not generic hardware', () => {
-    const grounded = groundCoverVariant({
+  it('rejects stock or headline cover subjects instead of swapping a template scene', () => {
+    expect(() => groundCoverVariant({
       coreFact: 'Andrew Ng said AI extinction forecasts are science fiction used for PR and regulation',
       entities: ['Andrew Ng'],
       newsTone: 'neutral',
       visualSubject: 'Vivid urban rooftop with antennas and blank equipment boxes',
       prompt: '',
       look: 'cover',
-    }, 0);
+    }, 0)).toThrow(/no concrete, story-specific photographic scene/i);
 
-    expect(grounded.visualSubject).toMatch(/lecture hall|gavel|conference table|scales of justice/i);
-    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/rooftop|antenna/);
-  });
-
-  it('does not send Ukrainian contractor copy to the image model as a random portrait', () => {
-    const grounded = groundCoverVariant({
+    expect(() => groundCoverVariant({
       coreFact: 'сотні підрядників читають живі чати користувачів і оцінюють, наскільки ChatGPT «людяний»',
       entities: ['ChatGPT', 'OpenAI'],
       newsTone: 'negative',
       visualSubject: 'сотні підрядників читають живі чати користувачів',
       prompt: '',
       look: 'cover',
-    }, 0);
+    }, 0)).toThrow(/no concrete, story-specific photographic scene/i);
 
-    expect(containsCyrillic(grounded.visualSubject)).toBe(false);
-    expect(containsCyrillic(grounded.prompt)).toBe(false);
-    expect(grounded.prompt.toLowerCase()).not.toMatch(/portrait|red hat|headshot|підрядник/);
-    expect(grounded.visualSubject).toMatch(/vault|padlock|network appliances/i);
-  });
-
-  it('grounds a Doom OS story as a game/hardware scene, not a person', () => {
-    const grounded = groundCoverVariant({
+    expect(() => groundCoverVariant({
       coreFact: 'Claude Code wrote an operating system from scratch that launches Doom',
       entities: ['Claude Code', 'Doom'],
       newsTone: 'positive',
       visualSubject: 'Portrait of a man in a red hat',
       prompt: 'headshot of an unidentified man wearing a red baseball cap',
       look: 'cover',
-    }, 0);
+    }, 0)).toThrow(/no concrete, story-specific photographic scene/i);
 
-    expect(grounded.visualSubject).toMatch(/crt|controller|arcade|circuit board|floppy/i);
-    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/pc tower|gaming pc|rgb/);
-    expect(grounded.prompt.toLowerCase()).not.toMatch(/portrait|red hat|headshot/);
-  });
-
-  it('uses a DIY motherboard scene for OS-from-scratch gaming covers', () => {
-    const grounded = groundCoverVariant({
-      coreFact: 'Claude Code wrote an operating system from scratch that launches Doom',
-      entities: ['Claude Code', 'Doom'],
-      newsTone: 'positive',
-      visualSubject: 'Modern RGB gaming PC tower on a desk',
-      prompt: 'custom gaming pc with colorful LEDs',
-      look: 'cover',
-    }, 0);
-
-    expect(grounded.visualSubject).toMatch(/circuit board|floppy|solder/i);
-    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/pc tower|gaming pc|rgb/);
-  });
-
-  it('photographs the story objects when the model returns a headline', () => {
-    const grounded = groundCoverVariant({
+    expect(() => groundCoverVariant({
       coreFact: 'Apple released a new iPhone Duo with a foldable design and dual OLED screens',
       entities: ['Apple', 'iPhone Duo'],
       newsTone: 'neutral',
       visualSubject: 'released a new iPhone Duo with a foldable design and dual OLED screens',
       prompt: '',
       look: 'cover',
-    }, 0);
-
-    expect(grounded.visualSubject).toMatch(/foldable|hinge|glass/i);
-    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/released a new|server rack|gaming pc|fiber optic|cable tray/);
-    expect(grounded.prompt).toMatch(/foldable|hinge|glass/i);
-    expect(grounded.prompt).not.toMatch(/major technology product update|technology industry news/i);
+    }, 0)).toThrow(/no concrete, story-specific photographic scene/i);
   });
 
-  it('does not illustrate a credential story as a server closet', () => {
+  it('keeps an LLM game-hardware scene for a Doom OS story', () => {
     const grounded = groundCoverVariant({
-      coreFact: 'An AI model broke into company systems and collected credentials during a safety test.',
-      sourceText: 'Один намагався зламувати сайт і стягнув дані з чужими паролями.',
-      entities: ['credentials'],
-      newsTone: 'negative',
-      visualSubject: 'Firewall-style rack of blinking unmarked network appliances in a vivid server closet',
-      prompt: '',
-      look: 'cover',
-    }, 2);
-
-    expect(grounded.visualSubject.toLowerCase()).toMatch(/vault|padlock|key/);
-    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/server closet|network appliance|firewall|rack/);
-  });
-
-  it('photographs a personal-agent story instead of a datacenter', () => {
-    const grounded = groundCoverVariant({
-      coreFact: 'Meta released Muse, a personal AI agent that books travel and completes purchases.',
-      entities: ['Meta', 'Muse'],
+      coreFact: 'Claude Code wrote an operating system from scratch that launches Doom',
+      entities: ['Claude Code', 'Doom'],
       newsTone: 'positive',
-      visualSubject: 'Meta released Muse, a personal AI agent that books travel and completes purchases.',
-      prompt: '',
+      visualSubject: 'Bare green circuit board with fresh solder joints beside floppy disks on a bright workbench, no silkscreen text no labels no watermarks',
+      prompt: 'Bare circuit board and floppy disks on a workbench, vivid editorial light, no text.',
       look: 'cover',
     }, 0);
 
-    expect(grounded.visualSubject).toMatch(/travel|purchases/i);
-    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/server rack|fiber optic|gaming pc|workstation|cable tray/);
+    expect(grounded.visualSubject).toMatch(/circuit board|floppy|solder/i);
+    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/pc tower|gaming pc|rgb/);
   });
 
   it('keeps a safe LLM-provided scene without keyword templates', () => {
@@ -515,8 +467,8 @@ describe('colorful image palettes', () => {
     expect(prompt).toMatch(/vivid|saturated|punchy|scroll/i);
   });
 
-  it('rebuilds unsafe cover LLM output from coreFact instead of keyword templates', () => {
-    const grounded = groundVisualVariant({
+  it('does not rebuild unsafe cover LLM output from a scene catalog', () => {
+    expect(() => groundVisualVariant({
       articleIndex: 1,
       sourceText: 'Meta викотила Muse — перший особистий AI-агент. Бот живе у віртуальній машині, сам бронює подорожі і закриває покупки.',
       url: '',
@@ -526,10 +478,6 @@ describe('colorful image palettes', () => {
       visualSubject: 'Compact modular computing workstation with colorful LED indicators on a bright studio desk',
       prompt: '',
       look: 'cover',
-    }, 0);
-
-    expect(containsCyrillic(grounded.prompt)).toBe(false);
-    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/compact modular computing|colorful LED indicators/i);
-    expect(grounded.prompt).toMatch(/ZERO TEXT|no text/i);
+    }, 0)).toThrow(/no concrete, story-specific photographic scene/i);
   });
 });

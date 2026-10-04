@@ -1,0 +1,25 @@
+---
+description: No per-story or per-object visual hardcoding; QA generated pixels, not regex catalogs
+alwaysApply: true
+---
+
+# No visual hardcoding
+
+Facebook cover (and similar image pipelines) must not grow object- or story-specific lookup tables.
+
+Forbidden (unless an explicit product decision):
+
+- Story → scene catalogs (`FALLBACK_STORY_HINTS`, extra `SAFE_VISUAL_VARIANTS` rows used to *replace* a cover LLM scene).
+- Per-object prompt patches (`if Rubik then 3x3`, `if burger then sesame bun`, extra stickers / fingers / wheels).
+- A second regex list in `digest-cover.js` that duplicates `visual-grounding.js`.
+- Hard-coded story or image counts.
+
+Required:
+
+- LLM picks the digest block and writes the photograph (`selectDigestCover` / cover visual JSON).
+- Prompt checks stay generic: no Cyrillic, no UI/text-on-image, no author-sarcasm metaphors, no invented racks for a software release.
+- Impossible geometry (4 stickers on a cube face, six-finger hands) is **image validation**: a vision pass on the generated PNG, then regenerate. Do not encode that object in code.
+
+Reel overlay copy stays in `reel-overlay-copy.mdc`. Reel `SAFE_VISUAL_VARIANTS` is not a license to add cover fallbacks.
+
+Enforced conceptually in `production/lib/digest-cover.js` and `production/lib/visual-grounding.js`. Cover PNG critic: `production/lib/cover-image-review.js`, wired from `production/image/src/generate-digest-cover.js`.

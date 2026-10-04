@@ -133,6 +133,9 @@ export function startImageGeneration(digestId) {
       if (stderr.trim()) {
         console.error(`[image-generator] stderr for ${digestId}:\n${stderr.trim().slice(-2000)}`);
       }
+      if (stdout.trim()) {
+        console.error(`[image-generator] stdout for ${digestId}:\n${stdout.trim().slice(-4000)}`);
+      }
       finishImageJob(job, new Error(detail));
       return;
     }

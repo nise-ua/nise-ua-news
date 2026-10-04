@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   coverSelectionUserPrompt,
-  fallbackCoverFromArticles,
   groundDigestCover,
   imagePayloadToBuffer,
   parseCoverSelection,
@@ -46,46 +45,6 @@ describe('parseCoverSelection', () => {
   });
 });
 
-describe('fallbackCoverFromArticles', () => {
-  it('uses the first digest block as the lead', () => {
-    const articles = parseDigestArticles(SAMPLE_DIGEST);
-    const fallback = fallbackCoverFromArticles(articles);
-    expect(fallback.articleIndex).toBe(1);
-    expect(fallback.fallback).toBe(true);
-    expect(fallback.coreFact).toContain('OpenAI');
-  });
-
-  it('picks the ship-and-jets block when the LLM is down', () => {
-    const articles = parseDigestArticles(`#новини 1. Anthropic каже, що Claude будує наступну версію сам. Тридцять тисяч агентів.
-https://example.com/a
-
-2. Літаки вже в небі, абордаж готують, бо звіт майже відправив їх на китайське судно.
-https://example.com/b
-
-3. Gemini зламав три компанії і тягне паролі з GitHub.
-https://example.com/c`);
-    const fallback = fallbackCoverFromArticles(articles);
-    expect(fallback.articleIndex).toBe(2);
-    expect(fallback.coreFact).toMatch(/aircraft|ship/i);
-    const grounded = groundDigestCover(fallback, { rotationSeed: 1 });
-    expect(grounded.visualSubject).toMatch(/jet|aircraft|cargo ship|freighter/i);
-    expect(grounded.visualSubject.toLowerCase()).not.toMatch(/cable|unmarked hardware|server hall/);
-  });
-
-  it('illustrates a pocket pendant instead of a server rack', () => {
-    const articles = parseDigestArticles(`#новини 1. Meta показала Muse Charm — квадратний брелок, майже Тамагочі.
-https://example.com/a
-
-2. Агенти полізли на урядові сайти і стягнули дані з чужими паролями.
-https://example.com/b`);
-    const fallback = fallbackCoverFromArticles(articles);
-    expect(fallback.articleIndex).toBe(1);
-    const grounded = groundDigestCover(fallback, { rotationSeed: 1 });
-    expect(grounded.visualSubject.toLowerCase()).toMatch(/pendant/);
-    expect(`${grounded.visualSubject} ${grounded.prompt}`.toLowerCase()).not.toMatch(/server closet|network appliance|firewall|workstation/);
-  });
-});
-
 describe('groundDigestCover', () => {
   it('uses articleIndex to rotate cover palette and composition', () => {
     const first = groundDigestCover({
@@ -125,6 +84,22 @@ describe('groundDigestCover', () => {
       prompt: 'curious funny revolution and a history book',
       pickReason: 'test',
     })).toThrow(/no concrete, story-specific photographic scene/i);
+  });
+
+  it('keeps an LLM video-call cover even if the prompt mentions a laptop', () => {
+    const visualSubject = 'A polished webcam-style video call setup on a desk with a tablet or laptop showing a lifelike female digital avatar beside a solved Rubik cube';
+    const grounded = groundDigestCover({
+      articleIndex: 2,
+      sourceText: 'Ванеса — цифрова дівчина від Tavus — переконала майже половину людей, що вона жива.',
+      url: '',
+      coreFact: 'A digital Tavus avatar convinced nearly half of viewers she was a real person in a video chat.',
+      entities: ['Tavus'],
+      newsTone: 'negative',
+      visualSubject,
+      prompt: `${visualSubject}. Vivid editorial cover photo, no readable text.`,
+      pickReason: 'test',
+    });
+    expect(grounded.visualSubject).toMatch(/desk|avatar|rubik|webcam/i);
   });
 
   it('preserves a safe LLM-provided cover scene', () => {
@@ -246,23 +221,94 @@ https://example.com/agent`;
     expect(output).not.toMatch(/sonnet claiming|server rack|\bpcs?\b|\bcomputers?\b|\bglobe\b|\bbox(?:es)?\b/);
   });
 
-  it('falls back to the lead story when the LLM fails', async () => {
+  it('still asks the LLM for a later block when the selector repeats a rejected article', async () => {
+    const digest = `#новини 1. Копенгаґен каже: чат-боти видають на 19% менш різні відповіді, ніж Google.
+https://example.com/copenhagen
+
+2. Ванеса пояснює кубик Рубика у відеочаті.
+https://example.com/vanessa
+
+3. McDonald's ставить різні ціни на БігМак у різних районах.
+https://example.com/bigmac`;
+    const completeJson = vi.fn()
+      .mockResolvedValueOnce(JSON.stringify({
+        articleIndex: 1,
+        coreFact: 'University of Copenhagen found chatbot answers are less diverse than Google.',
+        entities: ['University of Copenhagen'],
+        newsTone: 'negative',
+        pickReason: 'Дослідження.',
+      }))
+      .mockResolvedValueOnce(JSON.stringify({ unvisualizable: true }))
+      .mockResolvedValueOnce(JSON.stringify({
+        articleIndex: 1,
+        coreFact: 'University of Copenhagen found chatbot answers are less diverse than Google.',
+        entities: ['University of Copenhagen'],
+        newsTone: 'negative',
+        pickReason: 'Дослідження.',
+      }))
+      .mockResolvedValueOnce(JSON.stringify({
+        visualSubject: 'Hands turning a colorful Rubik cube on a sunlit wooden table, no logos no screens no text',
+        prompt: 'Hands turning a Rubik cube on a sunlit table, vivid editorial photograph, no text.',
+      }));
+
+    const cover = await selectDigestCover(digest, { completeJson, log: () => {} });
+    expect(cover.articleIndex).toBe(2);
+    expect(cover.visualSubject).toMatch(/rubik|cube|table/i);
+    expect(cover.fallback).toBe(false);
+  });
+
+  it('throws when the cover LLM fails instead of using a scene catalog', async () => {
     const concreteDigest = `#новини 1. Meta показала квадратний брелок, схожий на Тамагочі.
 https://example.com/pendant`;
-    const cover = await selectDigestCover(concreteDigest, {
+    await expect(selectDigestCover(concreteDigest, {
       completeJson: async () => {
         throw new Error('no credits');
       },
       log: () => {},
-    });
-    expect(cover.articleIndex).toBe(1);
-    expect(cover.fallback).toBe(true);
-    expect(cover.sourceText).toContain('брелок');
+    })).rejects.toThrow(/Cover LLM did not produce a photographic scene/);
   });
 
   it('throws when the digest has no usable blocks', async () => {
     await expect(selectDigestCover('1. Коротко.\n🤖 footer', { log: () => {} }))
       .rejects.toThrow(/no news blocks/);
+  });
+
+  it('throws when cover selection is invoked without an LLM', async () => {
+    await expect(selectDigestCover(SAMPLE_DIGEST, { log: () => {} }))
+      .rejects.toThrow(/requires an LLM/);
+  });
+
+  it('uses the LLM finance scene after another block is unvisualizable', async () => {
+    const digest = `#новини 1. Anthropic тестує Claude Money з банківським рахунком і зарплатою.
+https://example.com/money
+
+2. Лабораторія заявила, що нова модель стала на 30% швидшою.
+https://example.com/model`;
+    const completeJson = vi.fn()
+      .mockResolvedValueOnce(JSON.stringify({
+        articleIndex: 2,
+        coreFact: 'A lab said the new model is 30% faster at the same price.',
+        entities: ['model'],
+        newsTone: 'positive',
+        pickReason: 'Реліз.',
+      }))
+      .mockResolvedValueOnce(JSON.stringify({ unvisualizable: true }))
+      .mockResolvedValueOnce(JSON.stringify({
+        articleIndex: 1,
+        coreFact: 'Anthropic is testing Claude Money with a bank account.',
+        entities: ['Claude Money'],
+        newsTone: 'neutral',
+        pickReason: 'Фінанси.',
+      }))
+      .mockResolvedValueOnce(JSON.stringify({
+        visualSubject: 'Hands tucking a blank payment card into a worn wallet next to sealed cash envelopes, warm window light, no card numbers no bank names no screens no watermarks',
+        prompt: 'Hands tucking a blank payment card into a worn wallet. Vivid editorial cover photo.',
+      }));
+
+    const cover = await selectDigestCover(digest, { completeJson, log: () => {} });
+    expect(cover.articleIndex).toBe(1);
+    expect(cover.fallback).toBe(false);
+    expect(cover.visualSubject).toMatch(/wallet|payment card|envelope/i);
   });
 });
 

@@ -14,6 +14,7 @@ import {
   openRouterImageRequestBody,
   resolveCoverImageFallbackVendors,
   resolveCoverImageVendor,
+  resolveGoogleImageModel,
   resolveImageModel,
   resolveImageVendor,
   safeLogUrl,
@@ -23,6 +24,19 @@ import { mockFetchResponses, unstubGlobals, withEnv } from './helpers.js';
 
 afterEach(() => {
   unstubGlobals();
+});
+
+describe('resolveGoogleImageModel', () => {
+  it('defaults to Gemini 3.1 Flash Image', () => {
+    withEnv({ GOOGLE_MODEL: undefined }, () => {
+      expect(resolveGoogleImageModel()).toBe('gemini-3.1-flash-image');
+    });
+  });
+
+  it('maps the shut-down Nano Banana id to Gemini 3.1', () => {
+    expect(resolveGoogleImageModel('gemini-2.5-flash-image')).toBe('gemini-3.1-flash-image');
+    expect(resolveGoogleImageModel('google/gemini-2.5-flash-image')).toBe('gemini-3.1-flash-image');
+  });
 });
 
 describe('resolveImageModel', () => {
@@ -434,6 +448,25 @@ describe('generateFireflyImage', () => {
 });
 
 describe('generateGoogleImage', () => {
+  it('does not call the shut-down Nano Banana id when GOOGLE_MODEL is stale', async () => {
+    const fetchFn = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: 'abc' } }] } }],
+      }),
+    });
+
+    const url = await generateGoogleImage('prompt', {
+      apiKey: 'g-key',
+      model: 'gemini-2.5-flash-image',
+      fetchFn,
+      log: () => {},
+    });
+
+    expect(url).toBe('data:image/png;base64,abc');
+    expect(fetchFn.mock.calls[0][0]).toContain('gemini-3.1-flash-image');
+    expect(fetchFn.mock.calls[0][0]).not.toContain('gemini-2.5-flash-image');
+  });
   it('skips extra Google models on spend cap and uses OpenAI fallback', async () => {
     const fetchFn = mockFetchResponses({
       status: 429,

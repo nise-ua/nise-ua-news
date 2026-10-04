@@ -149,6 +149,89 @@ async function completeViaVendors(systemPrompt, userPrompt, {
   throw new Error('No API key found (OPENAI_API_KEY, OPENROUTER_API_KEY, or ANTHROPIC_API_KEY)');
 }
 
+export async function completeJsonWithImage(systemPrompt, userPrompt, {
+  mediaType = 'image/png',
+  base64,
+  maxTokens = 512,
+  title = 'NiSeNews cover review',
+} = {}) {
+  if (!base64) throw new Error('completeJsonWithImage requires image bytes');
+  const env = process.env;
+  if (shouldPreferCloudflareLlm(env)) {
+    throw new Error('Cloudflare LLM does not inspect images');
+  }
+
+  const model = resolveMediaChatModel(env);
+  const llmVendor = vendor(env);
+  const jsonFormat = { response_format: { type: 'json_object' } };
+  const dataUrl = `data:${mediaType};base64,${base64}`;
+  const visionUser = [
+    { type: 'text', text: userPrompt },
+    { type: 'image_url', image_url: { url: dataUrl } },
+  ];
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: visionUser },
+  ];
+
+  if (llmVendor === 'openrouter' || (!llmVendor && env.OPENROUTER_API_KEY && !env.OPENAI_API_KEY)) {
+    if (!env.OPENROUTER_API_KEY) throw new Error('OPENROUTER_API_KEY missing in .env');
+    const baseUrl = (env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
+    const text = await postChat({
+      url: `${baseUrl}/chat/completions`,
+      headers: openrouterHeaders(title, env),
+      body: { model, messages, max_tokens: maxTokens, ...jsonFormat },
+    });
+    return extractJsonObject(text);
+  }
+
+  if (llmVendor === 'anthropic' || (!env.OPENAI_API_KEY && env.ANTHROPIC_API_KEY)) {
+    if (!env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY missing in .env');
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: anthropicModel(env),
+        max_tokens: maxTokens,
+        system: systemPrompt,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: userPrompt },
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: mediaType, data: base64 },
+            },
+          ],
+        }],
+      }),
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(payload?.error?.message || `Anthropic request failed (${res.status})`);
+    }
+    const text = payload?.content?.[0]?.text;
+    if (!text) throw new Error('Anthropic response did not contain text content');
+    return extractJsonObject(text);
+  }
+
+  if (env.OPENAI_API_KEY) {
+    const baseUrl = (env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
+    const text = await postChat({
+      url: `${baseUrl}/chat/completions`,
+      headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}` },
+      body: { model, messages, ...chatTokenLimit(model, maxTokens), ...jsonFormat },
+    });
+    return extractJsonObject(text);
+  }
+
+  throw new Error('No API key found (OPENAI_API_KEY, OPENROUTER_API_KEY, or ANTHROPIC_API_KEY)');
+}
+
 export async function completeJson(systemPrompt, userPrompt, options = {}) {
   const text = await completeViaVendors(systemPrompt, userPrompt, { ...options, json: true });
   return extractJsonObject(text);

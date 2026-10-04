@@ -38,6 +38,10 @@ All pages in `news-digest-pipeline/src/public/` must fit the screen width. No ho
 
 When working on reel or image generation, read
 `news-digest-pipeline/docs/reel-image-workflow.md` first.
+Do not add cover scene catalogs or per-object prompt patches; see
+`.cursor/rules/no-visual-hardcoding.mdc`. Pixel defects are reviewed in
+`news-digest-pipeline/production/lib/cover-image-review.js` after the PNG
+is generated, not by object-name regex.
 
 When changing `news-digest-pipeline/production/lib` or adding tests, read
 `news-digest-pipeline/docs/testing.md` and run tests from

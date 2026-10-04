@@ -42,7 +42,7 @@ export async function generateAiBackgroundsForShots(shots, { log = () => {} } = 
         () => generateImage(prompt, {
           vendor: 'openrouter',
           aspect: '9:16',
-          model: 'google/gemini-2.5-flash-image',
+          model: 'google/gemini-3.1-flash-image',
           title: 'NiSeNews HTML reel hybrid',
           log,
         }),

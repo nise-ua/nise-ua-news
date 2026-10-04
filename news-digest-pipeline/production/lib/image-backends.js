@@ -8,6 +8,21 @@ const DEFAULT_OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 const PORTRAIT_NOTE = 'Portrait 9:16 composition, native vertical image.';
 const COVER_NOTE = 'Vertical 4:5 photograph. No title, no masthead, no caption, no letters, no words, no AI NEWS banner.';
 const DEFAULT_CLOUDFLARE_IMAGE_MODEL = '@cf/black-forest-labs/flux-1-schnell';
+export const DEFAULT_GOOGLE_IMAGE_MODEL = 'gemini-3.1-flash-image';
+export const DEFAULT_OPENROUTER_GOOGLE_IMAGE_MODEL = 'google/gemini-3.1-flash-image';
+const RETIRED_GOOGLE_IMAGE_MODELS = new Set([
+  'gemini-2.5-flash-image',
+  'gemini-2.5-flash-image-preview',
+  'gemini-2.0-flash-preview-image-generation',
+  'gemini-3.1-flash-image-preview',
+]);
+
+export function resolveGoogleImageModel(configuredModel, env = process.env) {
+  const raw = String(configuredModel || env.GOOGLE_MODEL || DEFAULT_GOOGLE_IMAGE_MODEL).trim();
+  const id = raw.includes('/') ? raw.split('/').pop() : raw;
+  if (!id || RETIRED_GOOGLE_IMAGE_MODELS.has(id)) return DEFAULT_GOOGLE_IMAGE_MODEL;
+  return id;
+}
 
 export function resolveImageModel(configuredModel) {
   let model = String(configuredModel || 'dall-e-3').trim();
@@ -238,7 +253,7 @@ export async function generateOpenRouterImage(prompt, model, {
  */
 export async function generateGoogleImage(prompt, {
   apiKey = process.env.GOOGLE_API_KEY,
-  model = process.env.GOOGLE_MODEL || 'gemini-2.5-flash-image',
+  model = process.env.GOOGLE_MODEL,
   fetchFn = globalThis.fetch,
   genAI = null,
   openRouterFallback = null,
@@ -247,10 +262,11 @@ export async function generateGoogleImage(prompt, {
 } = {}) {
   if (!apiKey) throw new Error('GOOGLE_API_KEY missing in .env');
 
+  const preferred = resolveGoogleImageModel(model);
   const modelsToTry = [
-    model,
-    'gemini-2.5-flash-image',
-    'gemini-2.0-flash-preview-image-generation',
+    preferred,
+    DEFAULT_GOOGLE_IMAGE_MODEL,
+    'gemini-3-pro-image',
   ].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
   let lastError = null;
